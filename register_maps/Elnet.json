@@ -1,0 +1,91 @@
+{
+  "Voltage Line 1": {
+    "register": 1,
+    "type": "input",
+    "format": "float",
+    "units": "Volts"
+  },
+  "Voltage Line 2": {
+    "register": 3,
+    "type": "input",
+    "format": "float",
+    "units": "Volts"
+  },
+  "Voltage Line 3": {
+    "register": 5,
+    "type": "input",
+    "format": "float",
+    "units": "Volts"
+  },
+
+  "Voltage between line 1 and Line 2": {
+    "register": 7,
+    "type": "input",
+    "format": "float",
+    "units": "Volts"
+  },
+  "Voltage between line 2 and Line 3": {
+    "register": 9,
+    "type": "input",
+    "format": "float",
+    "units": "Volts"
+  },
+  "Voltage between line 3 and Line 1": {
+    "register": 11,
+    "type": "input",
+    "format": "float",
+    "units": "Volts"
+  },
+
+  "Current in Line 1": {
+    "register": 13,
+    "type": "input",
+    "format": "float",
+    "units": "Amps"
+  },
+  "Current in Line 2": {
+    "register": 15,
+    "type": "input",
+    "format": "float",
+    "units": "Amps"
+  },
+  "Current in Line 3": {
+    "register": 17,
+    "type": "input",
+    "format": "float",
+    "units": "Amps"
+  },
+
+  "Active Power Line 1": {
+    "register": 19,
+    "type": "input",
+    "format": "float",
+    "units": "Watts"
+  },
+  "Active Power Line 2": {
+    "register": 21,
+    "type": "input",
+    "format": "float",
+    "units": "Watts"
+  },
+  "Active Power Line 3": {
+    "register": 23,
+    "type": "input",
+    "format": "float",
+    "units": "Watts"
+  },
+
+  "Total Active Power Line 1+2+3": {
+    "register": 25,
+    "type": "input",
+    "format": "float",
+    "units": "Watts"
+  },
+
+  "Apparent Total Energy": {
+    "register": 83,
+    "type": "input",
+    "format": "float",
+    "units": "Vah"
+  }
+}

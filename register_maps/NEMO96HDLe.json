@@ -1,0 +1,23 @@
+{
+  "Voltage Line 1": {
+    "register": 4096,
+    "type": "holding",
+    "format": "UD_WORD",
+    "units": "Volts",
+    "divider": 1000
+  },
+  "Voltage Line 2": {
+    "register": 4100,
+    "type": "holding",
+    "format": "UD_WORD",
+    "units": "Volts",
+    "divider": 1000
+  },
+  "Voltage Line 3": {
+    "register": 4116,
+    "type": "holding",
+    "format": "UD_WORD",
+    "units": "Volts",
+    "divider": 1000
+  }
+}
