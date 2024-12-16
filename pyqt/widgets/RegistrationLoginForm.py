@@ -1,10 +1,7 @@
-import asyncio
-
+from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QLineEdit, QPushButton, QLabel, QHBoxLayout
-from PyQt5.QtCore import Qt, QTimer
-from qasync import asyncSlot
-from sqlalchemy.future import select
 from sqlalchemy.exc import IntegrityError
+
 from models.Admin import Admin
 
 

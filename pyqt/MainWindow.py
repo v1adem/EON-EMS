@@ -1,11 +1,9 @@
+from PyQt5.QtCore import QTimer
 from PyQt5.QtWidgets import QMainWindow, QWidget, QVBoxLayout, \
     QStackedWidget, QAction, QDialog
 
-from PyQt5.QtCore import QTimer
-
 from models.Admin import Admin
 from models.Project import Project
-from pyqt.dialogs.ConnectionDialog import ConnectionDialog
 from pyqt.dialogs.LanguageDialog import LanguageDialog
 from pyqt.widgets.DeviceDetailsSDM120Widget import DeviceDetailsSDM120Widget
 from pyqt.widgets.ProjectViewWidget import ProjectViewWidget
@@ -77,10 +75,6 @@ class MainWindow(QMainWindow):
         if language_dialog.exec_() == QDialog.Accepted:
             current_language = language_dialog.selected_language
             print(f"Мова змінена на: {current_language}")
-
-    def open_connection_dialog(self):
-        dialog = ConnectionDialog(self)
-        dialog.exec_()
 
     def open_projects_list(self):
         self.projects_widget = ProjectsWidget(self)

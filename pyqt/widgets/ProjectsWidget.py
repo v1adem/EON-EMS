@@ -1,9 +1,9 @@
+from PyQt5.QtCore import Qt, QSize
+from PyQt5.QtGui import QStandardItemModel, QStandardItem, QIcon
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QLabel, QListView, QPushButton, QMessageBox, QInputDialog, QComboBox, QHBoxLayout, QDialog,
     QDialogButtonBox, QSpinBox, QLineEdit, QSizePolicy
 )
-from PyQt5.QtGui import QStandardItemModel, QStandardItem, QIcon
-from PyQt5.QtCore import Qt, QSize
 from pymodbus.client import ModbusSerialClient
 
 from config import resource_path

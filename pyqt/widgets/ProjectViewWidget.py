@@ -1,8 +1,8 @@
+from PyQt5.QtCore import Qt, QSize, QTime
 from PyQt5.QtGui import QStandardItemModel, QStandardItem, QIcon
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QLabel, QListView, QPushButton, QMessageBox, \
     QHBoxLayout, QDialog, QFormLayout, QComboBox, QLineEdit, QDialogButtonBox, QSpinBox, QRadioButton, QTimeEdit, \
     QCheckBox
-from PyQt5.QtCore import Qt, QSize, QTime
 
 from config import resource_path
 from models.Device import Device

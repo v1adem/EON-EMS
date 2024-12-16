@@ -2,14 +2,12 @@ from datetime import datetime
 
 import pyqtgraph as pg
 import xlsxwriter
-
+from PyQt5.QtCore import Qt, QSortFilterProxyModel, QTime, QTimer, QDate
+from PyQt5.QtGui import QIcon, QStandardItemModel, QStandardItem, QFont
+from PyQt5.QtWidgets import QMessageBox, QFileDialog
 from PyQt5.QtWidgets import QVBoxLayout, QPushButton, QLabel, QWidget, QSplitter, QTableView, QCalendarWidget, \
     QHBoxLayout, QDialog, QLCDNumber, QCheckBox, QDateEdit, QGridLayout
-from PyQt5.QtGui import QIcon, QStandardItemModel, QStandardItem, QFont
-from PyQt5.QtCore import Qt, QSortFilterProxyModel, QTime, QTimer, QDate
-from PyQt5.QtWidgets import QMessageBox, QFileDialog
 from pyqtgraph import AxisItem
-
 from sqlalchemy import desc
 
 from config import resource_path

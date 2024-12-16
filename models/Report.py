@@ -1,8 +1,8 @@
+from datetime import datetime
+
 from sqlalchemy import Column, Integer, Float, DateTime, ForeignKey
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
-
-from datetime import datetime
 from tzlocal import get_localzone
 
 from config import Base

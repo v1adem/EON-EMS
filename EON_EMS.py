@@ -1,5 +1,6 @@
-import sys
 import os
+import sys
+
 from PyQt5.QtWidgets import QApplication
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
