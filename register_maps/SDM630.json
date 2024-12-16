@@ -1,218 +1,188 @@
 {
-  "voltage 1": {
+  "line_voltage_1": {
     "register": 0,
     "type": "input",
     "format": "float",
     "units": "Volts"
   },
-  "voltage 2": {
+  "line_voltage_2": {
     "register": 2,
     "type": "input",
     "format": "float",
     "units": "Volts"
   },
-  "voltage 3": {
+  "line_voltage_3": {
     "register": 4,
     "type": "input",
     "format": "float",
     "units": "Volts"
   },
-  "current 1": {
+  "current_1": {
     "register": 6,
     "type": "input",
     "format": "float",
     "units": "Amps"
   },
-  "current 2": {
+  "current_2": {
     "register": 8,
     "type": "input",
     "format": "float",
     "units": "Amps"
   },
-  "current 3": {
+  "current_3": {
     "register": 10,
     "type": "input",
     "format": "float",
     "units": "Amps"
   },
-  "power 1": {
+  "power_1": {
     "register": 12,
     "type": "input",
     "format": "float",
     "units": "Watts"
   },
-  "power 2": {
+  "power_2": {
     "register": 14,
     "type": "input",
     "format": "float",
     "units": "Watts"
   },
-  "power 3": {
+  "power_3": {
     "register": 16,
     "type": "input",
     "format": "float",
     "units": "Watts"
   },
-  "voltage 1": {
-    "register": 0,
+  "power_factor 1": {
+    "register": 30,
+    "type": "input",
+    "format": "float",
+    "units": ""
+  },
+  "power_factor 2": {
+    "register": 32,
+    "type": "input",
+    "format": "float",
+    "units": ""
+  },
+  "power_factor 3": {
+    "register": 34,
+    "type": "input",
+    "format": "float",
+    "units": ""
+  },
+  "total_system_power": {
+    "register": 52,
+    "type": "input",
+    "format": "float",
+    "units": "Watts"
+  },
+  "total_system_VA": {
+    "register": 52,
+    "type": "input",
+    "format": "float",
+    "units": "Watts"
+  },
+  "total_system_VAr": {
+    "register": 52,
+    "type": "input",
+    "format": "float",
+    "units": "Watts"
+  },
+  "total_system_power_factor": {
+    "register": 62,
+    "type": "input",
+    "format": "float",
+    "units": ""
+  },
+  "total_import_kwh": {
+    "register": 72,
+    "type": "input",
+    "format": "float",
+    "units": "kWh"
+  },
+  "total_export_kwh": {
+    "register": 74,
+    "type": "input",
+    "format": "float",
+    "units": "kWh"
+  },
+  "total_import_kVAh": {
+    "register": 76,
+    "type": "input",
+    "format": "float",
+    "units": "kVAh"
+  },
+  "total_export_kVAh": {
+    "register": 78,
+    "type": "input",
+    "format": "float",
+    "units": "kVAh"
+  },
+  "1_to_2_voltage": {
+    "register": 200,
     "type": "input",
     "format": "float",
     "units": "Volts"
   },
-  "voltage 1": {
-    "register": 0,
+  "2_to_3_voltage": {
+    "register": 202,
     "type": "input",
     "format": "float",
     "units": "Volts"
   },
-  "voltage 1": {
-    "register": 0,
+  "3 to 1 voltage": {
+    "register": 204,
     "type": "input",
     "format": "float",
     "units": "Volts"
   },
-  "voltage 1": {
-    "register": 0,
+  "neutral_current": {
+    "register": 224,
     "type": "input",
     "format": "float",
-    "units": "Volts"
+    "units": "Amps"
   },
-  "voltage 1": {
-    "register": 0,
+  "line_voltage_THD_1": {
+    "register": 234,
     "type": "input",
     "format": "float",
-    "units": "Volts"
+    "units": "%"
   },
-  "voltage 1": {
-    "register": 0,
+  "line_voltage_THD_2": {
+    "register": 236,
     "type": "input",
     "format": "float",
-    "units": "Volts"
+    "units": "%"
   },
-  "voltage 1": {
-    "register": 0,
+  "line_voltage_THD_3": {
+    "register": 238,
     "type": "input",
     "format": "float",
-    "units": "Volts"
+    "units": "%"
   },
-  "voltage 1": {
-    "register": 0,
+  "phase_voltage_THD_1": {
+    "register": 334,
     "type": "input",
     "format": "float",
-    "units": "Volts"
+    "units": "%"
   },
-  "voltage 1": {
-    "register": 0,
+  "phase_voltage_THD_2": {
+    "register": 336,
     "type": "input",
     "format": "float",
-    "units": "Volts"
+    "units": "%"
   },
-  "voltage 1": {
-    "register": 0,
+  "phase_voltage_THD_3": {
+    "register": 338,
     "type": "input",
     "format": "float",
-    "units": "Volts"
+    "units": "%"
   },
-  "voltage 1": {
-    "register": 0,
+  "total_kWh": {
+    "register": 342,
     "type": "input",
     "format": "float",
-    "units": "Volts"
-  },
-  "voltage 1": {
-    "register": 0,
-    "type": "input",
-    "format": "float",
-    "units": "Volts"
-  },
-  "voltage 1": {
-    "register": 0,
-    "type": "input",
-    "format": "float",
-    "units": "Volts"
-  },
-  "voltage 1": {
-    "register": 0,
-    "type": "input",
-    "format": "float",
-    "units": "Volts"
-  },
-  "voltage 1": {
-    "register": 0,
-    "type": "input",
-    "format": "float",
-    "units": "Volts"
-  },
-  "voltage 1": {
-    "register": 0,
-    "type": "input",
-    "format": "float",
-    "units": "Volts"
-  },
-  "voltage 1": {
-    "register": 0,
-    "type": "input",
-    "format": "float",
-    "units": "Volts"
-  },
-  "voltage 1": {
-    "register": 0,
-    "type": "input",
-    "format": "float",
-    "units": "Volts"
-  },
-  "voltage 1": {
-    "register": 0,
-    "type": "input",
-    "format": "float",
-    "units": "Volts"
-  },
-  "voltage 1": {
-    "register": 0,
-    "type": "input",
-    "format": "float",
-    "units": "Volts"
-  },
-  "voltage 1": {
-    "register": 0,
-    "type": "input",
-    "format": "float",
-    "units": "Volts"
-  },
-  "voltage 1": {
-    "register": 0,
-    "type": "input",
-    "format": "float",
-    "units": "Volts"
-  },
-  "voltage 1": {
-    "register": 0,
-    "type": "input",
-    "format": "float",
-    "units": "Volts"
-  },
-  "voltage 1": {
-    "register": 0,
-    "type": "input",
-    "format": "float",
-    "units": "Volts"
-  },
-  "voltage 1": {
-    "register": 0,
-    "type": "input",
-    "format": "float",
-    "units": "Volts"
-  },
-  "voltage 1": {
-    "register": 0,
-    "type": "input",
-    "format": "float",
-    "units": "Volts"
-  },
-  "voltage 1": {
-    "register": 0,
-    "type": "input",
-    "format": "float",
-    "units": "Volts"
+    "units": "kWh"
   }
 }
