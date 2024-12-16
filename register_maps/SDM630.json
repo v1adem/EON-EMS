@@ -78,13 +78,13 @@
     "units": "Watts"
   },
   "total_system_VA": {
-    "register": 52,
+    "register": 56,
     "type": "input",
     "format": "float",
     "units": "Watts"
   },
   "total_system_VAr": {
-    "register": 52,
+    "register": 60,
     "type": "input",
     "format": "float",
     "units": "Watts"
@@ -115,6 +115,12 @@
   },
   "total_export_kVAh": {
     "register": 78,
+    "type": "input",
+    "format": "float",
+    "units": "kVAh"
+  },
+  "total_kVAh": {
+    "register": 80,
     "type": "input",
     "format": "float",
     "units": "kVAh"
@@ -161,6 +167,42 @@
     "format": "float",
     "units": "%"
   },
+  "line_current_THD_1": {
+    "register": 240,
+    "type": "input",
+    "format": "float",
+    "units": "%"
+  },
+  "line_current_THD_2": {
+    "register": 242,
+    "type": "input",
+    "format": "float",
+    "units": "%"
+  },
+  "line_current_THD_3": {
+    "register": 244,
+    "type": "input",
+    "format": "float",
+    "units": "%"
+  },
+  "current_demand_1": {
+    "register": 258,
+    "type": "input",
+    "format": "float",
+    "units": "%"
+  },
+  "current_demand_2": {
+    "register": 260,
+    "type": "input",
+    "format": "float",
+    "units": "%"
+  },
+  "current_demand_3": {
+    "register": 262,
+    "type": "input",
+    "format": "float",
+    "units": "%"
+  },
   "phase_voltage_THD_1": {
     "register": 334,
     "type": "input",
@@ -179,8 +221,128 @@
     "format": "float",
     "units": "%"
   },
+  "average_line-to-line_voltage_THD": {
+    "register": 340,
+    "type": "input",
+    "format": "float",
+    "units": "%"
+  },
   "total_kWh": {
     "register": 342,
+    "type": "input",
+    "format": "float",
+    "units": "kWh"
+  },
+  "total_kVArh": {
+    "register": 344,
+    "type": "input",
+    "format": "float",
+    "units": "kVArh"
+  },
+  "import_kWh_1": {
+    "register": 346,
+    "type": "input",
+    "format": "float",
+    "units": "kWh"
+  },
+  "import_kWh_2": {
+    "register": 348,
+    "type": "input",
+    "format": "float",
+    "units": "kWh"
+  },
+  "import_kWh_3": {
+    "register": 350,
+    "type": "input",
+    "format": "float",
+    "units": "kWh"
+  },
+  "export_kWh_1": {
+    "register": 352,
+    "type": "input",
+    "format": "float",
+    "units": "kWh"
+  },
+  "export_kWh_2": {
+    "register": 354,
+    "type": "input",
+    "format": "float",
+    "units": "kWh"
+  },
+  "export_kWh_3": {
+    "register": 356,
+    "type": "input",
+    "format": "float",
+    "units": "kWh"
+  },
+  "total_kWh_1": {
+    "register": 358,
+    "type": "input",
+    "format": "float",
+    "units": "kWh"
+  },
+  "total_kWh_2": {
+    "register": 360,
+    "type": "input",
+    "format": "float",
+    "units": "kWh"
+  },
+  "total_kWh_3": {
+    "register": 362,
+    "type": "input",
+    "format": "float",
+    "units": "kWh"
+  },
+  "import_kVArh_1": {
+    "register": 364,
+    "type": "input",
+    "format": "float",
+    "units": "kWh"
+  },
+  "import_kVArh_2": {
+    "register": 366,
+    "type": "input",
+    "format": "float",
+    "units": "kWh"
+  },
+  "import_kVArh_3": {
+    "register": 368,
+    "type": "input",
+    "format": "float",
+    "units": "kWh"
+  },
+  "export_kVArh_1": {
+    "register": 370,
+    "type": "input",
+    "format": "float",
+    "units": "kWh"
+  },
+  "export_kVArh_2": {
+    "register": 372,
+    "type": "input",
+    "format": "float",
+    "units": "kWh"
+  },
+  "export_kVArh_3": {
+    "register": 374,
+    "type": "input",
+    "format": "float",
+    "units": "kWh"
+  },
+  "total_kVArh_1": {
+    "register": 376,
+    "type": "input",
+    "format": "float",
+    "units": "kWh"
+  },
+  "total_kVArh_2": {
+    "register": 378,
+    "type": "input",
+    "format": "float",
+    "units": "kWh"
+  },
+  "total_kVArh_3": {
+    "register": 380,
     "type": "input",
     "format": "float",
     "units": "kWh"
