@@ -9,12 +9,12 @@ from models.Report import SDM120Report, SDM630Report, SDM120ReportTmp
 from rtu.SerialReaderRS485 import SerialReaderRS485
 
 
-def get_data_from_device(device, project, properties_list, main_window):
+def get_data_from_device(device, project, main_window):
     try:
         print(f"{device.name} - Reading started")
         client = SerialReaderRS485(device.name, device.model, project.port, device.device_address, project.baudrate,
                                    project.bytesize, project.parity, project.stopbits, main_window)
-        return client.read_all_properties(properties_list)
+        return client.read_all_properties()
     except Exception as e:
         QMessageBox.warning(main_window, title="Помилка зчитування", text=f"{device.name} - {e}")
 
@@ -58,7 +58,7 @@ class DataCollector(QObject):
 
         properties_list = device.get_parameter_names()
         project = self.db_session.query(Project).filter(Project.id == self.project.id).first()
-        new_data = get_data_from_device(device, project, properties_list, self.main_window)
+        new_data = get_data_from_device(device, project, self.main_window)
 
         if all(value is None for value in new_data.values()):
             return

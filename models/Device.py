@@ -18,8 +18,6 @@ class Device(Base):
     reading_interval = Column(Integer, nullable=False, default=3600)  # Seconds
     reading_time = Column(Integer, nullable=False, default=0)  # Minutes
 
-    # String with parameters to read in format {Parameter1:Units1, Parameter2:Units2,...,ParameterN:UnitsN}
-    parameters = Column(String, nullable=False, default="Voltage:V,Current:A,Power:W")
     reading_status = Column(Boolean, nullable=False, default=False)  # True = needs reading
 
     project = relationship("Project")
@@ -34,13 +32,3 @@ class Device(Base):
 
     def get_reading_status(self):
         return self.reading_status
-
-    def get_parameter_names(self):
-        pairs = self.parameters.split(',')
-        parameter_names = [pair.split(':')[0].strip() for pair in pairs]
-        return parameter_names
-
-    def get_parameter_pairs(self):
-        pairs = self.parameters.split(',')
-        parameter_pairs = [tuple(pair.split(':')) for pair in pairs]
-        return parameter_pairs

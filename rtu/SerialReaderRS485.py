@@ -1,5 +1,3 @@
-import json
-import os
 from datetime import datetime
 from logging import error
 
@@ -9,6 +7,7 @@ from pymodbus.constants import Endian
 from pymodbus.payload import BinaryPayloadDecoder
 
 from models.Device import Device
+from register_maps.RegisterMaps import RegisterMap
 
 
 def decode_data(data, property_specifications):
@@ -48,92 +47,103 @@ def decode_32bit_float(data):
 
 
 class SerialReaderRS485:
-    def __init__(self,
-                 device_custom_name,
-                 device_name,
-                 port,
-                 device_address,
-                 baudrate,
-                 bytesize,
-                 parity,
-                 stopbits,
+    def __init__(self, device_custom_name, device_name, port, device_address, baudrate, bytesize, parity, stopbits,
                  main_window):
-        self.port = port
         self.no_response_error_flag = False
         self.error_flag = False
+
+        self.port = port
         self.main_window = main_window
         self.device_custom_name = device_custom_name
         self.device_address = device_address
-
-        json_path = os.path.join(os.path.dirname(__file__), '..', 'register_maps', f'{device_name}.json')
-
-        with open(json_path, 'r') as f:
-            property_specifications_list = json.load(f)
-        self.property_specifications_list = property_specifications_list
+        self.register_map = RegisterMap.get_register_map(device_name)
 
         self.client = ModbusSerialClient(
-            port=f"COM{port}",
-            baudrate=baudrate,
-            parity=parity,
-            stopbits=stopbits,
-            bytesize=bytesize,
-            timeout=0.2
+            port=f"COM{port}", baudrate=baudrate, parity=parity,
+            stopbits=stopbits, bytesize=bytesize, timeout=0.5
         )
 
     def connect(self):
         return self.client.connect()
 
-    def read_property(self, property_name: str):
+    def group_registers(self):
+        """
+        Групує регістри для оптимізації читання.
+        """
+        grouped = []
+        sorted_registers = sorted(self.register_map.items(), key=lambda x: x[1]['register'])
+        current_group = {'start': None, 'length': 0, 'items': []}
+
+        for name, spec in sorted_registers:
+            start = spec['register']
+            length = 2 if spec['format'] in ["float", "UD_WORD", "SD_WORD"] else 1
+
+            if current_group['start'] is None:  # Початок групи
+                current_group['start'] = start
+                current_group['length'] = length
+                current_group['items'].append((name, length))
+            elif start == current_group['start'] + current_group['length']:
+                # Якщо регістр слідує за попереднім, додаємо до групи
+                current_group['length'] += length
+                current_group['items'].append((name, length))
+            else:
+                # Завершуємо поточну групу і починаємо нову
+                grouped.append(current_group)
+                current_group = {'start': start, 'length': length, 'items': [(name, length)]}
+
+        if current_group['items']:
+            grouped.append(current_group)
+
+        return grouped
+
+    def read_all_properties(self):
+        """
+        Читає всі властивості пристрою на основі мапи регістрів.
+        """
+        result = {}
         if self.connect():
-            property_specifications = self.property_specifications_list[property_name]
-            property_address = property_specifications['register']
-            count = 4 if property_specifications["format"] in ["float", "UD_WORD", "SD_WORD"] else 4
-
+            grouped_registers = self.group_registers()
             try:
-                if property_specifications["type"] == "holding":
-                    response = self.client.read_holding_registers(property_address, count=count,
-                                                                  slave=self.device_address)
-                elif property_specifications["type"] == "input":
-                    response = self.client.read_input_registers(property_address, count=count,
+                for group in grouped_registers:
+                    start_address = group['start']
+                    total_length = group['length']
+                    response = self.client.read_input_registers(start_address, count=total_length,
                                                                 slave=self.device_address)
-                if response.isError():
-                    error(
-                        f"{datetime.now().strftime('%d/%m/%Y %H:%M:%S')} | No response | {property_specifications}")
-                    self.no_response_error_flag = True
-                    return None
 
-                return decode_data(data=response.registers, property_specifications=property_specifications)
+                    if response.isError():
+                        error(f"{datetime.now().strftime('%d/%m/%Y %H:%M:%S')} | No response from {start_address}")
+                        self.no_response_error_flag = True
+                        continue
+
+                    registers = response.registers
+                    idx = 0
+                    for name, length in group['items']:
+                        spec = self.register_map[name]
+                        data = registers[idx: idx + length]
+                        result[name] = decode_data(data, spec)
+                        idx += length
 
             except Exception as e:
                 error(f"{datetime.now().strftime('%d/%m/%Y %H:%M:%S')} | {e}")
-
+                self.error_flag = True
             finally:
                 self.client.close()
 
-        else:
-            self.error_flag = True
+        if self.error_flag or self.no_response_error_flag:
+            self.update_device_status()
 
-    def read_all_properties(self, properties_list):
-        result = {}
-        for property_name in properties_list:
-            value = self.read_property(property_name)
-            if value is not None:
-                result[property_name] = value
-            else:
-                result[property_name] = None
-
-        if self.error_flag:
-            device = self.main_window.db_session.query(Device).filter(Device.name == self.device_custom_name).first()
-            if device:
-                device.reading_status = False
-                self.main_window.db_session.commit()
-            QMessageBox.warning(self.main_window, f"{datetime.now().strftime('%d/%m/%Y %H:%M:%S')}",
-                                f"{self.device_custom_name} - Пристрій не підключено")
-        if self.no_response_error_flag:
-            device = self.main_window.db_session.query(Device).filter(Device.name == self.device_custom_name).first()
-            if device:
-                device.reading_status = False
-                self.main_window.db_session.commit()
-            QMessageBox.warning(self.main_window, f"{datetime.now().strftime('%d/%m/%Y %H:%M:%S')}",
-                                f"Порт COM{self.port} - Немає відповіді. Пристрій {self.device_custom_name} - зчитування вимкнено")
         return result
+
+    def update_device_status(self):
+        """
+        Оновлює статус пристрою в базі даних і показує попередження.
+        """
+        device = self.main_window.db_session.query(Device).filter(Device.name == self.device_custom_name).first()
+        if device:
+            device.reading_status = False
+            self.main_window.db_session.commit()
+
+        msg = "Пристрій не підключено" if self.error_flag else "Немає відповіді від пристрою"
+        QMessageBox.warning(self.main_window, f"{datetime.now().strftime('%d/%m/%Y %H:%M:%S')}",
+                            f"{self.device_custom_name} - {msg}")
+
