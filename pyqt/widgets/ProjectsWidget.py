@@ -93,8 +93,8 @@ class ProjectsWidget(QWidget):
 
             connection_label = QLabel()
             self.update_connection_status(project, connection_label)
-            connection_label.setSizePolicy(QSizePolicy.Maximum, QSizePolicy.Preferred)  # Мінімальна ширина
-            connection_label.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)  # Вирівнювання ліворуч і по центру вертикалі
+            connection_label.setSizePolicy(QSizePolicy.Maximum, QSizePolicy.Preferred)
+            connection_label.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
             item_layout.addWidget(connection_label)
 
             edit_button = QPushButton()
@@ -108,7 +108,7 @@ class ProjectsWidget(QWidget):
             delete_button.setIcon(QIcon(resource_path("pyqt/icons/delete.png")))
             delete_button.setFixedSize(24, 24)
             delete_button.setStyleSheet("margin: 0px;")
-            delete_button.setIconSize(QSize(22, 22))  # Скейлим іконку до розміру кнопки
+            delete_button.setIconSize(QSize(22, 22))
             delete_button.clicked.connect(lambda _, p=project: self.delete_project(p))
 
             if self.isAdmin:
@@ -160,7 +160,7 @@ class ProjectsWidget(QWidget):
                 QMessageBox.warning(self, "Помилка", "Проєкт з такою назвою вже існує.")
                 return
 
-            new_project = Project(name=project_name, port=1)  # За замовчуванням порт 1
+            new_project = Project(name=project_name, port=1)
             self.db_session.add(new_project)
             self.db_session.commit()
 
@@ -194,7 +194,7 @@ class ProjectsWidget(QWidget):
             import platform
 
             if platform.system() == "Windows":
-                os.system("start devmgmt.msc")  # Відкрити "Диспетчер пристроїв" у Windows
+                os.system("start devmgmt.msc")
             else:
                 QMessageBox.information(
                     self, "Недоступно", "Функція доступна лише на Windows."
@@ -204,19 +204,16 @@ class ProjectsWidget(QWidget):
         open_settings_button.clicked.connect(open_device_manager)
         layout.addWidget(open_settings_button)
 
-        # Поле для редагування назви
         name_label = QLabel("Назва проєкту:")
         name_edit = QLineEdit(project.name)
         layout.addWidget(name_label)
         layout.addWidget(name_edit)
 
-        # Поле для опису
         description_label = QLabel("Опис:")
         description_edit = QLineEdit(project.description or "")
         layout.addWidget(description_label)
         layout.addWidget(description_edit)
 
-        # Поле для вибору baudrate
         baudrate_label = QLabel("Baudrate:")
         baudrate_edit = QComboBox()
         baudrate_options = [1200, 2400, 4800, 9600, 19200, 38400, 57600, 115200]
@@ -225,7 +222,6 @@ class ProjectsWidget(QWidget):
         layout.addWidget(baudrate_label)
         layout.addWidget(baudrate_edit)
 
-        # Поле для вибору bytesize
         bytesize_label = QLabel("Bytesize:")
         bytesize_edit = QSpinBox()
         bytesize_edit.setRange(5, 8)
@@ -233,7 +229,6 @@ class ProjectsWidget(QWidget):
         layout.addWidget(bytesize_label)
         layout.addWidget(bytesize_edit)
 
-        # Поле для вибору stopbits
         stopbits_label = QLabel("Stopbits:")
         stopbits_edit = QComboBox()
         stopbits_edit.addItems(["1", "1.5", "2"])
@@ -241,7 +236,6 @@ class ProjectsWidget(QWidget):
         layout.addWidget(stopbits_label)
         layout.addWidget(stopbits_edit)
 
-        # Поле для вибору parity
         parity_label = QLabel("Parity:")
         parity_edit = QComboBox()
         parity_edit.addItems(["N", "E", "O"])  # None, Even, Odd
@@ -249,7 +243,6 @@ class ProjectsWidget(QWidget):
         layout.addWidget(parity_label)
         layout.addWidget(parity_edit)
 
-        # Кнопки підтвердження та скасування
         button_box = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         layout.addWidget(button_box)
 
