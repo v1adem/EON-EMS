@@ -139,19 +139,19 @@ class RegisterMap:
             "format": "float",
             "units": "kVAh"
         },
-        "1_to_2_voltage": {
+        "_1_to_2_voltage": {
             "register": 200,
             "type": "input",
             "format": "float",
             "units": "Volts"
         },
-        "2_to_3_voltage": {
+        "_2_to_3_voltage": {
             "register": 202,
             "type": "input",
             "format": "float",
             "units": "Volts"
         },
-        "3 to 1 voltage": {
+        "_3_to_1 voltage": {
             "register": 204,
             "type": "input",
             "format": "float",
@@ -371,3 +371,17 @@ class RegisterMap:
     @classmethod
     def get_register_map(cls, device_name):
         return cls.MAPS.get(device_name, {})
+
+    @classmethod
+    def get_columns_with_units(cls, register_map):
+        columns_with_units = {}
+        for parameter, specs in register_map.items():
+            columns_with_units[parameter] = specs.get("units", "")
+        return columns_with_units
+
+    @classmethod
+    def get_columns(cls, device_name):
+        """
+        Повертає список усіх доступних параметрів для заданого пристрою.
+        """
+        return list(cls.get_register_map(device_name).keys())
