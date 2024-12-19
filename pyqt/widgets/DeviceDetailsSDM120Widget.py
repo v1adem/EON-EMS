@@ -12,6 +12,7 @@ from sqlalchemy import desc
 
 from config import resource_path
 from models.Report import SDM120Report, SDM120ReportTmp
+from register_maps.RegisterMaps import RegisterMap
 
 
 class DateAxisItem(AxisItem):
@@ -266,12 +267,11 @@ class DeviceDetailsSDM120Widget(QWidget):
             "frequency": "Частота",
         }
 
+        # Get columns and units from RegisterMap
+        register_map = RegisterMap.get_register_map(device.model)
+        columns_with_units = RegisterMap.get_columns_with_units(register_map)
+
         columns = set()
-        parameter_units = {}
-        if device.parameters:
-            for param in device.parameters.split(','):
-                param_name, unit = param.split(':')
-                parameter_units[param_name.strip()] = unit.strip()
 
         for report in report_data:
             for column_name in report.__table__.columns.keys():
@@ -281,9 +281,10 @@ class DeviceDetailsSDM120Widget(QWidget):
         columns = sorted(columns)
         model = QStandardItemModel(len(report_data), len(columns))
         header_labels = []
+
         for column in columns:
             custom_label = column_labels.get(column, column)
-            unit = parameter_units.get(column, "")
+            unit = columns_with_units.get(column, "")
             header_labels.append(f"{custom_label} ({unit})" if unit else custom_label)
 
         bold_font = QFont()
