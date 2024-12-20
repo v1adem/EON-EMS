@@ -79,7 +79,7 @@ class DeviceDetailsSDM630Widget(QWidget):
         export_button = QPushButton("Експорт в Excel")
         export_button.setStyleSheet("font-size: 16px;")
         export_button.setFixedHeight(36)
-        export_button.clicked.connect(self.open_export_dialog)
+        # export_button.clicked.connect(self.open_export_dialog)
         button_layout.addWidget(export_button)
 
         table_layout.addLayout(button_layout)
@@ -98,7 +98,7 @@ class DeviceDetailsSDM630Widget(QWidget):
 
         self.select_range_button = QPushButton("Обрати проміжок")
         self.select_range_button.setStyleSheet("font-size: 16px;")
-        self.select_range_button.clicked.connect(self.open_date_range_dialog)
+        # self.select_range_button.clicked.connect(self.open_date_range_dialog)
         top_right_layout.addWidget(self.select_range_button)
 
         self.voltage_graph_widget = pg.PlotWidget()
@@ -196,15 +196,23 @@ class DeviceDetailsSDM630Widget(QWidget):
         self.set_splitter_fixed_ratios(main_splitter, [1, 1])
         self.set_splitter_fixed_ratios(right_splitter, [3, 1])
 
-        self.timer = QTimer(self)
-        self.timer.timeout.connect(self.update_ui)
-        self.timer.setInterval(1000)
-        self.timer.start()
+        #self.timer = QTimer(self)
+        #self.timer.timeout.connect(self.update_ui)
+        #self.timer.setInterval(1000)
+        #self.timer.start()
 
         self.load_report_data()
-        self.update_graphs(self.start_date, self.end_date)
+        #self.update_graphs(self.start_date, self.end_date)
         self.set_light_theme()
 
+    def set_light_theme(self):
+        self.voltage_graph_widget.setBackground('w')
+        self.current_graph_widget.setBackground('w')
+        self.energy_graph_widget.setBackground('w')
+
+        self.voltage_graph_widget.plot([], pen=pg.mkPen(color='b', width=2))
+        self.current_graph_widget.plot([], pen=pg.mkPen(color='r', width=2))
+        self.energy_graph_widget.plot([], pen=pg.mkPen(color='g', width=2))
 
     def set_splitter_fixed_ratios(self, splitter, ratios):
         total = sum(ratios)
@@ -248,51 +256,51 @@ class DeviceDetailsSDM630Widget(QWidget):
             "power_factor_2": "Коефіцієнт потужності (Фаза 2)",
             "power_factor_3": "Коефіцієнт потужності (Фаза 3)",
             "total_system_power": "Загальна потужність системи",
-            "total_system_VA": "Загальна потужність",
-            "total_system_VAr": "Загальна реактивна потужність",
-            "total_system_power_factor": "Коефіцієнт потужності системи",
-            "total_import_kwh": "Загальне споживання (імпорт)",
-            "total_export_kwh": "Загальне споживання (експорт)",
-            "total_import_kVAh": "Загальне споживання (імпорт)",
-            "total_export_kVAh": "Загальне споживання (експорт)",
+            #"total_system_VA": "Загальна потужність",
+            #"total_system_VAr": "Загальна реактивна потужність",
+            #"total_system_power_factor": "Коефіцієнт потужності системи",
+            #"total_import_kwh": "Загальне споживання (імпорт)",
+            #"total_export_kwh": "Загальне споживання (експорт)",
+            #"total_import_kVAh": "Загальне споживання (імпорт)",
+            #"total_export_kVAh": "Загальне споживання (експорт)",
             "total_kVAh": "Загальна енергія кВА·год",
             "_1_to_2_voltage": "Напруга між Фазою 1 і Фазою 2",
             "_2_to_3_voltage": "Напруга між Фазою 2 і Фазою 3",
             "_3_to_1_voltage": "Напруга між Фазою 3 і Фазою 1",
             "neutral_current": "Струм нейтралі",
-            "line_voltage_THD_1": "THD лінійної напруги (Фаза 1)",
-            "line_voltage_THD_2": "THD лінійної напруги (Фаза 2)",
-            "line_voltage_THD_3": "THD лінійної напруги (Фаза 3)",
-            "line_current_THD_1": "THD лінійного струму (Фаза 1)",
-            "line_current_THD_2": "THD лінійного струму (Фаза 2)",
-            "line_current_THD_3": "THD лінійного струму (Фаза 3)",
-            "current_demand_1": "Струмове навантаження (Фаза 1)",
-            "current_demand_2": "Струмове навантаження (Фаза 2)",
-            "current_demand_3": "Струмове навантаження (Фаза 3)",
-            "phase_voltage_THD_1": "THD фазної напруги (Фаза 1)",
-            "phase_voltage_THD_2": "THD фазної напруги (Фаза 2)",
-            "phase_voltage_THD_3": "THD фазної напруги (Фаза 3)",
-            "average_line_to_line_voltage_THD": "Середній THD лінійної напруги",
-            "total_kWh": "Загальна енергія (кВт·год)",
+            #"line_voltage_THD_1": "THD лінійної напруги (Фаза 1)",
+            #"line_voltage_THD_2": "THD лінійної напруги (Фаза 2)",
+            #"line_voltage_THD_3": "THD лінійної напруги (Фаза 3)",
+            #"line_current_THD_1": "THD лінійного струму (Фаза 1)",
+            #"line_current_THD_2": "THD лінійного струму (Фаза 2)",
+            #"line_current_THD_3": "THD лінійного струму (Фаза 3)",
+            #"current_demand_1": "Струмове навантаження (Фаза 1)",
+            #"current_demand_2": "Струмове навантаження (Фаза 2)",
+            #"current_demand_3": "Струмове навантаження (Фаза 3)",
+            #"phase_voltage_THD_1": "THD фазної напруги (Фаза 1)",
+            #"phase_voltage_THD_2": "THD фазної напруги (Фаза 2)",
+            #"phase_voltage_THD_3": "THD фазної напруги (Фаза 3)",
+            #"average_line_to_line_voltage_THD": "Середній THD лінійної напруги",
+            "total_kWh": "Загальна енергія кВт·год",
             "total_kVArh": "Загальна реактивна енергія (кВАр·год)",
-            "import_kWh_1": "Імпортована енергія (Фаза 1)",
-            "import_kWh_2": "Імпортована енергія (Фаза 2)",
-            "import_kWh_3": "Імпортована енергія (Фаза 3)",
-            "export_kWh_1": "Експортована енергія (Фаза 1)",
-            "export_kWh_2": "Експортована енергія (Фаза 2)",
-            "export_kWh_3": "Експортована енергія (Фаза 3)",
-            "total_kWh_1": "Загальна енергія (Фаза 1)",
-            "total_kWh_2": "Загальна енергія (Фаза 2)",
-            "total_kWh_3": "Загальна енергія (Фаза 3)",
-            "import_kVArh_1": "Імпортована реактивна енергія (кВАр·год) (Фаза 1)",
-            "import_kVArh_2": "Імпортована реактивна енергія (кВАр·год) (Фаза 2)",
-            "import_kVArh_3": "Імпортована реактивна енергія (кВАр·год) (Фаза 3)",
-            "export_kVArh_1": "Експортована реактивна енергія (кВАр·год) (Фаза 1)",
-            "export_kVArh_2": "Експортована реактивна енергія (кВАр·год) (Фаза 2)",
-            "export_kVArh_3": "Експортована реактивна енергія (кВАр·год) (Фаза 3)",
-            "total_kVArh_1": "Загальна реактивна енергія (кВАр·год) (Фаза 1)",
-            "total_kVArh_2": "Загальна реактивна енергія (кВАр·год) (Фаза 2)",
-            "total_kVArh_3": "Загальна реактивна енергія (кВАр·год) (Фаза 3)",
+            #"import_kWh_1": "Імпортована енергія (Фаза 1)",
+            #"import_kWh_2": "Імпортована енергія (Фаза 2)",
+            #"import_kWh_3": "Імпортована енергія (Фаза 3)",
+            #"export_kWh_1": "Експортована енергія (Фаза 1)",
+            #"export_kWh_2": "Експортована енергія (Фаза 2)",
+            #"export_kWh_3": "Експортована енергія (Фаза 3)",
+            #"total_kWh_1": "Загальна енергія (Фаза 1)",
+            #"total_kWh_2": "Загальна енергія (Фаза 2)",
+            #"total_kWh_3": "Загальна енергія (Фаза 3)",
+            #"import_kVArh_1": "Імпортована реактивна енергія (кВАр·год) (Фаза 1)",
+            #"import_kVArh_2": "Імпортована реактивна енергія (кВАр·год) (Фаза 2)",
+            #"import_kVArh_3": "Імпортована реактивна енергія (кВАр·год) (Фаза 3)",
+            #"export_kVArh_1": "Експортована реактивна енергія (кВАр·год) (Фаза 1)",
+            #"export_kVArh_2": "Експортована реактивна енергія (кВАр·год) (Фаза 2)",
+            #"export_kVArh_3": "Експортована реактивна енергія (кВАр·год) (Фаза 3)",
+            #"total_kVArh_1": "Загальна реактивна енергія (кВАр·год) (Фаза 1)",
+            #"total_kVArh_2": "Загальна реактивна енергія (кВАр·год) (Фаза 2)",
+            #"total_kVArh_3": "Загальна реактивна енергія (кВАр·год) (Фаза 3)",
         }
 
         # Get columns and units from RegisterMap
