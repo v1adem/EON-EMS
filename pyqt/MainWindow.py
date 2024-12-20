@@ -6,6 +6,7 @@ from models.Admin import Admin
 from models.Project import Project
 from pyqt.dialogs.LanguageDialog import LanguageDialog
 from pyqt.widgets.DeviceDetailsSDM120Widget import DeviceDetailsSDM120Widget
+from pyqt.widgets.DeviceDetailsSDM630 import DeviceDetailsSDM630Widget
 from pyqt.widgets.ProjectViewWidget import ProjectViewWidget
 from pyqt.widgets.ProjectsWidget import ProjectsWidget
 from pyqt.widgets.RegistrationLoginForm import RegistrationLoginForm
@@ -92,7 +93,9 @@ class MainWindow(QMainWindow):
             self.stacked_widget.addWidget(device_details_widget)
             self.stacked_widget.setCurrentIndex(3)
         elif device.model == "SDM630":
-            pass
+            device_details_widget = DeviceDetailsSDM630Widget(self, device)
+            self.stacked_widget.addWidget(device_details_widget)
+            self.stacked_widget.setCurrentIndex(3)
 
 
     def go_back(self):
