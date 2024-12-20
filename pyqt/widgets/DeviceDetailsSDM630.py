@@ -112,8 +112,8 @@ class DeviceDetailsSDM630Widget(QWidget):
         self.voltage_curve = self.voltage_graph_widget.plot(pen=pg.mkPen(color='b', width=2), name="Напруга")
         self.current_curve = self.current_graph_widget.plot(pen=pg.mkPen(color='r', width=2), name="Струм")
 
-        self.energy_bar_item = pg.BarGraphItem(width=5, height=5, brush='g', x=1)
-        self.energy_graph_widget.addItem(self.energy_bar_item)
+        # self.energy_bar_item = pg.BarGraphItem(width=5, height=5, brush='g', x=1)
+        # self.energy_graph_widget.addItem(self.energy_bar_item)
 
         # Для графіка напруги
         self.voltage_graph_widget.setLabel('left', 'Напруга', units='В')
