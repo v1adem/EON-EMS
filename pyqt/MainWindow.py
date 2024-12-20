@@ -48,10 +48,10 @@ class MainWindow(QMainWindow):
         self.menu_bar.addAction(back_action)
         back_action.triggered.connect(self.go_back)
 
-        settings_menu = self.menu_bar.addMenu("Налаштування")
-        language_action = QAction("Мова", self)
-        settings_menu.addAction(language_action)
-        language_action.triggered.connect(self.change_language)
+        #settings_menu = self.menu_bar.addMenu("Налаштування")
+        #language_action = QAction("Мова", self)
+        #settings_menu.addAction(language_action)
+        #language_action.triggered.connect(self.change_language)
 
         self.central_widget = QWidget(self)
         self.setCentralWidget(self.central_widget)
