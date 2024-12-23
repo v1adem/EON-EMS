@@ -22,6 +22,7 @@ class SDM120Report(Base):
     active_power = Column(Float, nullable=True)
     apparent_power = Column(Float, nullable=True)
     reactive_power = Column(Float, nullable=True)
+    power_factor = Column(Float, nullable=True)
     frequency = Column(Float, nullable=True)
     import_active_energy = Column(Float, nullable=True)
     export_active_energy = Column(Float, nullable=True)
