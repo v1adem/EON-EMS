@@ -219,10 +219,10 @@ class DeviceDetailsSDM630Widget(QWidget):
             "power_1": "Активна потужність\n(Фаза 1)\n",
             "power_2": "Активна потужність\n(Фаза 2)\n",
             "power_3": "Активна потужність\n(Фаза 3)\n",
-            "power_factor_1": "Коефіцієнт потужності\n(Фаза 1)\n",
-            "power_factor_2": "Коефіцієнт потужності\n(Фаза 2)\n",
-            "power_factor_3": "Коефіцієнт потужності\n(Фаза 3)\n",
-            "total_system_power": "Загальна потужність\nсистеми",
+            "power_factor_1": "Коефіцієнт\nпотужності\n(Фаза 1)",
+            "power_factor_2": "Коефіцієнт\nпотужності\n(Фаза 2)",
+            "power_factor_3": "Коефіцієнт\nпотужності\n(Фаза 3)",
+            "total_system_power": "Загальна\nпотужність\nсистеми",
             #"total_system_VA": "Загальна потужність",
             #"total_system_VAr": "Загальна реактивна потужність",
             #"total_system_power_factor": "Коефіцієнт потужності системи",
@@ -274,15 +274,12 @@ class DeviceDetailsSDM630Widget(QWidget):
         register_map = RegisterMap.get_register_map(device.model)
         columns_with_units = RegisterMap.get_columns_with_units(register_map)
 
-        # Збираємо стовпці, що є в даних і в column_labels
-        columns = set()
+        # Формуємо список стовпців, який потрібно відображати в порядку, визначеному в column_labels
+        columns = []
+        for column in column_labels.keys():
+            if any(getattr(report, column) is not None for report in report_data):
+                columns.append(column)
 
-        for report in report_data:
-            for column_name in report.__table__.columns.keys():
-                if column_name in column_labels and getattr(report, column_name) is not None:
-                    columns.add(column_name)
-
-        columns = sorted(columns)
         model = QStandardItemModel(len(report_data), len(columns))
         header_labels = []
 
@@ -328,7 +325,7 @@ class DeviceDetailsSDM630Widget(QWidget):
         proxy_model.setSortCaseSensitivity(Qt.CaseInsensitive)
 
         self.report_table.setModel(proxy_model)
-        self.report_table.sortByColumn(3, Qt.DescendingOrder)
+        self.report_table.sortByColumn(0, Qt.DescendingOrder)
         self.report_table.setSortingEnabled(True)
         self.report_table.resizeColumnsToContents()
 

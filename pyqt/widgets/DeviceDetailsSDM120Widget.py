@@ -252,31 +252,29 @@ class DeviceDetailsSDM120Widget(QWidget):
     def create_table_model(self, report_data, device):
         column_labels = {
             "timestamp": "Час",
-            "voltage": "Напруга",
-            "current": "Струм",
-            "active_power": "Активна потужність",
-            "apparent_power": "Видима потужність",
-            "reactive_power": "Реактивна потужність",
-            "power_factor": "Коефіцієнт перетворення",
-            "import_active_energy": "Вхідна активна енергія",
-            "export_active_energy": "Вихідна активна енергія",
-            "total_active_energy": "Загальна активна енергія",
-            "total_reactive_energy": "Загальна реактивна енергія",
-            "frequency": "Частота",
+            "voltage": "Напруга\n",
+            "current": "Струм\n",
+            "active_power": "Активна\nпотужність\n",
+            "apparent_power": "Видима\nпотужність\n",
+            "reactive_power": "Реактивна\nпотужність\n",
+            "power_factor": "Коефіцієнт\nперетворення\n",
+            "import_active_energy": "Вхідна\nактивна енергія\n",
+            "export_active_energy": "Вихідна\nактивна енергія\n",
+            "total_active_energy": "Загальна\nактивна енергія\n",
+            "total_reactive_energy": "Загальна\nреактивна енергія\n",
+            "frequency": "Частота\n",
         }
 
         # Get columns and units from RegisterMap
         register_map = RegisterMap.get_register_map(device.model)
         columns_with_units = RegisterMap.get_columns_with_units(register_map)
 
-        columns = set()
+        # Формуємо список стовпців, який потрібно відображати в порядку, визначеному в column_labels
+        columns = []
+        for column in column_labels.keys():
+            if any(getattr(report, column) is not None for report in report_data):
+                columns.append(column)
 
-        for report in report_data:
-            for column_name in report.__table__.columns.keys():
-                if column_name not in ['id', 'device_id'] and getattr(report, column_name) is not None:
-                    columns.add(column_name)
-
-        columns = sorted(columns)
         model = QStandardItemModel(len(report_data), len(columns))
         header_labels = []
 
@@ -322,7 +320,7 @@ class DeviceDetailsSDM120Widget(QWidget):
         proxy_model.setSortCaseSensitivity(Qt.CaseInsensitive)
 
         self.report_table.setModel(proxy_model)
-        self.report_table.sortByColumn(3, Qt.DescendingOrder)
+        self.report_table.sortByColumn(0, Qt.DescendingOrder)
         self.report_table.setSortingEnabled(True)
         self.report_table.resizeColumnsToContents()
 
