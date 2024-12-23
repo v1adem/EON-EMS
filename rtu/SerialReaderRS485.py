@@ -60,7 +60,7 @@ class SerialReaderRS485:
 
         self.client = ModbusSerialClient(
             port=f"COM{port}", baudrate=baudrate, parity=parity,
-            stopbits=stopbits, bytesize=bytesize, timeout=0.5
+            stopbits=stopbits, bytesize=bytesize, timeout=0.5, retries=1
         )
 
     def connect(self):
