@@ -29,7 +29,7 @@ class MainWindow(QMainWindow):
 
             timer = QTimer(self)
             timer.timeout.connect(data_collector.collect_data)
-            timer.setInterval(1000)
+            timer.setInterval(3000)
             timer.start()
 
             self.timers.append(timer)
