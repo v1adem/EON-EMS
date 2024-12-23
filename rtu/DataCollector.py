@@ -5,7 +5,7 @@ from PyQt5.QtWidgets import QMessageBox
 
 from models.Device import Device
 from models.Project import Project
-from models.Report import SDM120Report, SDM630Report, SDM120ReportTmp
+from models.Report import SDM120Report, SDM630Report, SDM120ReportTmp, SDM630ReportTmp
 from rtu.SerialReaderRS485 import SerialReaderRS485
 
 
@@ -17,10 +17,6 @@ def get_data_from_device(device, project, main_window):
         return client.read_all_properties()
     except Exception as e:
         QMessageBox.warning(main_window, title="Помилка зчитування", text=f"{device.name} - {e}")
-
-
-class SDM630ReportTmp:
-    pass
 
 
 class DataCollector(QObject):
