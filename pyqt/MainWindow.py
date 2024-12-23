@@ -6,7 +6,7 @@ from models.Admin import Admin
 from models.Project import Project
 from pyqt.dialogs.LanguageDialog import LanguageDialog
 from pyqt.widgets.DeviceDetailsSDM120Widget import DeviceDetailsSDM120Widget
-from pyqt.widgets.DeviceDetailsSDM630 import DeviceDetailsSDM630Widget
+from pyqt.widgets.DeviceDetailsSDM630Widget import DeviceDetailsSDM630Widget
 from pyqt.widgets.ProjectViewWidget import ProjectViewWidget
 from pyqt.widgets.ProjectsWidget import ProjectsWidget
 from pyqt.widgets.RegistrationLoginForm import RegistrationLoginForm
