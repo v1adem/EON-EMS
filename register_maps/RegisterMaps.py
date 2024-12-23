@@ -67,19 +67,19 @@ class RegisterMap:
             "format": "float",
             "units": "Watts"
         },
-        "power_factor 1": {
+        "power_factor_1": {
             "register": 30,
             "type": "input",
             "format": "float",
             "units": ""
         },
-        "power_factor 2": {
+        "power_factor_2": {
             "register": 32,
             "type": "input",
             "format": "float",
             "units": ""
         },
-        "power_factor 3": {
+        "power_factor_3": {
             "register": 34,
             "type": "input",
             "format": "float",
@@ -151,7 +151,7 @@ class RegisterMap:
             "format": "float",
             "units": "Volts"
         },
-        "_3_to_1 voltage": {
+        "_3_to_1_voltage": {
             "register": 204,
             "type": "input",
             "format": "float",
@@ -235,7 +235,7 @@ class RegisterMap:
             "format": "float",
             "units": "%"
         },
-        "average_line-to-line_voltage_THD": {
+        "average_line_to_line_voltage_THD": {
             "register": 340,
             "type": "input",
             "format": "float",
