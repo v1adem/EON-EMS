@@ -122,7 +122,7 @@ class SDM630Report(Base):
         return f"<SDM630Report(id={self.id}, device_id={self.device_id}, timestamp={self.timestamp}, ...)>"
 
 
-class SDM630ReportTmp:
+class SDM630ReportTmp(Base):
     __tablename__ = 'sdm630_reports_tmp'
 
     device_id = Column(Integer, ForeignKey('devices.id'), nullable=False)
@@ -137,6 +137,7 @@ class SDM630ReportTmp:
     power_1 = Column(Float, nullable=True)
     power_2 = Column(Float, nullable=True)
     power_3 = Column(Float, nullable=True)
+    total_kWh = Column(Float, nullable=True)
 
     device = relationship("Device")
 
