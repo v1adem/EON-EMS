@@ -6,6 +6,7 @@ from PyQt5.QtWidgets import QWidget, QVBoxLayout, QLabel, QListView, QPushButton
 
 from config import resource_path
 from models.Device import Device
+from models.Report import SDM120Report, SDM120ReportTmp, SDM630Report, SDM630ReportTmp
 
 
 class ProjectViewWidget(QWidget):
@@ -224,6 +225,15 @@ class ProjectViewWidget(QWidget):
                                      f"Ви впевнені, що хочете видалити пристрій '{device.name}'?",
                                      QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
         if reply == QMessageBox.Yes:
+            # Видалення репортів, що відповідають пристрою
+            if device.model == "SDM120":
+                self.db_session.query(SDM120Report).filter(SDM120Report.device_id == device.id).delete()
+                self.db_session.query(SDM120ReportTmp).filter(SDM120ReportTmp.device_id == device.id).delete()
+            elif device.model == "SDM630":
+                self.db_session.query(SDM630Report).filter(SDM630Report.device_id == device.id).delete()
+                self.db_session.query(SDM630ReportTmp).filter(SDM630ReportTmp.device_id == device.id).delete()
+
+            # Видалення самого пристрою
             self.db_session.delete(device)
             self.db_session.commit()
             self.load_devices()

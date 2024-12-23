@@ -7,7 +7,9 @@ from PyQt5.QtWidgets import (
 from pymodbus.client import ModbusSerialClient
 
 from config import resource_path
+from models.Device import Device
 from models.Project import Project
+from models.Report import SDM120Report, SDM120ReportTmp, SDM630Report, SDM630ReportTmp
 
 
 class ProjectsWidget(QWidget):
@@ -171,6 +173,22 @@ class ProjectsWidget(QWidget):
                                      f"Ви впевнені, що хочете видалити проєкт '{project.name}'?",
                                      QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
         if reply == QMessageBox.Yes:
+            # Отримуємо всі пристрої, пов'язані з проєктом
+            devices = self.db_session.query(Device).filter(Device.project_id == project.id).all()
+
+            # Видаляємо всі репорти, пов'язані з пристроями
+            for device in devices:
+                if device.model == "SDM120":
+                    self.db_session.query(SDM120Report).filter(SDM120Report.device_id == device.id).delete()
+                    self.db_session.query(SDM120ReportTmp).filter(SDM120ReportTmp.device_id == device.id).delete()
+                elif device.model == "SDM630":
+                    self.db_session.query(SDM630Report).filter(SDM630Report.device_id == device.id).delete()
+                    self.db_session.query(SDM630ReportTmp).filter(SDM630ReportTmp.device_id == device.id).delete()
+
+                # Видаляємо пристрій
+                self.db_session.delete(device)
+
+            # Видаляємо сам проєкт
             self.db_session.delete(project)
             self.db_session.commit()
             self.load_projects()
