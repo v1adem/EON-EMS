@@ -256,8 +256,9 @@ class DeviceDetailsSDM120Widget(QWidget):
             "voltage": "Напруга",
             "current": "Струм",
             "active_power": "Активна потужність",
-            "apparent_power": "Повна потужність???",
+            "apparent_power": "Видима потужність",
             "reactive_power": "Реактивна потужність",
+            "power_factor": "Коефіцієнт перетворення",
             "import_active_energy": "Вхідна активна енергія",
             "export_active_energy": "Вихідна активна енергія",
             "total_reactive_energy": "Загальна реактивна енергія",
@@ -295,6 +296,13 @@ class DeviceDetailsSDM120Widget(QWidget):
         for row, report in enumerate(report_data):
             for col, column in enumerate(columns):
                 value = getattr(report, column)
+                if column == "timestamp" and value is not None:
+                    # Перетворюємо timestamp на строку без мілісекунд
+                    if isinstance(value, datetime):
+                        value = value.strftime("%Y-%m-%d %H:%M:%S")
+                    else:
+                        # Якщо timestamp представлений як строка, парсимо і форматуюємо
+                        value = datetime.fromisoformat(value).strftime("%Y-%m-%d %H:%M:%S")
                 model.setItem(row, col, QStandardItem(str(value) if value is not None else ""))
 
         return model
