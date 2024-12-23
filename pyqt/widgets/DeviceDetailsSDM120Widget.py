@@ -252,7 +252,6 @@ class DeviceDetailsSDM120Widget(QWidget):
     def create_table_model(self, report_data, device):
         column_labels = {
             "timestamp": "Час",
-            "total_active_energy": "Спожито",
             "voltage": "Напруга",
             "current": "Струм",
             "active_power": "Активна потужність",
@@ -261,6 +260,7 @@ class DeviceDetailsSDM120Widget(QWidget):
             "power_factor": "Коефіцієнт перетворення",
             "import_active_energy": "Вхідна активна енергія",
             "export_active_energy": "Вихідна активна енергія",
+            "total_active_energy": "Загальна активна енергія",
             "total_reactive_energy": "Загальна реактивна енергія",
             "frequency": "Частота",
         }
