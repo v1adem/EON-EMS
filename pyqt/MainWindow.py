@@ -5,8 +5,7 @@ from PyQt5.QtWidgets import QMainWindow, QWidget, QVBoxLayout, \
 from models.Admin import Admin
 from models.Project import Project
 from pyqt.dialogs.LanguageDialog import LanguageDialog
-from pyqt.widgets.DeviceDetailsSDM120Widget import DeviceDetailsSDM120Widget
-from pyqt.widgets.DeviceDetailsSDM630Widget import DeviceDetailsSDM630Widget
+from pyqt.widgets.DeviceDetailsWidget import DeviceDetailsWidget
 from pyqt.widgets.ProjectViewWidget import ProjectViewWidget
 from pyqt.widgets.ProjectsWidget import ProjectsWidget
 from pyqt.widgets.RegistrationLoginForm import RegistrationLoginForm
@@ -88,14 +87,9 @@ class MainWindow(QMainWindow):
         self.stacked_widget.setCurrentIndex(2)
 
     def open_device_details(self, device):
-        if device.model == "SDM120":
-            device_details_widget = DeviceDetailsSDM120Widget(self, device)
-            self.stacked_widget.addWidget(device_details_widget)
-            self.stacked_widget.setCurrentIndex(3)
-        elif device.model == "SDM630":
-            device_details_widget = DeviceDetailsSDM630Widget(self, device)
-            self.stacked_widget.addWidget(device_details_widget)
-            self.stacked_widget.setCurrentIndex(3)
+        device_details_widget = DeviceDetailsWidget(self, device)
+        self.stacked_widget.addWidget(device_details_widget)
+        self.stacked_widget.setCurrentIndex(3)
 
 
     def go_back(self):
