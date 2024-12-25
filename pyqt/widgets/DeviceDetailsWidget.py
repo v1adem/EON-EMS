@@ -11,6 +11,7 @@ from pyqtgraph import AxisItem
 from sqlalchemy import desc
 
 from config import resource_path
+from models import Report
 from models.Report import SDM630Report, SDM630ReportTmp, SDM120Report, SDM120ReportTmp
 from pyqt.widgets.DeviceDetailsSDM120Widget import DateAxisItem
 from register_maps.RegisterMaps import RegisterMap
@@ -114,6 +115,7 @@ class DeviceDetailsWidget(QWidget):
         export_button = QPushButton("Експорт в Excel")
         export_button.setStyleSheet("font-size: 16px;")
         export_button.setFixedHeight(36)
+        export_button.clicked.connect(self.open_export_dialog)
         button_layout.addWidget(export_button)
 
         layout.addLayout(button_layout)
@@ -284,7 +286,6 @@ class DeviceDetailsWidget(QWidget):
         return model
 
     def update_all_tabs_graphs(self):
-        """Оновлює графіки та індикатори для всіх вкладок."""
         for phase_name, phase_data in self.phase_data.items():
             self.update_graphs(phase_data)
             self.update_indicators()
@@ -540,6 +541,20 @@ class DeviceDetailsWidget(QWidget):
                 "frequency_1": "Частота\n",
                 "total_kWh": "Загально спожито"
             }
+            self.column_labels_for_excel = {
+                "line_voltage_1": "Напруга Volts",
+                "current_1": "Струм Amps",
+                "active_power_1": "Активна потужність Watts",
+                "power_1": "Повна потужність VA",
+                "reactive_power_1": "Реактивна потужність VAr",
+                "power_factor_1": "Коефіцієнт перетворення",
+                "import_active_energy_1": "Імпортована активна енергія kWh",
+                "export_active_energy_1": "Експортована активна енергія kWh",
+                "total_active_energy": "Загальна активна енергія kWh",
+                "total_reactive_energy": "Загальна реактивна енергія kWh",
+                "frequency_1": "Частота Hz",
+                "total_kWh": "Загально спожито kWh"
+            }
         elif self.device_model == "SDM630":
             self.column_labels = {
                 "timestamp": "Час",
@@ -549,9 +564,9 @@ class DeviceDetailsWidget(QWidget):
                 "current_1": "Струм\n(Фаза 1)\n",
                 "current_2": "Струм\n(Фаза 2)\n",
                 "current_3": "Струм\n(Фаза 3)\n",
-                "power_1": "Активна потужність\n(Фаза 1)\n",
-                "power_2": "Активна потужність\n(Фаза 2)\n",
-                "power_3": "Активна потужність\n(Фаза 3)\n",
+                "power_1": "Потужність\n(Фаза 1)\n",
+                "power_2": "Потужність\n(Фаза 2)\n",
+                "power_3": "Потужність\n(Фаза 3)\n",
                 "power_factor_1": "Коефіцієнт\nпотужності\n(Фаза 1)",
                 "power_factor_2": "Коефіцієнт\nпотужності\n(Фаза 2)",
                 "power_factor_3": "Коефіцієнт\nпотужності\n(Фаза 3)",
@@ -602,5 +617,212 @@ class DeviceDetailsWidget(QWidget):
                 # "total_kVArh_2": "Загальна реактивна енергія (кВАр·год) (Фаза 2)",
                 # "total_kVArh_3": "Загальна реактивна енергія (кВАр·год) (Фаза 3)",
             }
+            self.column_labels_for_excel = {
+                "line_voltage_1": "Лінійна напруга (Фаза 1) Volts",
+                "line_voltage_2": "Лінійна напруга (Фаза 2) Volts",
+                "line_voltage_3": "Лінійна напруга (Фаза 3) Volts",
+                "current_1": "Струм (Фаза 1) Amps",
+                "current_2": "Струм (Фаза 2) Amps",
+                "current_3": "Струм (Фаза 3) Amps",
+                "power_1": "Потужність (Фаза 1) Watts",
+                "power_2": "Потужність (Фаза 2) Watts",
+                "power_3": "Потужність (Фаза 3) Watts",
+                "power_factor_1": "Коефіцієнт потужності (Фаза 1)",
+                "power_factor_2": "Коефіцієнт потужності (Фаза 2)",
+                "power_factor_3": "Коефіцієнт потужності (Фаза 3)",
+                "total_system_power": "Загальна потужність системи Watts",
+                "total_system_VA": "Загальна потужність VA",
+                "total_system_VAr": "Загальна реактивна потужність VAr",
+                "total_system_power_factor": "Коефіцієнт потужності системи",
+                "total_import_kwh": "Загальне споживання (імпорт) kWh",
+                "total_export_kwh": "Загальне споживання (експорт) kWh",
+                "total_import_kVAh": "Загальне споживання (імпорт) kWh",
+                "total_export_kVAh": "Загальне споживання (експорт) kWh",
+                "total_kVAh": "Загальна енергія kVAh",
+                "_1_to_2_voltage": "Напруга між Фазою 1 і Фазою 2 Volts",
+                "_2_to_3_voltage": "Напруга між Фазою 2 і Фазою 3 Volts",
+                "_3_to_1_voltage": "Напруга між Фазою 3 і Фазою 1 Volts",
+                "neutral_current": "Струм нейтралі Amps",
+                "line_voltage_THD_1": "THD лінійної напруги (Фаза 1) %",
+                "line_voltage_THD_2": "THD лінійної напруги (Фаза 2) %",
+                "line_voltage_THD_3": "THD лінійної напруги (Фаза 3) %",
+                "line_current_THD_1": "THD лінійного струму (Фаза 1) %",
+                "line_current_THD_2": "THD лінійного струму (Фаза 2) %",
+                "line_current_THD_3": "THD лінійного струму (Фаза 3) %",
+                "current_demand_1": "Струмове навантаження (Фаза 1) Amps",
+                "current_demand_2": "Струмове навантаження (Фаза 2) Amps",
+                "current_demand_3": "Струмове навантаження (Фаза 3) Amps",
+                "phase_voltage_THD_1": "THD фазної напруги (Фаза 1) %",
+                "phase_voltage_THD_2": "THD фазної напруги (Фаза 2) %",
+                "phase_voltage_THD_3": "THD фазної напруги (Фаза 3) %",
+                "average_line_to_line_voltage_THD": "Середній THD лінійної напруги",
+                "total_kWh": "Загальна енергія kWh",
+                "total_kVArh": "Загальна реактивна енергія kVArh",
+                "import_kWh_1": "Імпортована енергія (Фаза 1) kWh",
+                "import_kWh_2": "Імпортована енергія (Фаза 2) kWh",
+                "import_kWh_3": "Імпортована енергія (Фаза 3) kWh",
+                "export_kWh_1": "Експортована енергія (Фаза 1) kWh",
+                "export_kWh_2": "Експортована енергія (Фаза 2) kWh",
+                "export_kWh_3": "Експортована енергія (Фаза 3) kWh",
+                "total_kWh_1": "Загальна енергія (Фаза 1) kWh",
+                "total_kWh_2": "Загальна енергія (Фаза 2) kWh",
+                "total_kWh_3": "Загальна енергія (Фаза 3) kWh",
+                "import_kVArh_1": "Імпортована реактивна енергія (кВАр·год) (Фаза 1)",
+                "import_kVArh_2": "Імпортована реактивна енергія (кВАр·год) (Фаза 2)",
+                "import_kVArh_3": "Імпортована реактивна енергія (кВАр·год) (Фаза 3)",
+                "export_kVArh_1": "Експортована реактивна енергія (кВАр·год) (Фаза 1)",
+                "export_kVArh_2": "Експортована реактивна енергія (кВАр·год) (Фаза 2)",
+                "export_kVArh_3": "Експортована реактивна енергія (кВАр·год) (Фаза 3)",
+                "total_kVArh_1": "Загальна реактивна енергія (кВАр·год) (Фаза 1)",
+                "total_kVArh_2": "Загальна реактивна енергія (кВАр·год) (Фаза 2)",
+                "total_kVArh_3": "Загальна реактивна енергія (кВАр·год) (Фаза 3)",
+            }
         else:
             self.column_labels = {}
+
+    def open_export_dialog(self):
+        self.dialog = QDialog(self)
+        self.dialog.setWindowTitle("Експорт в Excel")
+        self.dialog.setFixedSize(400, 150)
+
+        layout = QVBoxLayout(self.dialog)
+
+        date_range_layout = QHBoxLayout()
+        start_label = QLabel("Початок:")
+        self.start_export_date = QDateEdit(QDate.currentDate().addYears(-1))
+        self.start_export_date.setCalendarPopup(True)
+        end_label = QLabel("Кінець:")
+        self.end_export_date = QDateEdit(QDate.currentDate())
+        self.end_export_date.setCalendarPopup(True)
+        date_range_layout.addWidget(start_label)
+        date_range_layout.addWidget(self.start_export_date)
+        date_range_layout.addWidget(end_label)
+        date_range_layout.addWidget(self.end_export_date)
+
+        layout.addLayout(date_range_layout)
+
+        self.include_charts = QCheckBox("Додати графіки")
+        self.include_charts.setChecked(True)
+        if self.device_model == "SDM120":
+            layout.addWidget(self.include_charts)
+
+        save_button = QPushButton("Зберегти в Excel")
+        save_button.clicked.connect(self.export_to_excel)
+        layout.addWidget(save_button)
+
+        self.dialog.setLayout(layout)
+        self.dialog.exec()
+
+    def export_to_excel(self):
+        start_datetime = self.start_export_date.dateTime().toPyDateTime()
+        end_datetime_for_name = self.end_export_date.dateTime().toPyDateTime()
+        end_datetime = self.end_export_date.dateTime().addDays(1).toPyDateTime()
+
+        report_data = None
+        if self.device_model == "SDM120":
+            report_data = self.db_session.query(SDM120Report).filter(
+                SDM120Report.device_id == self.device.id,
+                SDM120Report.timestamp >= start_datetime,
+                SDM120Report.timestamp <= end_datetime
+            ).order_by(SDM120Report.timestamp).all()
+        elif self.device_model == "SDM630":
+            report_data = self.db_session.query(SDM630Report).filter(
+                SDM630Report.device_id == self.device.id,
+                SDM630Report.timestamp >= start_datetime,
+                SDM630Report.timestamp <= end_datetime
+            ).order_by(SDM630Report.timestamp).all()
+
+        if not report_data:
+            QMessageBox.warning(self, "Експорт", "Дані за вибраний період відсутні.")
+            return
+
+        file_path, _ = QFileDialog.getSaveFileName(
+            self,
+            "Зберегти файл",
+            f"{self.device.name}_{start_datetime.date()}_{end_datetime_for_name.date()}.xlsx",
+            "Excel Files (*.xlsx)")
+
+        if not file_path:
+            return
+
+        try:
+            workbook = xlsxwriter.Workbook(file_path)
+
+            # Визначення фаз та загальних колонок
+            phases = {1: [], 2: [], 3: [], 'general': []}
+            for column in self.column_labels_for_excel.keys():
+                if column == "timestamp":
+                    continue
+                if "_1" in column:
+                    phases[1].append(column)
+                elif "_2" in column:
+                    phases[2].append(column)
+                elif "_3" in column:
+                    phases[3].append(column)
+                else:
+                    phases['general'].append(column)
+
+            # Функція для запису даних у лист
+            def write_sheet(worksheet, data, columns):
+                worksheet.write(0, 0, self.column_labels["timestamp"])
+                for col_idx, column in enumerate(columns, start=1):
+                    worksheet.write(0, col_idx, self.column_labels_for_excel.get(column, column))
+
+                for row_idx, entry in enumerate(data, start=1):
+                    worksheet.write(row_idx, 0, entry.timestamp.strftime('%Y-%m-%d %H:%M:%S'))
+                    for col_idx, column in enumerate(columns, start=1):
+                        value = getattr(entry, column, None)
+                        worksheet.write(row_idx, col_idx, value)
+
+                worksheet.set_column(0, len(columns), 20)
+
+            # Створення листів для кожної фази
+            for phase, columns in phases.items():
+                if phase == 'general':
+                    sheet_name = "Загальне"
+                else:
+                    sheet_name = f"Фаза {phase}"
+
+                phase_data = [entry for entry in report_data if any(hasattr(entry, col) for col in columns)]
+                if not phase_data:
+                    continue
+
+                worksheet = workbook.add_worksheet(sheet_name)
+                write_sheet(worksheet, phase_data, columns)
+
+            if self.include_charts:
+                parameters = {'line_voltage_1': 'Напруга', 'current_1': 'Струм', 'power_1': 'Потужність'}
+                for param in parameters.keys():
+                    worksheet_param = workbook.add_worksheet(param)
+
+                    worksheet_param.write('A1', 'Дата/Час')
+                    worksheet_param.write('B1', param)
+
+                    row = 1
+                    for entry in report_data:
+                        worksheet_param.write(row, 0, entry.timestamp.strftime('%Y-%m-%d %H:%M:%S'))
+                        worksheet_param.write(row, 1, getattr(entry, param.lower()))
+                        row += 1
+
+                    worksheet_param.add_table(f'A1:B{row}', {'name': f'{param}_data',
+                                                             'columns': [{'header': 'Дата/Час'},
+                                                                         {'header': parameters[param]}], })
+
+                    chart = workbook.add_chart({'type': 'line'})
+                    chart.add_series({'values': f'={param}!$B$2:$B${row}', 'name': parameters[param],
+                                      'categories': f'={param}!$A$2:$A${row - 1}'})
+                    chart.set_title({'name': parameters[param]})
+
+                    chart.set_x_axis({'date_axis': True, 'num_format': 'yyyy-mm-dd hh:mm:ss'})
+
+                    worksheet_param.insert_chart('D2', chart)
+
+                    for col in range(4):
+                        worksheet.set_column(col, col, 20)
+
+            workbook.close()
+            QMessageBox.information(self, "Експорт", "Експорт даних в Excel пройшов успішно.")
+            self.dialog.accept()
+
+        except Exception as e:
+            QMessageBox.warning(self, "Помилка", f"Сталася помилка при експорті даних: {e}")

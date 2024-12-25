@@ -204,19 +204,19 @@ class RegisterMap:
             "register": 258,
             "type": "input",
             "format": "float",
-            "units": "%"
+            "units": "Amps"
         },
         "current_demand_2": {
             "register": 260,
             "type": "input",
             "format": "float",
-            "units": "%"
+            "units": "Amps"
         },
         "current_demand_3": {
             "register": 262,
             "type": "input",
             "format": "float",
-            "units": "%"
+            "units": "Amps"
         },
         "phase_voltage_THD_1": {
             "register": 334,
