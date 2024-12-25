@@ -5,15 +5,13 @@ import xlsxwriter
 from PyQt5.QtCore import Qt, QSortFilterProxyModel, QTime, QTimer, QDate
 from PyQt5.QtGui import QIcon, QStandardItemModel, QStandardItem, QFont
 from PyQt5.QtWidgets import QMessageBox, QFileDialog, QTabWidget
-from PyQt5.QtWidgets import QVBoxLayout, QPushButton, QLabel, QWidget, QSplitter, QTableView, QCalendarWidget, \
+from PyQt5.QtWidgets import QVBoxLayout, QPushButton, QLabel, QWidget, QSplitter, QTableView, \
     QHBoxLayout, QDialog, QLCDNumber, QCheckBox, QDateEdit, QGridLayout
-from pyqtgraph import AxisItem
 from sqlalchemy import desc
 
 from config import resource_path
-from models import Report
 from models.Report import SDM630Report, SDM630ReportTmp, SDM120Report, SDM120ReportTmp
-from pyqt.widgets.DeviceDetailsSDM120Widget import DateAxisItem
+from pyqt.widgets.DateAxisItem import DateAxisItem
 from register_maps.RegisterMaps import RegisterMap
 
 
