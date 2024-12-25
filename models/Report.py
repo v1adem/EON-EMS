@@ -1,6 +1,7 @@
 from datetime import datetime
 
 from sqlalchemy import Column, Integer, Float, DateTime, ForeignKey
+from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from tzlocal import get_localzone
@@ -17,21 +18,25 @@ class SDM120Report(Base):
 
     device = relationship("Device")
 
-    voltage = Column(Float, nullable=True)
-    current = Column(Float, nullable=True)
-    active_power = Column(Float, nullable=True)
-    apparent_power = Column(Float, nullable=True)
-    reactive_power = Column(Float, nullable=True)
-    power_factor = Column(Float, nullable=True)
-    frequency = Column(Float, nullable=True)
-    import_active_energy = Column(Float, nullable=True)
-    export_active_energy = Column(Float, nullable=True)
+    line_voltage_1 = Column(Float, nullable=True)
+    current_1 = Column(Float, nullable=True)
+    active_power_1 = Column(Float, nullable=True)
+    power_1 = Column(Float, nullable=True)
+    reactive_power_1 = Column(Float, nullable=True)
+    power_factor_1 = Column(Float, nullable=True)
+    frequency_1 = Column(Float, nullable=True)
+    import_active_energy_1 = Column(Float, nullable=True)
+    export_active_energy_1 = Column(Float, nullable=True)
     total_active_energy = Column(Float, nullable=True)
     total_reactive_energy = Column(Float, nullable=True)
 
+    @hybrid_property
+    def total_kWh(self):
+        return self.total_active_energy + self.total_reactive_energy if self.total_active_energy is not None and self.total_reactive_energy is not None else None
+
     def __repr__(self):
         return (f"<SDM120Report(id={self.id}, device_id={self.device_id}, timestamp={self.timestamp}, "
-                f"voltage={self.voltage}, current={self.current}, active_power={self.active_power})>")
+                f"voltage={self.line_voltage_1}, current={self.current_1}, power={self.power_1})>")
 
 
 class SDM120ReportTmp(Base):
@@ -39,10 +44,12 @@ class SDM120ReportTmp(Base):
 
     device_id = Column(Integer, ForeignKey('devices.id'), nullable=False)
     timestamp = Column(DateTime, nullable=False, default=lambda: datetime.now(get_localzone()), primary_key=True)
-    voltage = Column(Float, nullable=True)
-    current = Column(Float, nullable=True)
-    active_power = Column(Float, nullable=True)
+    voltage_1 = Column(Float, nullable=True)
+    current_1 = Column(Float, nullable=True)
+    power_1 = Column(Float, nullable=True)
     total_active_energy = Column(Float, nullable=True)
+    total_reactive_energy = Column(Float, nullable=True)
+    total_kWh = Column(Float, nullable=True)
 
     device = relationship("Device")
 

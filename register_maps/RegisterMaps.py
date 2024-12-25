@@ -1,15 +1,16 @@
 class RegisterMap:
     SDM120 = {
-        "voltage": {"register": 0, "type": "input", "format": "float", "units": "Volts"},
-        "current": {"register": 6, "type": "input", "format": "float", "units": "Amps"},
-        "active_power": {"register": 12, "type": "input", "format": "float", "units": "Watts"},
-        "apparent_power": {"register": 18, "type": "input", "format": "float", "units": "VA"},
-        "reactive_power": {"register": 24, "type": "input", "format": "float", "units": "VAr"},
-        "power_factor": {"register": 30, "type": "input", "format": "float", "units": ""},
-        "frequency": {"register": 70, "type": "input", "format": "float", "units": "Hz"},
-        "import_active_energy": {"register": 72, "type": "input", "format": "float", "units": "kWh"},
-        "export_active_energy": {"register": 74, "type": "input", "format": "float", "units": "kWh"},
+        "voltage_1": {"register": 0, "type": "input", "format": "float", "units": "Volts"},
+        "current_1": {"register": 6, "type": "input", "format": "float", "units": "Amps"},
+        "active_power_1": {"register": 12, "type": "input", "format": "float", "units": "Watts"},
+        "power_1": {"register": 18, "type": "input", "format": "float", "units": "VA"},
+        "reactive_power_1": {"register": 24, "type": "input", "format": "float", "units": "VAr"},
+        "power_factor_1": {"register": 30, "type": "input", "format": "float", "units": ""},
+        "frequency_1": {"register": 70, "type": "input", "format": "float", "units": "Hz"},
+        "import_active_energy_1": {"register": 72, "type": "input", "format": "float", "units": "kWh"},
+        "export_active_energy_1": {"register": 74, "type": "input", "format": "float", "units": "kWh"},
         "total_active_energy": {"register": 342, "type": "input", "format": "float", "units": "kWh"},
+        "total_reactive_energy": {"register": 344, "type": "input", "format": "float", "units": "kWh"},
     }
 
     SDM630 = {

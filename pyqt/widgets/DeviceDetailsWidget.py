@@ -52,13 +52,13 @@ class DeviceDetailsWidget(QWidget):
         main_splitter.addWidget(self.tabs)
 
         self.phase_data = {}
+        self.phases = []
         if self.device_model == "SDM120":
-            phases = ["Фаза 1"]
+            self.phases = ["Фаза 1"]
         elif self.device_model == "SDM630":
-            phases = ["Фаза 1", "Фаза 2", "Фаза 3", "Загальне"]
-        else:
-            phases = []
-        for phase_name in phases:
+            self.phases = ["Фаза 1", "Фаза 2", "Фаза 3", "Загальне"]
+
+        for phase_name in self.phases:
             self.create_phase_tab(phase_name)
 
         self.load_report_data()
@@ -167,6 +167,12 @@ class DeviceDetailsWidget(QWidget):
         current_lcd.setStyleSheet("font-size: 18pt;")
         current_lcd.setSegmentStyle(QLCDNumber.Flat)
 
+        power_label = QLabel("Потужність (W)")
+        power_label.setStyleSheet("font-size: 14pt; font-weight: bold;")
+        power_lcd = QLCDNumber()
+        power_lcd.setStyleSheet("font-size: 18pt;")
+        power_lcd.setSegmentStyle(QLCDNumber.Flat)
+
         energy_label = QLabel("Спожито (kWh)")
         energy_label.setStyleSheet("font-size: 14pt; font-weight: bold;")
         energy_lcd = QLCDNumber()
@@ -177,8 +183,10 @@ class DeviceDetailsWidget(QWidget):
         indicators_layout.addWidget(voltage_lcd, 1, 0)
         indicators_layout.addWidget(current_label, 0, 1)
         indicators_layout.addWidget(current_lcd, 1, 1)
-        indicators_layout.addWidget(energy_label, 2, 0)
-        indicators_layout.addWidget(energy_lcd, 3, 0)
+        indicators_layout.addWidget(power_label, 2, 0)
+        indicators_layout.addWidget(power_lcd, 3, 0)
+        indicators_layout.addWidget(energy_label, 2, 1)
+        indicators_layout.addWidget(energy_lcd, 3, 1)
 
         layout.addLayout(indicators_layout)
         layout.addLayout(bottom_left_layout)
@@ -191,6 +199,7 @@ class DeviceDetailsWidget(QWidget):
             "auto_update_checkbox": auto_update_checkbox,
             "voltage_lcd": voltage_lcd,
             "current_lcd": current_lcd,
+            "power_lcd": power_lcd,
             "energy_lcd": energy_lcd,
             "clock_label": clock_label,
         }
@@ -203,8 +212,8 @@ class DeviceDetailsWidget(QWidget):
 
         if self.device_model == "SDM120":
             report_data = self.db_session.query(SDM120Report).filter_by(device_id=self.device.id).filter(
-            SDM630Report.timestamp >= start_date, SDM120Report.timestamp <= end_date
-            ).order_by(desc(SDM630Report.timestamp)).all()
+            SDM120Report.timestamp >= start_date, SDM120Report.timestamp <= end_date
+            ).order_by(desc(SDM120Report.timestamp)).all()
         elif self.device_model == "SDM630":
             report_data = self.db_session.query(SDM630Report).filter_by(device_id=self.device.id).filter(
             SDM630Report.timestamp >= start_date, SDM630Report.timestamp <= end_date
@@ -230,17 +239,18 @@ class DeviceDetailsWidget(QWidget):
         if self.device_model == "SDM120":
             column_labels = {
                 "timestamp": "Час",
-                "voltage": "Напруга\n",
-                "current": "Струм\n",
-                "active_power": "Активна\nпотужність\n",
-                "apparent_power": "Видима\nпотужність\n",
-                "reactive_power": "Реактивна\nпотужність\n",
-                "power_factor": "Коефіцієнт\nперетворення\n",
-                "import_active_energy": "Імпортована\nактивна енергія\n",
-                "export_active_energy": "Експортована\nактивна енергія\n",
+                "line_voltage_1": "Напруга\n",
+                "current_1": "Струм\n",
+                "active_power_1": "Активна\nпотужність\n",
+                "power_1": "Повна\nпотужність\n",
+                "reactive_power_1": "Реактивна\nпотужність\n",
+                "power_factor_1": "Коефіцієнт\nперетворення\n",
+                "import_active_energy_1": "Імпортована\nактивна енергія\n",
+                "export_active_energy_1": "Експортована\nактивна енергія\n",
                 "total_active_energy": "Загальна\nактивна енергія\n",
                 "total_reactive_energy": "Загальна\nреактивна енергія\n",
-                "frequency": "Частота\n",
+                "frequency_1": "Частота\n",
+                "total_kWh": "Загально спожито"
             }
         elif self.device_model == "SDM630":
             column_labels = {
