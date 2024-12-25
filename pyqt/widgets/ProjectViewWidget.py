@@ -20,6 +20,7 @@ class ProjectViewWidget(QWidget):
         layout = QVBoxLayout(self)
 
         self.label = QLabel(f"Деталі проєкту: {project.name}")
+        self.label.setStyleSheet("font-size: 18px;")
         layout.addWidget(self.label)
 
         self.devices_list = QListView(self)
