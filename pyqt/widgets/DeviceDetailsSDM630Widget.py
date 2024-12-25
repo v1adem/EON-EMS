@@ -29,47 +29,46 @@ class DeviceDetailsSDM630Widget(QWidget):
         main_splitter.setChildrenCollapsible(False)
         layout.addWidget(main_splitter)
 
+        # Ліва частина - таблиця
         left_widget = QWidget()
         left_layout = QVBoxLayout(left_widget)
 
-        table_widget = QWidget()
-        table_layout = QVBoxLayout(table_widget)
         self.label = QLabel(f"Ім'я пристрою: {device.name} | Модель пристрою: {device.manufacturer} {device.model}")
         self.label.setStyleSheet("font-size: 16px;")
-        table_layout.addWidget(self.label)
+        left_layout.addWidget(self.label)
 
-        button_layout = QHBoxLayout()
+        filter_widget = QWidget()
+        filter_layout = QHBoxLayout(filter_widget)
 
-        filter_layout = QHBoxLayout()
+        vid_label = QLabel("Від:")
+        vid_label.setStyleSheet("font-size: 16px;")
+        filter_layout.addWidget(vid_label)
 
         self.start_date_edit = QDateEdit(self)
-        self.start_date_edit.setStyleSheet("font-size: 16px;")
         self.start_date_edit.setCalendarPopup(True)
         self.start_date_edit.setDate(QDate.currentDate().addYears(-1))
-        vid = QLabel("Від:")
-        vid.setStyleSheet("font-size: 16px;")
-        filter_layout.addWidget(vid)
+        self.start_date_edit.setStyleSheet("font-size: 16px;")
         filter_layout.addWidget(self.start_date_edit)
 
+        do_label = QLabel("До:")
+        do_label.setStyleSheet("font-size: 16px;")
+        filter_layout.addWidget(do_label)
+
         self.end_date_edit = QDateEdit(self)
-        self.end_date_edit.setStyleSheet("font-size: 16px;")
         self.end_date_edit.setCalendarPopup(True)
         self.end_date_edit.setDate(QDate.currentDate())
-        do = QLabel("До:")
-        do.setStyleSheet("font-size: 16px;")
-        filter_layout.addWidget(do)
+        self.end_date_edit.setStyleSheet("font-size: 16px;")
         filter_layout.addWidget(self.end_date_edit)
-
-        self.start_date = None
-        self.end_date = None
 
         filter_button = QPushButton("Застосувати фільтр")
         filter_button.setStyleSheet("font-size: 16px;")
         filter_button.clicked.connect(self.apply_date_filter)
         filter_layout.addWidget(filter_button)
 
-        table_layout.addLayout(filter_layout)
+        left_layout.addWidget(filter_widget)
 
+        # Кнопки для таблиці
+        button_layout = QHBoxLayout()
         refresh_button = QPushButton()
         refresh_button.setIcon(QIcon(resource_path("pyqt/icons/refresh.png")))
         refresh_button.setFixedSize(36, 36)
@@ -79,133 +78,142 @@ class DeviceDetailsSDM630Widget(QWidget):
         export_button = QPushButton("Експорт в Excel")
         export_button.setStyleSheet("font-size: 16px;")
         export_button.setFixedHeight(36)
-        # export_button.clicked.connect(self.open_export_dialog)
         button_layout.addWidget(export_button)
 
-        table_layout.addLayout(button_layout)
+        left_layout.addLayout(button_layout)
 
         self.report_table = QTableView(self)
-        table_layout.addWidget(self.report_table)
-        left_layout.addWidget(table_widget)
+        left_layout.addWidget(self.report_table)
+
         main_splitter.addWidget(left_widget)
 
-        right_splitter = QSplitter(Qt.Vertical)
-        right_splitter.setChildrenCollapsible(False)
-        main_splitter.addWidget(right_splitter)
-
-        # Додання вкладок для 3-х фаз
+        # Права частина - вкладки
         self.tabs = QTabWidget()
         self.tabs.setStyleSheet("font-size: 16px;")
+        main_splitter.addWidget(self.tabs)
 
-        # Створення вкладок для кожної фази
-        self.phase1_tab = QWidget()
-        self.phase2_tab = QWidget()
-        self.phase3_tab = QWidget()
+        # Зберігаємо елементи для кожної вкладки
+        self.phase_data = {}
+        phases = ["Фаза 1", "Фаза 2", "Фаза 3", "Загальне"]
+        for phase_name in phases:
+            self.create_phase_tab(phase_name)
 
-        # Додавання вкладок до табів
-        self.tabs.addTab(self.phase1_tab, "Фаза 1")
-        self.tabs.addTab(self.phase2_tab, "Фаза 2")
-        self.tabs.addTab(self.phase3_tab, "Фаза 3")
+        # Зміна вкладки
+        self.tabs.currentChanged.connect(self.update_active_tab_graphs)
 
-        # Додаємо вкладки до правої частини спліттера
-        right_splitter.addWidget(self.tabs)
-
-        # Налаштування макетів для кожної фази
-        self.phase1_layout = QVBoxLayout(self.phase1_tab)
-        self.phase2_layout = QVBoxLayout(self.phase2_tab)
-        self.phase3_layout = QVBoxLayout(self.phase3_tab)
-
-        # Додати кнопку вибору діапазону на кожну вкладку
-        self.select_range_button = QPushButton("Обрати проміжок")
-        self.select_range_button.setStyleSheet("font-size: 16px;")
-        self.phase1_layout.addWidget(self.select_range_button)
-        self.phase2_layout.addWidget(self.select_range_button)
-        self.phase3_layout.addWidget(self.select_range_button)
-
-        # Створюємо графіки для кожної фази
-        self.voltage_graph_widget = pg.PlotWidget()
-        self.current_graph_widget = pg.PlotWidget()
-        self.energy_graph_widget = pg.PlotWidget()
-
-        self.voltage_graph_widget.setAxisItems({'bottom': DateAxisItem(orientation='bottom')})
-        self.current_graph_widget.setAxisItems({'bottom': DateAxisItem(orientation='bottom')})
-        self.energy_graph_widget.setAxisItems({'bottom': DateAxisItem(orientation='bottom')})
-
-        # Налаштування графіків для кожної фази
-        self.voltage_curve = self.voltage_graph_widget.plot(pen=pg.mkPen(color='b', width=2), name="Напруга")
-        self.current_curve = self.current_graph_widget.plot(pen=pg.mkPen(color='r', width=2), name="Струм")
-
-        # Для графіка напруги
-        self.voltage_graph_widget.setLabel('left', 'Напруга', units='В')
-
-        # Для графіка струму
-        self.current_graph_widget.setLabel('left', 'Струм', units='А')
-
-        # Для графіка споживання
-        self.energy_graph_widget.setLabel('left', 'Споживання', units='кВт·год')
-
-        # Додаємо графіки до вкладки
-        self.phase1_layout.addWidget(self.voltage_graph_widget)
-        self.phase1_layout.addWidget(self.current_graph_widget)
-        self.phase1_layout.addWidget(self.energy_graph_widget)
-
-        # Повторюємо для інших фаз
-        self.phase2_layout.addWidget(self.voltage_graph_widget)
-        self.phase2_layout.addWidget(self.current_graph_widget)
-        self.phase2_layout.addWidget(self.energy_graph_widget)
-
-        self.phase3_layout.addWidget(self.voltage_graph_widget)
-        self.phase3_layout.addWidget(self.current_graph_widget)
-        self.phase3_layout.addWidget(self.energy_graph_widget)
-
-        # Додаємо автооновлення до кожної вкладки
-        self.auto_update_checkbox = QCheckBox("Автооновлення")
-        self.auto_update_checkbox.setChecked(True)  # За замовчуванням увімкнено
-        self.phase1_layout.addWidget(self.auto_update_checkbox)
-        self.phase2_layout.addWidget(self.auto_update_checkbox)
-        self.phase3_layout.addWidget(self.auto_update_checkbox)
-
-        # Налаштування відображення для правої частини
-        # self.set_splitter_fixed_ratios(main_splitter, [1, 1])
-        # self.set_splitter_fixed_ratios(right_splitter, [3, 1])
-
+        # Завантаження початкових даних
         self.load_report_data()
-        self.set_light_theme()
 
-    def set_light_theme(self):
-        self.voltage_graph_widget.setBackground('w')
-        self.current_graph_widget.setBackground('w')
-        self.energy_graph_widget.setBackground('w')
+    def create_phase_tab(self, phase_name):
+        """Створює вкладку для заданої фази."""
+        tab = QWidget()
+        layout = QVBoxLayout(tab)
 
-        self.voltage_graph_widget.plot([], pen=pg.mkPen(color='b', width=2))
-        self.current_graph_widget.plot([], pen=pg.mkPen(color='r', width=2))
-        self.energy_graph_widget.plot([], pen=pg.mkPen(color='g', width=2))
+        # Додати графіки
+        voltage_graph = pg.PlotWidget()
+        current_graph = pg.PlotWidget()
+        energy_graph = pg.PlotWidget()
 
-    def set_splitter_fixed_ratios(self, splitter, ratios):
-        total = sum(ratios)
-        sizes = [int(ratio / total * splitter.size().width()) for ratio in ratios]
-        splitter.setSizes(sizes)
-        splitter.handle(1).setEnabled(False)
+        # Налаштування осей
+        voltage_graph.setAxisItems({'bottom': DateAxisItem(orientation='bottom')})
+        current_graph.setAxisItems({'bottom': DateAxisItem(orientation='bottom')})
+        energy_graph.setAxisItems({'bottom': DateAxisItem(orientation='bottom')})
 
-    def update_ui(self):
-        self.update_clock()
-        self.update_indicators()
-        if self.auto_update_checkbox.isChecked():
-            self.update_graphs(self.start_date, self.end_date)
+        # Налаштування підписів
+        voltage_graph.setLabel('left', 'Напруга', units='В')
+        current_graph.setLabel('left', 'Струм', units='А')
+        energy_graph.setLabel('left', 'Споживання', units='кВт·год')
 
-    def update_indicators(self):
-        last_report = (self.db_session.query(SDM630ReportTmp)
-                       .filter_by(device_id=self.device.id).order_by(desc(SDM630ReportTmp.timestamp)).first())
-        if last_report:
-            self.voltage_lcd.display(getattr(last_report, 'voltage', 0))
-            self.current_lcd.display(getattr(last_report, 'current', 0))
-            self.energy_lcd.display(getattr(last_report, 'total_active_energy', 0))
-            self.power_lcd.display(getattr(last_report, 'active_power', 0))
+        # Додати графіки до вкладки
+        layout.addWidget(voltage_graph)
+        layout.addWidget(current_graph)
+        layout.addWidget(energy_graph)
 
-    def update_clock(self):
-        current_time = QTime.currentTime().toString("HH:mm:ss")  # Час
-        current_time += "\n" + QDate.currentDate().toString("dd.MM.yyyy")  # Дата
-        self.clock_label.setText(f"{current_time}")
+        # Додати чекбокс автооновлення
+        auto_update_checkbox = QCheckBox("Автооновлення")
+        auto_update_checkbox.setChecked(True)
+        layout.addWidget(auto_update_checkbox)
+
+        # Додати годинник
+        clock_label = QLabel("00:00:00")
+        clock_label.setStyleSheet("font-size: 24px; font-weight: bold;")
+        clock_label.setAlignment(Qt.AlignCenter)
+        layout.addWidget(clock_label)
+
+        # Додати індикатори
+        indicators_layout = QGridLayout()
+
+        voltage_label = QLabel("Напруга (V)")
+        voltage_label.setStyleSheet("font-size: 16px;")
+        voltage_lcd = QLCDNumber()
+        voltage_lcd.setSegmentStyle(QLCDNumber.Flat)
+
+        current_label = QLabel("Струм (A)")
+        current_label.setStyleSheet("font-size: 16px;")
+        current_lcd = QLCDNumber()
+        current_lcd.setSegmentStyle(QLCDNumber.Flat)
+
+        power_label = QLabel("Потужність (W)")
+        power_label.setStyleSheet("font-size: 16px;")
+        power_lcd = QLCDNumber()
+        power_lcd.setSegmentStyle(QLCDNumber.Flat)
+
+        energy_label = QLabel("Спожито (kWh)")
+        energy_label.setStyleSheet("font-size: 16px;")
+        energy_lcd = QLCDNumber()
+        energy_lcd.setSegmentStyle(QLCDNumber.Flat)
+
+        # Додати індикатори в сітку
+        indicators_layout.addWidget(voltage_label, 0, 0)
+        indicators_layout.addWidget(voltage_lcd, 1, 0)
+        indicators_layout.addWidget(current_label, 0, 1)
+        indicators_layout.addWidget(current_lcd, 1, 1)
+        indicators_layout.addWidget(power_label, 2, 0)
+        indicators_layout.addWidget(power_lcd, 3, 0)
+        indicators_layout.addWidget(energy_label, 2, 1)
+        indicators_layout.addWidget(energy_lcd, 3, 1)
+
+        layout.addLayout(indicators_layout)
+
+        # Зберігаємо графіки, індикатори, годинник і чекбокс у phase_data
+        self.phase_data[phase_name] = {
+            "tab": tab,
+            "voltage_graph": voltage_graph,
+            "current_graph": current_graph,
+            "energy_graph": energy_graph,
+            "auto_update_checkbox": auto_update_checkbox,
+            "voltage_lcd": voltage_lcd,
+            "current_lcd": current_lcd,
+            "power_lcd": power_lcd,
+            "energy_lcd": energy_lcd,
+            "clock_label": clock_label,
+        }
+
+        self.tabs.addTab(tab, phase_name)
+
+    def update_active_tab_graphs(self, index):
+        """Оновлює графіки та індикатори лише на активній вкладці."""
+        active_tab = self.tabs.tabText(index)
+        if active_tab in self.phase_data:
+            phase_data = self.phase_data[active_tab]
+            self.update_graphs(phase_data)
+            self.update_indicators(phase_data)
+
+    def update_graphs(self, phase_graphs):
+        """Оновлює дані графіків для заданої фази."""
+        voltage_graph = phase_graphs["voltage_graph"]
+        current_graph = phase_graphs["current_graph"]
+        energy_graph = phase_graphs["energy_graph"]
+
+        # Оновити графіки (приклад зі штучними даними)
+        timestamps = [datetime.now().timestamp() - i * 3600 for i in range(10)]
+        voltages = [220 + i for i in range(10)]
+        currents = [5 + i for i in range(10)]
+        energies = [100 + i for i in range(10)]
+
+        voltage_graph.plot(timestamps, voltages, clear=True)
+        current_graph.plot(timestamps, currents, clear=True)
+        energy_graph.plot(timestamps, energies, clear=True)
 
     def create_table_model(self, report_data, device):
         column_labels = {
