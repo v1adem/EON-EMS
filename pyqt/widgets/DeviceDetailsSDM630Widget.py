@@ -197,23 +197,211 @@ class DeviceDetailsSDM630Widget(QWidget):
         if active_tab in self.phase_data:
             phase_data = self.phase_data[active_tab]
             self.update_graphs(phase_data)
-            self.update_indicators(phase_data)
+            self.update_indicators()
 
-    def update_graphs(self, phase_graphs):
-        """Оновлює дані графіків для заданої фази."""
-        voltage_graph = phase_graphs["voltage_graph"]
-        current_graph = phase_graphs["current_graph"]
-        energy_graph = phase_graphs["energy_graph"]
+    def update_voltage_graph(self, timestamps, voltages, phase_name):
+        timestamps_numeric = [ts.timestamp() for ts in timestamps]
 
-        # Оновити графіки (приклад зі штучними даними)
-        timestamps = [datetime.now().timestamp() - i * 3600 for i in range(10)]
-        voltages = [220 + i for i in range(10)]
-        currents = [5 + i for i in range(10)]
-        energies = [100 + i for i in range(10)]
+        plot_attr = f"voltage_plot_item_{phase_name}"
+        graph_widget = self.phase_data[phase_name]["voltage_graph"]
 
-        voltage_graph.plot(timestamps, voltages, clear=True)
-        current_graph.plot(timestamps, currents, clear=True)
-        energy_graph.plot(timestamps, energies, clear=True)
+        if not hasattr(self, plot_attr):
+            setattr(self, plot_attr, graph_widget.plot(
+                timestamps_numeric,
+                voltages,
+                pen=pg.mkPen(color='b', width=2),
+                name=f"Напруга {phase_name}"
+            ))
+        else:
+            getattr(self, plot_attr).setData(timestamps_numeric, voltages)
+
+    def update_current_graph(self, timestamps, currents, phase_name):
+        timestamps_numeric = [ts.timestamp() for ts in timestamps]
+
+        plot_attr = f"current_plot_item_{phase_name}"
+        graph_widget = self.phase_data[phase_name]["current_graph"]
+
+        if not hasattr(self, plot_attr):
+            setattr(self, plot_attr, graph_widget.plot(
+                timestamps_numeric,
+                currents,
+                pen=pg.mkPen(color='r', width=2),
+                name=f"Струм {phase_name}"
+            ))
+        else:
+            getattr(self, plot_attr).setData(timestamps_numeric, currents)
+
+    def update_energy_graph(self, hourly_timestamps, hourly_energy, phase_name):
+        if len(hourly_timestamps) == 0 or len(hourly_energy) == 0:
+            return
+
+        hourly_timestamps_numeric = [ts.timestamp() for ts in hourly_timestamps]
+
+        valid_data = [(ts, energy) for ts, energy in zip(hourly_timestamps_numeric, hourly_energy) if energy > 0]
+
+        if len(valid_data) == 0:
+            return
+
+        bar_attr = f"energy_bar_items_{phase_name}"
+        graph_widget = self.phase_data[phase_name]["energy_graph"]
+
+        if not hasattr(self, bar_attr):
+            setattr(self, bar_attr, [])
+
+        energy_bar_items = getattr(self, bar_attr)
+
+        for i, (ts, energy) in enumerate(valid_data):
+            if i >= len(energy_bar_items):
+                start_time = ts
+                end_time = start_time + 3600
+
+                bar_item = pg.BarGraphItem(
+                    x0=start_time,
+                    x1=end_time,
+                    height=energy,
+                    brush='g'
+                )
+                energy_bar_items.append(bar_item)
+                graph_widget.addItem(bar_item)
+            else:
+                start_time = ts
+                end_time = start_time + 3600
+                energy_bar_items[i].setOpts(x0=start_time, x1=end_time, y0=0, y1=energy)
+
+        while len(energy_bar_items) > len(valid_data):
+            bar_item = energy_bar_items.pop()
+            graph_widget.removeItem(bar_item)
+
+        y_max = max([energy for _, energy in valid_data]) if valid_data else 5
+        graph_widget.setYRange(0, y_max)
+
+        x_min = min([ts for ts, _ in valid_data])
+        x_max = max([ts for ts, _ in valid_data]) + 3600
+        graph_widget.setXRange(x_min, x_max)
+
+    def update_graphs(self, start_date=None, end_date=None):
+        query = self.db_session.query(SDM630ReportTmp).filter_by(device_id=self.device.id)
+        if start_date is not None and end_date is not None:
+            query = query.filter(SDM630ReportTmp.timestamp >= start_date, SDM630ReportTmp.timestamp <= end_date)
+        report_data = query.order_by(desc(SDM630ReportTmp.timestamp)).all()
+
+        if not report_data:
+            self.start_date = None
+            self.end_date = None
+            return
+
+        phase_keys = ["Фаза 1", "Фаза 2", "Фаза 3"]
+
+        for phase_name in phase_keys:
+            timestamps = []
+            voltages = []
+            currents = []
+            energies = []
+
+            for report in report_data:
+                timestamps.append(report.timestamp)
+                voltages.append(getattr(report, f'line_voltage_{phase_keys.index(phase_name) + 1}'))
+                currents.append(getattr(report, f'current_{phase_keys.index(phase_name) + 1}'))
+                energies.append(getattr(report, f'power_{phase_keys.index(phase_name) + 1}'))
+
+            self.update_voltage_graph(timestamps, voltages, phase_name)
+            self.update_current_graph(timestamps, currents, phase_name)
+
+            hourly_energy = []
+            hourly_timestamps = []
+
+            last_energy = None
+            current_hour_start = None
+            current_hour_energy = 0.0
+
+            for report in report_data:
+                current_hour = report.timestamp.replace(minute=0, second=0, microsecond=0)
+
+                if current_hour_start is None:
+                    current_hour_start = current_hour
+
+                if current_hour != current_hour_start:
+                    if last_energy is not None:
+                        hourly_energy.append(current_hour_energy)
+                        hourly_timestamps.append(current_hour_start)
+                    current_hour_start = current_hour
+                    current_hour_energy = 0.0
+
+                energy_value = getattr(report, f'power_{phase_keys.index(phase_name) + 1}')
+
+                if last_energy is not None:
+                    current_hour_energy += abs(energy_value - last_energy)
+
+                last_energy = energy_value
+
+            if last_energy is not None:
+                hourly_energy.append(current_hour_energy)
+                hourly_timestamps.append(current_hour_start)
+
+            self.update_energy_graph(hourly_timestamps, hourly_energy, phase_name)
+
+    def update_indicators(self):
+        """
+        Оновлює значення індикаторів для всіх фаз SDM630.
+        """
+        # Отримання останнього звіту з бази даних
+        last_report = (self.db_session.query(SDM630ReportTmp)
+                       .filter_by(device_id=self.device.id)
+                       .order_by(desc(SDM630ReportTmp.timestamp))
+                       .first())
+        if not last_report:
+            return  # Якщо немає звітів, нічого не оновлюємо
+
+        # Дані для фаз
+        phases = {
+            "Фаза 1": {
+                "voltage": getattr(last_report, 'line_voltage_1', 0),
+                "current": getattr(last_report, 'current_1', 0),
+                "power": getattr(last_report, 'power_1', 0),
+                "energy": getattr(last_report, 'total_kWh', 0),
+            },
+            "Фаза 2": {
+                "voltage": getattr(last_report, 'line_voltage_2', 0),
+                "current": getattr(last_report, 'current_2', 0),
+                "power": getattr(last_report, 'power_2', 0),
+                "energy": getattr(last_report, 'total_kWh', 0),
+            },
+            "Фаза 3": {
+                "voltage": getattr(last_report, 'line_voltage_3', 0),
+                "current": getattr(last_report, 'current_3', 0),
+                "power": getattr(last_report, 'power_3', 0),
+                "energy": getattr(last_report, 'total_kWh', 0),
+            },
+            "Загальне": {
+                "energy": getattr(last_report, 'total_kWh', 0),
+            }
+        }
+
+        # Оновлення індикаторів для кожної фази
+        for phase_name, data in phases.items():
+            if phase_name not in self.phase_data:
+                continue  # Якщо фаза не налаштована, пропускаємо її
+
+            # Отримання індикаторів
+            phase = self.phase_data[phase_name]
+            voltage_lcd = phase["voltage_lcd"]
+            current_lcd = phase["current_lcd"]
+            power_lcd = phase["power_lcd"]
+            energy_lcd = phase["energy_lcd"]
+
+            # Оновлення значень
+            if voltage_lcd and "voltage" in data:
+                voltage_lcd.display(f"{data['voltage']:.2f}")
+            if current_lcd and "current" in data:
+                current_lcd.display(f"{data['current']:.2f}")
+            if power_lcd and "power" in data:
+                power_lcd.display(f"{data['power']:.2f}")
+            if energy_lcd and "energy" in data:
+                energy_lcd.display(f"{data['energy']:.2f}")
+
+            # Автоматичне оновлення графіків, якщо активовано
+            if phase["auto_update_checkbox"].isChecked():
+                self.update_graphs(phase_name)
 
     def create_table_model(self, report_data, device):
         column_labels = {
@@ -231,51 +419,51 @@ class DeviceDetailsSDM630Widget(QWidget):
             "power_factor_2": "Коефіцієнт\nпотужності\n(Фаза 2)",
             "power_factor_3": "Коефіцієнт\nпотужності\n(Фаза 3)",
             "total_system_power": "Загальна\nпотужність\nсистеми",
-            #"total_system_VA": "Загальна потужність",
-            #"total_system_VAr": "Загальна реактивна потужність",
-            #"total_system_power_factor": "Коефіцієнт потужності системи",
-            #"total_import_kwh": "Загальне споживання (імпорт)",
-            #"total_export_kwh": "Загальне споживання (експорт)",
-            #"total_import_kVAh": "Загальне споживання (імпорт)",
-            #"total_export_kVAh": "Загальне споживання (експорт)",
+            # "total_system_VA": "Загальна потужність",
+            # "total_system_VAr": "Загальна реактивна потужність",
+            # "total_system_power_factor": "Коефіцієнт потужності системи",
+            # "total_import_kwh": "Загальне споживання (імпорт)",
+            # "total_export_kwh": "Загальне споживання (експорт)",
+            # "total_import_kVAh": "Загальне споживання (імпорт)",
+            # "total_export_kVAh": "Загальне споживання (експорт)",
             "total_kVAh": "Загальна енергія\n",
             "_1_to_2_voltage": "Напруга між\nФазою 1 і Фазою 2\n",
             "_2_to_3_voltage": "Напруга між\nФазою 2 і Фазою 3\n",
             "_3_to_1_voltage": "Напруга між\nФазою 3 і Фазою 1\n",
             "neutral_current": "Струм нейтралі\n",
-            #"line_voltage_THD_1": "THD лінійної напруги (Фаза 1)",
-            #"line_voltage_THD_2": "THD лінійної напруги (Фаза 2)",
-            #"line_voltage_THD_3": "THD лінійної напруги (Фаза 3)",
-            #"line_current_THD_1": "THD лінійного струму (Фаза 1)",
-            #"line_current_THD_2": "THD лінійного струму (Фаза 2)",
-            #"line_current_THD_3": "THD лінійного струму (Фаза 3)",
-            #"current_demand_1": "Струмове навантаження (Фаза 1)",
-            #"current_demand_2": "Струмове навантаження (Фаза 2)",
-            #"current_demand_3": "Струмове навантаження (Фаза 3)",
-            #"phase_voltage_THD_1": "THD фазної напруги (Фаза 1)",
-            #"phase_voltage_THD_2": "THD фазної напруги (Фаза 2)",
-            #"phase_voltage_THD_3": "THD фазної напруги (Фаза 3)",
-            #"average_line_to_line_voltage_THD": "Середній THD лінійної напруги",
+            # "line_voltage_THD_1": "THD лінійної напруги (Фаза 1)",
+            # "line_voltage_THD_2": "THD лінійної напруги (Фаза 2)",
+            # "line_voltage_THD_3": "THD лінійної напруги (Фаза 3)",
+            # "line_current_THD_1": "THD лінійного струму (Фаза 1)",
+            # "line_current_THD_2": "THD лінійного струму (Фаза 2)",
+            # "line_current_THD_3": "THD лінійного струму (Фаза 3)",
+            # "current_demand_1": "Струмове навантаження (Фаза 1)",
+            # "current_demand_2": "Струмове навантаження (Фаза 2)",
+            # "current_demand_3": "Струмове навантаження (Фаза 3)",
+            # "phase_voltage_THD_1": "THD фазної напруги (Фаза 1)",
+            # "phase_voltage_THD_2": "THD фазної напруги (Фаза 2)",
+            # "phase_voltage_THD_3": "THD фазної напруги (Фаза 3)",
+            # "average_line_to_line_voltage_THD": "Середній THD лінійної напруги",
             "total_kWh": "Загальна енергія\n",
             "total_kVArh": "Загальна реактивна\nенергія\n",
-            #"import_kWh_1": "Імпортована енергія (Фаза 1)",
-            #"import_kWh_2": "Імпортована енергія (Фаза 2)",
-            #"import_kWh_3": "Імпортована енергія (Фаза 3)",
-            #"export_kWh_1": "Експортована енергія (Фаза 1)",
-            #"export_kWh_2": "Експортована енергія (Фаза 2)",
-            #"export_kWh_3": "Експортована енергія (Фаза 3)",
-            #"total_kWh_1": "Загальна енергія (Фаза 1)",
-            #"total_kWh_2": "Загальна енергія (Фаза 2)",
-            #"total_kWh_3": "Загальна енергія (Фаза 3)",
-            #"import_kVArh_1": "Імпортована реактивна енергія (кВАр·год) (Фаза 1)",
-            #"import_kVArh_2": "Імпортована реактивна енергія (кВАр·год) (Фаза 2)",
-            #"import_kVArh_3": "Імпортована реактивна енергія (кВАр·год) (Фаза 3)",
-            #"export_kVArh_1": "Експортована реактивна енергія (кВАр·год) (Фаза 1)",
-            #"export_kVArh_2": "Експортована реактивна енергія (кВАр·год) (Фаза 2)",
-            #"export_kVArh_3": "Експортована реактивна енергія (кВАр·год) (Фаза 3)",
-            #"total_kVArh_1": "Загальна реактивна енергія (кВАр·год) (Фаза 1)",
-            #"total_kVArh_2": "Загальна реактивна енергія (кВАр·год) (Фаза 2)",
-            #"total_kVArh_3": "Загальна реактивна енергія (кВАр·год) (Фаза 3)",
+            # "import_kWh_1": "Імпортована енергія (Фаза 1)",
+            # "import_kWh_2": "Імпортована енергія (Фаза 2)",
+            # "import_kWh_3": "Імпортована енергія (Фаза 3)",
+            # "export_kWh_1": "Експортована енергія (Фаза 1)",
+            # "export_kWh_2": "Експортована енергія (Фаза 2)",
+            # "export_kWh_3": "Експортована енергія (Фаза 3)",
+            # "total_kWh_1": "Загальна енергія (Фаза 1)",
+            # "total_kWh_2": "Загальна енергія (Фаза 2)",
+            # "total_kWh_3": "Загальна енергія (Фаза 3)",
+            # "import_kVArh_1": "Імпортована реактивна енергія (кВАр·год) (Фаза 1)",
+            # "import_kVArh_2": "Імпортована реактивна енергія (кВАр·год) (Фаза 2)",
+            # "import_kVArh_3": "Імпортована реактивна енергія (кВАр·год) (Фаза 3)",
+            # "export_kVArh_1": "Експортована реактивна енергія (кВАр·год) (Фаза 1)",
+            # "export_kVArh_2": "Експортована реактивна енергія (кВАр·год) (Фаза 2)",
+            # "export_kVArh_3": "Експортована реактивна енергія (кВАр·год) (Фаза 3)",
+            # "total_kVArh_1": "Загальна реактивна енергія (кВАр·год) (Фаза 1)",
+            # "total_kVArh_2": "Загальна реактивна енергія (кВАр·год) (Фаза 2)",
+            # "total_kVArh_3": "Загальна реактивна енергія (кВАр·год) (Фаза 3)",
         }
 
         # Get columns and units from RegisterMap
