@@ -49,9 +49,12 @@ class SDM120ReportTmp(Base):
     power_1 = Column(Float, nullable=True)
     total_active_energy = Column(Float, nullable=True)
     total_reactive_energy = Column(Float, nullable=True)
-    total_kWh = Column(Float, nullable=True)
 
     device = relationship("Device")
+
+    @hybrid_property
+    def total_kWh(self):
+        return self.total_active_energy + self.total_reactive_energy if self.total_active_energy is not None and self.total_reactive_energy is not None else None
 
     def __repr__(self):
         return (f"<SDM120ReportTmp(id={self.id}, device_id={self.device_id}, timestamp={self.timestamp}, "

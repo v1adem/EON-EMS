@@ -441,16 +441,20 @@ class DeviceDetailsWidget(QWidget):
             self.update_energy_graph(hourly_timestamps, hourly_energy, phase_name)
 
     def update_indicators(self):
-        """
-        Оновлює значення індикаторів для всіх фаз SDM630.
-        """
-        # Отримання останнього звіту з бази даних
-        last_report = (self.db_session.query(SDM630ReportTmp)
-                       .filter_by(device_id=self.device.id)
-                       .order_by(desc(SDM630ReportTmp.timestamp))
-                       .first())
+        last_report = None
+        if self.device_model == "SDM120":
+            last_report = (self.db_session.query(SDM120ReportTmp)
+                           .filter_by(device_id=self.device.id)
+                           .order_by(desc(SDM120ReportTmp.timestamp))
+                           .first())
+        elif self.device_model == "SDM630":
+            last_report = (self.db_session.query(SDM630ReportTmp)
+                           .filter_by(device_id=self.device.id)
+                           .order_by(desc(SDM630ReportTmp.timestamp))
+                           .first())
+
         if not last_report:
-            return  # Якщо немає звітів, нічого не оновлюємо
+            return
 
         # Дані для фаз
         phases = {
