@@ -44,7 +44,7 @@ class SDM120ReportTmp(Base):
 
     device_id = Column(Integer, ForeignKey('devices.id'), nullable=False)
     timestamp = Column(DateTime, nullable=False, default=lambda: datetime.now(get_localzone()), primary_key=True)
-    voltage_1 = Column(Float, nullable=True)
+    line_voltage_1 = Column(Float, nullable=True)
     current_1 = Column(Float, nullable=True)
     power_1 = Column(Float, nullable=True)
     total_active_energy = Column(Float, nullable=True)

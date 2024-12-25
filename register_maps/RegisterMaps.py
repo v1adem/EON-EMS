@@ -1,6 +1,6 @@
 class RegisterMap:
     SDM120 = {
-        "voltage_1": {"register": 0, "type": "input", "format": "float", "units": "Volts"},
+        "line_voltage_1": {"register": 0, "type": "input", "format": "float", "units": "Volts"},
         "current_1": {"register": 6, "type": "input", "format": "float", "units": "Amps"},
         "active_power_1": {"register": 12, "type": "input", "format": "float", "units": "Watts"},
         "power_1": {"register": 18, "type": "input", "format": "float", "units": "VA"},
