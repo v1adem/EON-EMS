@@ -11,9 +11,10 @@ from pyqtgraph import AxisItem
 from sqlalchemy import desc
 
 from config import resource_path
-from models.Report import SDM630Report, SDM630ReportTmp, SDM120Report
+from models.Report import SDM630Report, SDM630ReportTmp, SDM120Report, SDM120ReportTmp
 from pyqt.widgets.DeviceDetailsSDM120Widget import DateAxisItem
 from register_maps.RegisterMaps import RegisterMap
+
 
 class DeviceDetailsWidget(QWidget):
     def __init__(self, main_window, device):
@@ -22,6 +23,8 @@ class DeviceDetailsWidget(QWidget):
         self.device_model = self.device.model
         self.db_session = main_window.db_session
         self.main_window = main_window
+
+        self.init_column_labels()
 
         layout = QVBoxLayout(self)
 
@@ -63,10 +66,12 @@ class DeviceDetailsWidget(QWidget):
 
         self.load_report_data()
 
-        #self.timer = QTimer(self)
-        #self.timer.timeout.connect(self.update_all_tabs_graphs)
-        #self.timer.setInterval(1000)
-        #self.timer.start()
+        self.set_light_theme()
+
+        self.timer = QTimer(self)
+        self.timer.timeout.connect(self.update_all_tabs_graphs)
+        self.timer.setInterval(1000)
+        self.timer.start()
 
     def create_filter_buttons(self, layout):
         """Створення фільтрів і кнопок для таблиці."""
@@ -77,7 +82,6 @@ class DeviceDetailsWidget(QWidget):
         vid_label.setStyleSheet("font-size: 16px;")
         filter_layout.addWidget(vid_label)
 
-
         self.start_date_table_filter.setCalendarPopup(True)
         self.start_date_table_filter.setDate(QDate.currentDate().addYears(-1))
         self.start_date_table_filter.setStyleSheet("font-size: 16px;")
@@ -86,7 +90,6 @@ class DeviceDetailsWidget(QWidget):
         do_label = QLabel("До:")
         do_label.setStyleSheet("font-size: 16px;")
         filter_layout.addWidget(do_label)
-
 
         self.end_date_table_filter.setCalendarPopup(True)
         self.end_date_table_filter.setDate(QDate.currentDate())
@@ -119,7 +122,8 @@ class DeviceDetailsWidget(QWidget):
         """Створює вкладку для заданої фази."""
         tab = QWidget()
         layout = QVBoxLayout(tab)
-        bottom_left_layout = QGridLayout()
+        top_layout = QVBoxLayout()
+        bottom_layout = QHBoxLayout()
 
         voltage_graph = pg.PlotWidget()
         current_graph = pg.PlotWidget()
@@ -133,13 +137,17 @@ class DeviceDetailsWidget(QWidget):
         current_graph.setLabel('left', 'Струм', units='А')
         energy_graph.setLabel('left', 'Споживання', units='кВт·год')
 
-        layout.addWidget(voltage_graph)
-        layout.addWidget(current_graph)
-        layout.addWidget(energy_graph)
+        top_layout.addWidget(voltage_graph)
+        top_layout.addWidget(current_graph)
+        top_layout.addWidget(energy_graph)
 
         auto_update_checkbox = QCheckBox("Автооновлення")
         auto_update_checkbox.setChecked(True)
-        layout.addWidget(auto_update_checkbox)
+        top_layout.addWidget(auto_update_checkbox)
+
+        layout.addLayout(top_layout)
+
+        bottom_left_layout = QGridLayout()
 
         clock_title = QLabel("Поточний час")
         clock_title.setStyleSheet("font-size: 16pt; font-weight: bold;")
@@ -147,7 +155,7 @@ class DeviceDetailsWidget(QWidget):
         bottom_left_layout.addWidget(clock_title)
 
         clock_label = QLabel()
-        clock_label.setStyleSheet("font-size: 24pt;")
+        clock_label.setStyleSheet("font-size: 16pt;")
         clock_label.setAlignment(Qt.AlignCenter)
         bottom_left_layout.addWidget(clock_label)
 
@@ -179,17 +187,20 @@ class DeviceDetailsWidget(QWidget):
         energy_lcd.setStyleSheet("font-size: 18pt;")
         energy_lcd.setSegmentStyle(QLCDNumber.Flat)
 
-        indicators_layout.addWidget(voltage_label, 0, 0)
-        indicators_layout.addWidget(voltage_lcd, 1, 0)
-        indicators_layout.addWidget(current_label, 0, 1)
-        indicators_layout.addWidget(current_lcd, 1, 1)
-        indicators_layout.addWidget(power_label, 2, 0)
-        indicators_layout.addWidget(power_lcd, 3, 0)
+        if phase_name != "Загальне":
+            indicators_layout.addWidget(voltage_label, 0, 0)
+            indicators_layout.addWidget(voltage_lcd, 1, 0)
+            indicators_layout.addWidget(current_label, 0, 1)
+            indicators_layout.addWidget(current_lcd, 1, 1)
+            indicators_layout.addWidget(power_label, 2, 0)
+            indicators_layout.addWidget(power_lcd, 3, 0)
         indicators_layout.addWidget(energy_label, 2, 1)
         indicators_layout.addWidget(energy_lcd, 3, 1)
 
-        layout.addLayout(indicators_layout)
-        layout.addLayout(bottom_left_layout)
+        bottom_layout.addLayout(bottom_left_layout)
+        bottom_layout.addLayout(indicators_layout)
+
+        layout.addLayout(bottom_layout)
 
         self.phase_data[phase_name] = {
             "tab": tab,
@@ -212,11 +223,11 @@ class DeviceDetailsWidget(QWidget):
 
         if self.device_model == "SDM120":
             report_data = self.db_session.query(SDM120Report).filter_by(device_id=self.device.id).filter(
-            SDM120Report.timestamp >= start_date, SDM120Report.timestamp <= end_date
+                SDM120Report.timestamp >= start_date, SDM120Report.timestamp <= end_date
             ).order_by(desc(SDM120Report.timestamp)).all()
         elif self.device_model == "SDM630":
             report_data = self.db_session.query(SDM630Report).filter_by(device_id=self.device.id).filter(
-            SDM630Report.timestamp >= start_date, SDM630Report.timestamp <= end_date
+                SDM630Report.timestamp >= start_date, SDM630Report.timestamp <= end_date
             ).order_by(desc(SDM630Report.timestamp)).all()
         else:
             report_data = None
@@ -236,8 +247,281 @@ class DeviceDetailsWidget(QWidget):
         self.load_report_data()
 
     def create_table_model(self, report_data, device):
+        register_map = RegisterMap.get_register_map(device.model)
+        columns_with_units = RegisterMap.get_columns_with_units(register_map)
+
+        columns = []
+        for column in self.column_labels.keys():
+            if any(getattr(report, column) is not None for report in report_data):
+                columns.append(column)
+
+        model = QStandardItemModel(len(report_data), len(columns))
+        header_labels = []
+
+        for column in columns:
+            custom_label = self.column_labels.get(column, column)
+            unit = columns_with_units.get(column, "")
+            header_labels.append(f"{custom_label} ({unit})" if unit else custom_label)
+
+        bold_font = QFont()
+        bold_font.setBold(True)
+        bold_font.setPointSize(12)
+
+        for col_index, header in enumerate(header_labels):
+            model.setHeaderData(col_index, Qt.Horizontal, header)
+            model.setHeaderData(col_index, Qt.Horizontal, bold_font, Qt.FontRole)
+
+        for row, report in enumerate(report_data):
+            for col, column in enumerate(columns):
+                value = getattr(report, column)
+                if column == "timestamp" and value is not None:
+                    if isinstance(value, datetime):
+                        value = value.strftime("%Y-%m-%d %H:%M:%S")
+                    else:
+                        value = datetime.fromisoformat(value).strftime("%Y-%m-%d %H:%M:%S")
+                model.setItem(row, col, QStandardItem(str(value) if value is not None else ""))
+
+        return model
+
+    def update_all_tabs_graphs(self):
+        """Оновлює графіки та індикатори для всіх вкладок."""
+        for phase_name, phase_data in self.phase_data.items():
+            self.update_graphs(phase_data)
+            self.update_indicators()
+            self.update_clock()
+
+    def update_voltage_graph(self, timestamps, voltages, phase_name):
+        timestamps_numeric = [ts.timestamp() for ts in timestamps]
+
+        plot_attr = f"voltage_plot_item_{phase_name}"
+        graph_widget = self.phase_data[phase_name]["voltage_graph"]
+
+        if not hasattr(self, plot_attr):
+            setattr(self, plot_attr, graph_widget.plot(
+                timestamps_numeric,
+                voltages,
+                pen=pg.mkPen(color='b', width=2),
+                name=f"Напруга {phase_name}"
+            ))
+        else:
+            getattr(self, plot_attr).setData(timestamps_numeric, voltages)
+
+    def update_current_graph(self, timestamps, currents, phase_name):
+        timestamps_numeric = [ts.timestamp() for ts in timestamps]
+
+        plot_attr = f"current_plot_item_{phase_name}"
+        graph_widget = self.phase_data[phase_name]["current_graph"]
+
+        if not hasattr(self, plot_attr):
+            setattr(self, plot_attr, graph_widget.plot(
+                timestamps_numeric,
+                currents,
+                pen=pg.mkPen(color='r', width=2),
+                name=f"Струм {phase_name}"
+            ))
+        else:
+            getattr(self, plot_attr).setData(timestamps_numeric, currents)
+
+    def update_energy_graph(self, hourly_timestamps, hourly_energy, phase_name):
+        if len(hourly_timestamps) == 0 or len(hourly_energy) == 0:
+            return
+
+        hourly_timestamps_numeric = [ts.timestamp() for ts in hourly_timestamps]
+
+        valid_data = [(ts, energy) for ts, energy in zip(hourly_timestamps_numeric, hourly_energy) if energy > 0]
+
+        if len(valid_data) == 0:
+            return
+
+        bar_attr = f"energy_bar_items_{phase_name}"
+        graph_widget = self.phase_data[phase_name]["energy_graph"]
+
+        if not hasattr(self, bar_attr):
+            setattr(self, bar_attr, [])
+
+        energy_bar_items = getattr(self, bar_attr)
+
+        for i, (ts, energy) in enumerate(valid_data):
+            if i >= len(energy_bar_items):
+                start_time = ts
+                end_time = start_time + 3600
+
+                bar_item = pg.BarGraphItem(
+                    x0=start_time,
+                    x1=end_time,
+                    height=energy,
+                    brush='g'
+                )
+                energy_bar_items.append(bar_item)
+                graph_widget.addItem(bar_item)
+            else:
+                start_time = ts
+                end_time = start_time + 3600
+                energy_bar_items[i].setOpts(x0=start_time, x1=end_time, y0=0, y1=energy)
+
+        while len(energy_bar_items) > len(valid_data):
+            bar_item = energy_bar_items.pop()
+            graph_widget.removeItem(bar_item)
+
+        y_max = max([energy for _, energy in valid_data]) if valid_data else 5
+        graph_widget.setYRange(0, y_max)
+
+        x_min = min([ts for ts, _ in valid_data])
+        x_max = max([ts for ts, _ in valid_data]) + 3600
+        graph_widget.setXRange(x_min, x_max)
+
+    def update_graphs(self, start_date=None, end_date=None):
         if self.device_model == "SDM120":
-            column_labels = {
+            query = self.db_session.query(SDM120ReportTmp).filter_by(device_id=self.device.id)
+            if start_date is not None and end_date is not None:
+                query = query.filter(SDM120ReportTmp.timestamp >= start_date, SDM120ReportTmp.timestamp <= end_date)
+            report_data = query.order_by(desc(SDM120ReportTmp.timestamp)).all()
+            phase_keys = ["Фаза 1"]
+        elif self.device_model == "SDM630":
+            query = self.db_session.query(SDM630ReportTmp).filter_by(device_id=self.device.id)
+            if start_date is not None and end_date is not None:
+                query = query.filter(SDM630ReportTmp.timestamp >= start_date, SDM630ReportTmp.timestamp <= end_date)
+            report_data = query.order_by(desc(SDM630ReportTmp.timestamp)).all()
+            phase_keys = ["Фаза 1", "Фаза 2", "Фаза 3"]
+        else:
+            report_data = None
+            phase_keys = []
+
+        if not report_data:
+            self.start_date = None
+            self.end_date = None
+            return
+
+        for phase_name in phase_keys:
+            timestamps = []
+            voltages = []
+            currents = []
+            energies = []
+
+            for report in report_data:
+                timestamps.append(report.timestamp)
+                voltages.append(getattr(report, f'line_voltage_{phase_keys.index(phase_name) + 1}'))
+                currents.append(getattr(report, f'current_{phase_keys.index(phase_name) + 1}'))
+                energies.append(getattr(report, f'power_{phase_keys.index(phase_name) + 1}'))
+
+            self.update_voltage_graph(timestamps, voltages, phase_name)
+            self.update_current_graph(timestamps, currents, phase_name)
+
+            hourly_energy = []
+            hourly_timestamps = []
+
+            last_energy = None
+            current_hour_start = None
+            current_hour_energy = 0.0
+
+            for report in report_data:
+                current_hour = report.timestamp.replace(minute=0, second=0, microsecond=0)
+
+                if current_hour_start is None:
+                    current_hour_start = current_hour
+
+                if current_hour != current_hour_start:
+                    if last_energy is not None:
+                        hourly_energy.append(current_hour_energy)
+                        hourly_timestamps.append(current_hour_start)
+                    current_hour_start = current_hour
+                    current_hour_energy = 0.0
+
+                energy_value = getattr(report, f'power_{phase_keys.index(phase_name) + 1}')
+
+                if last_energy is not None:
+                    current_hour_energy += abs(energy_value - last_energy)
+
+                last_energy = energy_value
+
+            if last_energy is not None:
+                hourly_energy.append(current_hour_energy)
+                hourly_timestamps.append(current_hour_start)
+
+            self.update_energy_graph(hourly_timestamps, hourly_energy, phase_name)
+
+    def update_indicators(self):
+        """
+        Оновлює значення індикаторів для всіх фаз SDM630.
+        """
+        # Отримання останнього звіту з бази даних
+        last_report = (self.db_session.query(SDM630ReportTmp)
+                       .filter_by(device_id=self.device.id)
+                       .order_by(desc(SDM630ReportTmp.timestamp))
+                       .first())
+        if not last_report:
+            return  # Якщо немає звітів, нічого не оновлюємо
+
+        # Дані для фаз
+        phases = {
+            "Фаза 1": {
+                "voltage": getattr(last_report, 'line_voltage_1', 0),
+                "current": getattr(last_report, 'current_1', 0),
+                "power": getattr(last_report, 'power_1', 0),
+                "energy": getattr(last_report, 'total_kWh', 0),
+            },
+            "Фаза 2": {
+                "voltage": getattr(last_report, 'line_voltage_2', 0),
+                "current": getattr(last_report, 'current_2', 0),
+                "power": getattr(last_report, 'power_2', 0),
+                "energy": getattr(last_report, 'total_kWh', 0),
+            },
+            "Фаза 3": {
+                "voltage": getattr(last_report, 'line_voltage_3', 0),
+                "current": getattr(last_report, 'current_3', 0),
+                "power": getattr(last_report, 'power_3', 0),
+                "energy": getattr(last_report, 'total_kWh', 0),
+            },
+            "Загальне": {
+                "energy": getattr(last_report, 'total_kWh', 0),
+            }
+        }
+
+        # Оновлення індикаторів для кожної фази
+        for phase_name, data in phases.items():
+            if phase_name not in self.phase_data:
+                continue  # Якщо фаза не налаштована, пропускаємо її
+
+            # Отримання індикаторів
+            phase = self.phase_data[phase_name]
+            voltage_lcd = phase["voltage_lcd"]
+            current_lcd = phase["current_lcd"]
+            power_lcd = phase["power_lcd"]
+            energy_lcd = phase["energy_lcd"]
+
+            # Оновлення значень
+            if voltage_lcd and "voltage" in data:
+                voltage_lcd.display(f"{data['voltage']:.2f}")
+            if current_lcd and "current" in data:
+                current_lcd.display(f"{data['current']:.2f}")
+            if power_lcd and "power" in data:
+                power_lcd.display(f"{data['power']:.2f}")
+            if energy_lcd and "energy" in data:
+                energy_lcd.display(f"{data['energy']:.2f}")
+
+            # Автоматичне оновлення графіків, якщо активовано
+            if phase["auto_update_checkbox"].isChecked():
+                self.update_graphs(phase_name)
+
+    def update_clock(self):
+        current_time = QTime.currentTime().toString("HH:mm:ss")  # Час
+        current_time += "\n" + QDate.currentDate().toString("dd.MM.yyyy")  # Дата
+
+        for phase_name, phase_data in self.phase_data.items():
+            phase_data["clock_label"].setText(current_time)
+
+    def set_light_theme(self):
+        for phase_name, phase_data in self.phase_data.items():
+            phase_data["voltage_graph"].setBackground('w')
+            phase_data["voltage_graph"].plot([], pen=pg.mkPen(color='b', width=2))
+            phase_data["current_graph"].setBackground('w')
+            phase_data["current_graph"].plot([], pen=pg.mkPen(color='r', width=2))
+            phase_data["energy_graph"].setBackground('w')
+            phase_data["energy_graph"].plot([], pen=pg.mkPen(color='g', width=2))
+
+    def init_column_labels(self):
+        if self.device_model == "SDM120":
+            self.column_labels = {
                 "timestamp": "Час",
                 "line_voltage_1": "Напруга\n",
                 "current_1": "Струм\n",
@@ -253,7 +537,7 @@ class DeviceDetailsWidget(QWidget):
                 "total_kWh": "Загально спожито"
             }
         elif self.device_model == "SDM630":
-            column_labels = {
+            self.column_labels = {
                 "timestamp": "Час",
                 "line_voltage_1": "Лінійна напруга\n(Фаза 1)\n",
                 "line_voltage_2": "Лінійна напруга\n(Фаза 2)\n",
@@ -315,41 +599,4 @@ class DeviceDetailsWidget(QWidget):
                 # "total_kVArh_3": "Загальна реактивна енергія (кВАр·год) (Фаза 3)",
             }
         else:
-            column_labels = {}
-
-        # Get columns and units from RegisterMap
-        register_map = RegisterMap.get_register_map(device.model)
-        columns_with_units = RegisterMap.get_columns_with_units(register_map)
-
-        columns = []
-        for column in column_labels.keys():
-            if any(getattr(report, column) is not None for report in report_data):
-                columns.append(column)
-
-        model = QStandardItemModel(len(report_data), len(columns))
-        header_labels = []
-
-        for column in columns:
-            custom_label = column_labels.get(column, column)
-            unit = columns_with_units.get(column, "")
-            header_labels.append(f"{custom_label} ({unit})" if unit else custom_label)
-
-        bold_font = QFont()
-        bold_font.setBold(True)
-        bold_font.setPointSize(12)
-
-        for col_index, header in enumerate(header_labels):
-            model.setHeaderData(col_index, Qt.Horizontal, header)
-            model.setHeaderData(col_index, Qt.Horizontal, bold_font, Qt.FontRole)
-
-        for row, report in enumerate(report_data):
-            for col, column in enumerate(columns):
-                value = getattr(report, column)
-                if column == "timestamp" and value is not None:
-                    if isinstance(value, datetime):
-                        value = value.strftime("%Y-%m-%d %H:%M:%S")
-                    else:
-                        value = datetime.fromisoformat(value).strftime("%Y-%m-%d %H:%M:%S")
-                model.setItem(row, col, QStandardItem(str(value) if value is not None else ""))
-
-        return model
+            self.column_labels = {}
