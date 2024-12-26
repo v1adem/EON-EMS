@@ -18,6 +18,7 @@ from register_maps.RegisterMaps import RegisterMap
 class DeviceDetailsWidget(QWidget):
     def __init__(self, main_window, device):
         super().__init__(main_window)
+        self.auto_update_checkbox = None
         self.device = device
         self.device_model = self.device.model
         self.db_session = main_window.db_session
@@ -67,10 +68,17 @@ class DeviceDetailsWidget(QWidget):
 
         self.set_light_theme()
 
-        self.timer = QTimer(self)
-        self.timer.timeout.connect(self.update_all_tabs_graphs)
-        self.timer.setInterval(1000)
-        self.timer.start()
+        self.timer_clock_indicator = QTimer(self)
+        self.timer_clock_indicator.timeout.connect(self.update_clock_indicators)
+        self.timer_clock_indicator.setInterval(1000)
+        self.timer_clock_indicator.start()
+
+        self.timer_update_all_tabs_graphs = QTimer(self)
+        self.timer_update_all_tabs_graphs.timeout.connect(self.update_all_tabs_graphs)
+        self.timer_update_all_tabs_graphs.setInterval(((device.reading_interval - 60)*1000)+1000)
+        self.timer_update_all_tabs_graphs.start()
+
+        self.update_all_tabs_graphs()
 
     def create_filter_buttons(self, layout):
         """Створення фільтрів і кнопок для таблиці."""
@@ -82,7 +90,7 @@ class DeviceDetailsWidget(QWidget):
         filter_layout.addWidget(vid_label)
 
         self.start_date_table_filter.setCalendarPopup(True)
-        self.start_date_table_filter.setDate(QDate.currentDate().addYears(-1))
+        self.start_date_table_filter.setDate(QDate.currentDate().addMonths(-1))
         self.start_date_table_filter.setStyleSheet("font-size: 16px;")
         filter_layout.addWidget(self.start_date_table_filter)
 
@@ -104,11 +112,10 @@ class DeviceDetailsWidget(QWidget):
 
         # Кнопки для таблиці
         button_layout = QHBoxLayout()
-        refresh_button = QPushButton()
-        refresh_button.setIcon(QIcon(resource_path("pyqt/icons/refresh.png")))
-        refresh_button.setFixedSize(36, 36)
-        refresh_button.clicked.connect(self.load_report_data)
-        button_layout.addWidget(refresh_button)
+        self.auto_update_checkbox = QCheckBox("Автооновлення")
+        self.auto_update_checkbox.setStyleSheet("font-size: 16px;")
+        self.auto_update_checkbox.setChecked(True)
+        button_layout.addWidget(self.auto_update_checkbox)
 
         export_button = QPushButton("Експорт в Excel")
         export_button.setStyleSheet("font-size: 16px;")
@@ -127,23 +134,21 @@ class DeviceDetailsWidget(QWidget):
 
         voltage_graph = pg.PlotWidget()
         current_graph = pg.PlotWidget()
+        if phase_name != "Загальне":
+            voltage_graph.showGrid(x=True, y=True, alpha=0.5)
+            current_graph.showGrid(x=True, y=True, alpha=0.5)
+            voltage_graph.setAxisItems({'bottom': DateAxisItem(orientation='bottom')})
+            current_graph.setAxisItems({'bottom': DateAxisItem(orientation='bottom')})
+            voltage_graph.setLabel('left', 'Напруга', units='В')
+            current_graph.setLabel('left', 'Струм', units='А')
+            top_layout.addWidget(voltage_graph)
+            top_layout.addWidget(current_graph)
+
         energy_graph = pg.PlotWidget()
-
-        voltage_graph.setAxisItems({'bottom': DateAxisItem(orientation='bottom')})
-        current_graph.setAxisItems({'bottom': DateAxisItem(orientation='bottom')})
+        energy_graph.showGrid(x=True, y=True, alpha=0.5)
         energy_graph.setAxisItems({'bottom': DateAxisItem(orientation='bottom')})
-
-        voltage_graph.setLabel('left', 'Напруга', units='В')
-        current_graph.setLabel('left', 'Струм', units='А')
         energy_graph.setLabel('left', 'Споживання', units='кВт·год')
-
-        top_layout.addWidget(voltage_graph)
-        top_layout.addWidget(current_graph)
         top_layout.addWidget(energy_graph)
-
-        auto_update_checkbox = QCheckBox("Автооновлення")
-        auto_update_checkbox.setChecked(True)
-        top_layout.addWidget(auto_update_checkbox)
 
         layout.addLayout(top_layout)
 
@@ -207,7 +212,6 @@ class DeviceDetailsWidget(QWidget):
             "voltage_graph": voltage_graph,
             "current_graph": current_graph,
             "energy_graph": energy_graph,
-            "auto_update_checkbox": auto_update_checkbox,
             "voltage_lcd": voltage_lcd,
             "current_lcd": current_lcd,
             "power_lcd": power_lcd,
@@ -222,17 +226,17 @@ class DeviceDetailsWidget(QWidget):
         end_date = self.end_date_table_filter.date().addDays(1).toPyDate()
 
         if self.device_model == "SDM120":
-            report_data = self.db_session.query(SDM120Report).filter_by(device_id=self.device.id).filter(
+            self.report_data = self.db_session.query(SDM120Report).filter_by(device_id=self.device.id).filter(
                 SDM120Report.timestamp >= start_date, SDM120Report.timestamp <= end_date
             ).order_by(desc(SDM120Report.timestamp)).all()
         elif self.device_model == "SDM630":
-            report_data = self.db_session.query(SDM630Report).filter_by(device_id=self.device.id).filter(
+            self.report_data = self.db_session.query(SDM630Report).filter_by(device_id=self.device.id).filter(
                 SDM630Report.timestamp >= start_date, SDM630Report.timestamp <= end_date
             ).order_by(desc(SDM630Report.timestamp)).all()
         else:
-            report_data = None
+            self.report_data = None
 
-        model = self.create_table_model(report_data, self.device)
+        model = self.create_table_model(self.report_data, self.device)
 
         proxy_model = QSortFilterProxyModel()
         proxy_model.setSourceModel(model)
@@ -283,11 +287,14 @@ class DeviceDetailsWidget(QWidget):
 
         return model
 
+    def update_clock_indicators(self):
+        self.update_indicators()
+        self.update_clock()
+
     def update_all_tabs_graphs(self):
-        for phase_name, phase_data in self.phase_data.items():
-            self.update_graphs(phase_data)
-            self.update_indicators()
-            self.update_clock()
+        if self.auto_update_checkbox.isChecked():
+            self.load_report_data()
+            self.update_graphs()
 
     def update_voltage_graph(self, timestamps, voltages, phase_name):
         timestamps_numeric = [ts.timestamp() for ts in timestamps]
@@ -322,29 +329,35 @@ class DeviceDetailsWidget(QWidget):
             getattr(self, plot_attr).setData(timestamps_numeric, currents)
 
     def update_energy_graph(self, hourly_timestamps, hourly_energy, phase_name):
-        if len(hourly_timestamps) == 0 or len(hourly_energy) == 0:
+        if not hourly_timestamps or not hourly_energy:
             return
 
+        # Перетворення timestamp в числовий формат
         hourly_timestamps_numeric = [ts.timestamp() for ts in hourly_timestamps]
-
         valid_data = [(ts, energy) for ts, energy in zip(hourly_timestamps_numeric, hourly_energy) if energy > 0]
 
-        if len(valid_data) == 0:
+        if not valid_data:
             return
 
         bar_attr = f"energy_bar_items_{phase_name}"
         graph_widget = self.phase_data[phase_name]["energy_graph"]
 
+        # Ініціалізація списку стовпчиків, якщо його ще немає
         if not hasattr(self, bar_attr):
             setattr(self, bar_attr, [])
 
         energy_bar_items = getattr(self, bar_attr)
 
+        # Оптимізоване оновлення або додавання стовпчиків
         for i, (ts, energy) in enumerate(valid_data):
-            if i >= len(energy_bar_items):
-                start_time = ts
-                end_time = start_time + 3600
+            start_time = ts
+            end_time = start_time + 3600  # Діапазон стовпчика
 
+            if i < len(energy_bar_items):
+                # Оновлення існуючого стовпчика
+                energy_bar_items[i].setOpts(x0=start_time, x1=end_time, height=energy)
+            else:
+                # Додавання нового стовпчика
                 bar_item = pg.BarGraphItem(
                     x0=start_time,
                     x1=end_time,
@@ -353,58 +366,33 @@ class DeviceDetailsWidget(QWidget):
                 )
                 energy_bar_items.append(bar_item)
                 graph_widget.addItem(bar_item)
-            else:
-                start_time = ts
-                end_time = start_time + 3600
-                energy_bar_items[i].setOpts(x0=start_time, x1=end_time, y0=0, y1=energy)
 
-        while len(energy_bar_items) > len(valid_data):
-            bar_item = energy_bar_items.pop()
-            graph_widget.removeItem(bar_item)
+                # Налаштування діапазону осей
+                y_max = max(energy for _, energy in valid_data)
+                graph_widget.setYRange(0, y_max, padding=0.1)
 
-        y_max = max([energy for _, energy in valid_data]) if valid_data else 5
-        graph_widget.setYRange(0, y_max)
+                x_min = min(ts for ts, _ in valid_data)
+                x_max = max(ts for ts, _ in valid_data) + 3600
+                graph_widget.setXRange(x_min, x_max, padding=0.1)
 
-        x_min = min([ts for ts, _ in valid_data])
-        x_max = max([ts for ts, _ in valid_data]) + 3600
-        graph_widget.setXRange(x_min, x_max)
-
-    def update_graphs(self, start_date=None, end_date=None):
-        if self.device_model == "SDM120":
-            query = self.db_session.query(SDM120ReportTmp).filter_by(device_id=self.device.id)
-            if start_date is not None and end_date is not None:
-                query = query.filter(SDM120ReportTmp.timestamp >= start_date, SDM120ReportTmp.timestamp <= end_date)
-            report_data = query.order_by(desc(SDM120ReportTmp.timestamp)).all()
-            phase_keys = ["Фаза 1"]
-        elif self.device_model == "SDM630":
-            query = self.db_session.query(SDM630ReportTmp).filter_by(device_id=self.device.id)
-            if start_date is not None and end_date is not None:
-                query = query.filter(SDM630ReportTmp.timestamp >= start_date, SDM630ReportTmp.timestamp <= end_date)
-            report_data = query.order_by(desc(SDM630ReportTmp.timestamp)).all()
-            phase_keys = ["Фаза 1", "Фаза 2", "Фаза 3"]
-        else:
-            report_data = None
-            phase_keys = []
-
-        if not report_data:
-            self.start_date = None
-            self.end_date = None
-            return
-
-        for phase_name in phase_keys:
+    def update_graphs(self):
+        for phase_name in self.phases:
             timestamps = []
             voltages = []
             currents = []
             energies = []
 
-            for report in report_data:
+            for report in self.report_data:
                 timestamps.append(report.timestamp)
-                voltages.append(getattr(report, f'line_voltage_{phase_keys.index(phase_name) + 1}'))
-                currents.append(getattr(report, f'current_{phase_keys.index(phase_name) + 1}'))
-                energies.append(getattr(report, f'power_{phase_keys.index(phase_name) + 1}'))
-
-            self.update_voltage_graph(timestamps, voltages, phase_name)
-            self.update_current_graph(timestamps, currents, phase_name)
+                if phase_name == "Загальне":
+                    energies.append(getattr(report, f'total_kWh'))
+                else:
+                    voltages.append(getattr(report, f'line_voltage_{self.phases.index(phase_name) + 1}'))
+                    currents.append(getattr(report, f'current_{self.phases.index(phase_name) + 1}'))
+                    energies.append(getattr(report, f'total_kWh_{self.phases.index(phase_name) + 1}'))
+            if phase_name != "Загальне":
+                self.update_voltage_graph(timestamps, voltages, phase_name)
+                self.update_current_graph(timestamps, currents, phase_name)
 
             hourly_energy = []
             hourly_timestamps = []
@@ -413,7 +401,7 @@ class DeviceDetailsWidget(QWidget):
             current_hour_start = None
             current_hour_energy = 0.0
 
-            for report in report_data:
+            for report in self.report_data:
                 current_hour = report.timestamp.replace(minute=0, second=0, microsecond=0)
 
                 if current_hour_start is None:
@@ -425,8 +413,10 @@ class DeviceDetailsWidget(QWidget):
                         hourly_timestamps.append(current_hour_start)
                     current_hour_start = current_hour
                     current_hour_energy = 0.0
-
-                energy_value = getattr(report, f'power_{phase_keys.index(phase_name) + 1}')
+                if phase_name == "Загальне":
+                    energy_value = getattr(report, f'total_kWh')
+                else:
+                    energy_value = getattr(report, f'total_kWh_{self.phases.index(phase_name) + 1}')
 
                 if last_energy is not None:
                     current_hour_energy += abs(energy_value - last_energy)
@@ -461,19 +451,19 @@ class DeviceDetailsWidget(QWidget):
                 "voltage": getattr(last_report, 'line_voltage_1', 0),
                 "current": getattr(last_report, 'current_1', 0),
                 "power": getattr(last_report, 'power_1', 0),
-                "energy": getattr(last_report, 'total_kWh', 0),
+                "energy": getattr(last_report, 'total_kWh_1', 0),
             },
             "Фаза 2": {
                 "voltage": getattr(last_report, 'line_voltage_2', 0),
                 "current": getattr(last_report, 'current_2', 0),
                 "power": getattr(last_report, 'power_2', 0),
-                "energy": getattr(last_report, 'total_kWh', 0),
+                "energy": getattr(last_report, 'total_kWh_2', 0),
             },
             "Фаза 3": {
                 "voltage": getattr(last_report, 'line_voltage_3', 0),
                 "current": getattr(last_report, 'current_3', 0),
                 "power": getattr(last_report, 'power_3', 0),
-                "energy": getattr(last_report, 'total_kWh', 0),
+                "energy": getattr(last_report, 'total_kWh_3', 0),
             },
             "Загальне": {
                 "energy": getattr(last_report, 'total_kWh', 0),
@@ -494,17 +484,13 @@ class DeviceDetailsWidget(QWidget):
 
             # Оновлення значень
             if voltage_lcd and "voltage" in data:
-                voltage_lcd.display(f"{data['voltage']:.2f}")
+                voltage_lcd.display(f"{data['voltage']:}")
             if current_lcd and "current" in data:
-                current_lcd.display(f"{data['current']:.2f}")
+                current_lcd.display(f"{data['current']:}")
             if power_lcd and "power" in data:
-                power_lcd.display(f"{data['power']:.2f}")
+                power_lcd.display(f"{data['power']:}")
             if energy_lcd and "energy" in data:
-                energy_lcd.display(f"{data['energy']:.2f}")
-
-            # Автоматичне оновлення графіків, якщо активовано
-            if phase["auto_update_checkbox"].isChecked():
-                self.update_graphs(phase_name)
+                energy_lcd.display(f"{data['energy']:}")
 
     def update_clock(self):
         current_time = QTime.currentTime().toString("HH:mm:ss")  # Час
@@ -537,7 +523,7 @@ class DeviceDetailsWidget(QWidget):
                 "total_active_energy": "Загальна\nактивна енергія\n",
                 "total_reactive_energy": "Загальна\nреактивна енергія\n",
                 "frequency_1": "Частота\n",
-                "total_kWh": "Загально спожито"
+                "total_kWh_1": "Загально спожито\nkWh"
             }
             self.column_labels_for_excel = {
                 "line_voltage_1": "Напруга Volts",
@@ -551,7 +537,7 @@ class DeviceDetailsWidget(QWidget):
                 "total_active_energy": "Загальна активна енергія kWh",
                 "total_reactive_energy": "Загальна реактивна енергія kWh",
                 "frequency_1": "Частота Hz",
-                "total_kWh": "Загально спожито kWh"
+                "total_kWh_1": "Загально спожито kWh"
             }
         elif self.device_model == "SDM630":
             self.column_labels = {
@@ -602,9 +588,9 @@ class DeviceDetailsWidget(QWidget):
                 # "export_kWh_1": "Експортована енергія (Фаза 1)",
                 # "export_kWh_2": "Експортована енергія (Фаза 2)",
                 # "export_kWh_3": "Експортована енергія (Фаза 3)",
-                # "total_kWh_1": "Загальна енергія (Фаза 1)",
-                # "total_kWh_2": "Загальна енергія (Фаза 2)",
-                # "total_kWh_3": "Загальна енергія (Фаза 3)",
+                "total_kWh_1": "Загальна енергія (Фаза 1)",
+                "total_kWh_2": "Загальна енергія (Фаза 2)",
+                "total_kWh_3": "Загальна енергія (Фаза 3)",
                 # "import_kVArh_1": "Імпортована реактивна енергія (кВАр·год) (Фаза 1)",
                 # "import_kVArh_2": "Імпортована реактивна енергія (кВАр·год) (Фаза 2)",
                 # "import_kVArh_3": "Імпортована реактивна енергія (кВАр·год) (Фаза 3)",
