@@ -6,7 +6,7 @@ from PyQt5.QtWidgets import QWidget, QVBoxLayout, QLabel, QListView, QPushButton
 
 from config import resource_path
 from models.Device import Device
-from models.Report import SDM120Report, SDM120ReportTmp, SDM630Report, SDM630ReportTmp
+from models.Report import SDM120Report, SDM120ReportTmp, SDM630Report, SDM630ReportTmp, SDM72DReport, SDM72DReportTmp
 
 
 class ProjectViewWidget(QWidget):
@@ -108,7 +108,7 @@ class ProjectViewWidget(QWidget):
             form_layout.addRow("Виробник:", manufacturer_input)
 
             model_input = QComboBox(dialog)
-            model_input.addItems(["SDM120", "SDM630"])
+            model_input.addItems(["SDM120", "SDM630", "SDM72D"])
             form_layout.addRow("Модель:", model_input)
 
             device_address_input = QSpinBox(dialog)
@@ -167,7 +167,7 @@ class ProjectViewWidget(QWidget):
         form_layout.addRow("Виробник:", manufacturer_input)
 
         model_input = QComboBox(dialog)
-        model_input.addItems(["SDM120", "SDM630"])
+        model_input.addItems(["SDM120", "SDM630", "SDM72D"])
         model_input.setCurrentText(device.model)
         model_input.setEditable(False)
         form_layout.addRow("Модель:", model_input)
@@ -233,6 +233,9 @@ class ProjectViewWidget(QWidget):
             elif device.model == "SDM630":
                 self.db_session.query(SDM630Report).filter(SDM630Report.device_id == device.id).delete()
                 self.db_session.query(SDM630ReportTmp).filter(SDM630ReportTmp.device_id == device.id).delete()
+            elif device.model == "SDM72D":
+                self.db_session.query(SDM72DReport).filter(SDM72DReport.device_id == device.id).delete()
+                self.db_session.query(SDM72DReportTmp).filter(SDM72DReportTmp.device_id == device.id).delete()
 
             # Видалення самого пристрою
             self.db_session.delete(device)

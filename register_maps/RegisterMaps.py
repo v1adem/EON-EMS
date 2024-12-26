@@ -330,43 +330,239 @@ class RegisterMap:
             "register": 370,
             "type": "input",
             "format": "float",
-            "units": "kWh"
+            "units": "kVArh"
         },
         "export_kVArh_2": {
             "register": 372,
             "type": "input",
             "format": "float",
-            "units": "kWh"
+            "units": "kVArh"
         },
         "export_kVArh_3": {
             "register": 374,
             "type": "input",
             "format": "float",
-            "units": "kWh"
+            "units": "kVArh"
         },
         "total_kVArh_1": {
             "register": 376,
             "type": "input",
             "format": "float",
-            "units": "kWh"
+            "units": "kVArh"
         },
         "total_kVArh_2": {
             "register": 378,
             "type": "input",
             "format": "float",
-            "units": "kWh"
+            "units": "kVArh"
         },
         "total_kVArh_3": {
             "register": 380,
             "type": "input",
             "format": "float",
+            "units": "kVArh"
+        }
+    }
+
+    SDM72D = {
+        "line_voltage_1": {
+            "register": 0,
+            "type": "input",
+            "format": "float",
+            "units": "Volts"
+        },
+        "line_voltage_2": {
+            "register": 2,
+            "type": "input",
+            "format": "float",
+            "units": "Volts"
+        },
+        "line_voltage_3": {
+            "register": 4,
+            "type": "input",
+            "format": "float",
+            "units": "Volts"
+        },
+        "current_1": {
+            "register": 6,
+            "type": "input",
+            "format": "float",
+            "units": "Amps"
+        },
+        "current_2": {
+            "register": 8,
+            "type": "input",
+            "format": "float",
+            "units": "Amps"
+        },
+        "current_3": {
+            "register": 10,
+            "type": "input",
+            "format": "float",
+            "units": "Amps"
+        },
+        "active_power_1": {
+            "register": 12,
+            "type": "input",
+            "format": "float",
+            "units": "Watts"
+        },
+        "active_power_2": {
+            "register": 14,
+            "type": "input",
+            "format": "float",
+            "units": "Watts"
+        },
+        "active_power_3": {
+            "register": 16,
+            "type": "input",
+            "format": "float",
+            "units": "Watts"
+        },
+        "power_1": {
+            "register": 18,
+            "type": "input",
+            "format": "float",
+            "units": "Watts"
+        },
+        "power_2": {
+            "register": 20,
+            "type": "input",
+            "format": "float",
+            "units": "Watts"
+        },
+        "power_3": {
+            "register": 22,
+            "type": "input",
+            "format": "float",
+            "units": "Watts"
+        },
+        "reactive_power_1": {
+            "register": 12,
+            "type": "input",
+            "format": "float",
+            "units": "Watts"
+        },
+        "reactive_power_2": {
+            "register": 14,
+            "type": "input",
+            "format": "float",
+            "units": "Watts"
+        },
+        "reactive_power_3": {
+            "register": 16,
+            "type": "input",
+            "format": "float",
+            "units": "Watts"
+        },
+        "power_factor_1": {
+            "register": 30,
+            "type": "input",
+            "format": "float",
+            "units": ""
+        },
+        "power_factor_2": {
+            "register": 32,
+            "type": "input",
+            "format": "float",
+            "units": ""
+        },
+        "power_factor_3": {
+            "register": 34,
+            "type": "input",
+            "format": "float",
+            "units": ""
+        },
+        "total_system_power": {
+            "register": 52,
+            "type": "input",
+            "format": "float",
+            "units": "Watts"
+        },
+        "total_system_VA": {
+            "register": 56,
+            "type": "input",
+            "format": "float",
+            "units": "VA"
+        },
+        "total_system_VAr": {
+            "register": 60,
+            "type": "input",
+            "format": "float",
+            "units": "VAr"
+        },
+        "total_system_power_factor": {
+            "register": 62,
+            "type": "input",
+            "format": "float",
+            "units": ""
+        },
+        "total_import_kwh": {
+            "register": 72,
+            "type": "input",
+            "format": "float",
             "units": "kWh"
+        },
+        "total_export_kwh": {
+            "register": 74,
+            "type": "input",
+            "format": "float",
+            "units": "kWh"
+        },
+        "_1_to_2_voltage": {
+            "register": 200,
+            "type": "input",
+            "format": "float",
+            "units": "Volts"
+        },
+        "_2_to_3_voltage": {
+            "register": 202,
+            "type": "input",
+            "format": "float",
+            "units": "Volts"
+        },
+        "_3_to_1_voltage": {
+            "register": 204,
+            "type": "input",
+            "format": "float",
+            "units": "Volts"
+        },
+        "neutral_current": {
+            "register": 224,
+            "type": "input",
+            "format": "float",
+            "units": "Amps"
+        },
+        "total_kWh": {
+            "register": 342,
+            "type": "input",
+            "format": "float",
+            "units": "kWh"
+        },
+        "total_kVArh": {
+            "register": 344,
+            "type": "input",
+            "format": "float",
+            "units": "kVArh"
+        },
+        "total_import_active_power": {
+            "register": 1280,
+            "type": "input",
+            "format": "float",
+            "units": "W"
+        },
+        "total_export_active_power": {
+            "register": 1282,
+            "type": "input",
+            "format": "float",
+            "units": "W"
         }
     }
 
     MAPS = {
         "SDM120": SDM120,
-        "SDM630": SDM630
+        "SDM630": SDM630,
+        "SDM72D": SDM72D
     }
 
     @classmethod

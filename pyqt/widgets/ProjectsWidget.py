@@ -9,7 +9,7 @@ from pymodbus.client import ModbusSerialClient
 from config import resource_path
 from models.Device import Device
 from models.Project import Project
-from models.Report import SDM120Report, SDM120ReportTmp, SDM630Report, SDM630ReportTmp
+from models.Report import SDM120Report, SDM120ReportTmp, SDM630Report, SDM630ReportTmp, SDM72DReport, SDM72DReportTmp
 
 
 class ProjectsWidget(QWidget):
@@ -184,6 +184,9 @@ class ProjectsWidget(QWidget):
                 elif device.model == "SDM630":
                     self.db_session.query(SDM630Report).filter(SDM630Report.device_id == device.id).delete()
                     self.db_session.query(SDM630ReportTmp).filter(SDM630ReportTmp.device_id == device.id).delete()
+                elif device.model == "SDM72D":
+                    self.db_session.query(SDM72DReport).filter(SDM72DReport.device_id == device.id).delete()
+                    self.db_session.query(SDM72DReportTmp).filter(SDM72DReportTmp.device_id == device.id).delete()
 
                 # Видаляємо пристрій
                 self.db_session.delete(device)

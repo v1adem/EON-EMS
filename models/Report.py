@@ -163,3 +163,70 @@ class SDM630ReportTmp(Base):
 
     def __repr__(self):
         return f"<SDM630Report(device_id={self.device_id}, timestamp={self.timestamp}, ...)>"
+
+class SDM72DReport(Base):
+    __tablename__ = 'sdm72d_reports'
+
+    id = Column(Integer, primary_key=True)
+    device_id = Column(Integer, ForeignKey('devices.id'), nullable=False)
+    timestamp = Column(DateTime, nullable=False, default=lambda: datetime.now(get_localzone()))
+
+    line_voltage_1 = Column(Float, nullable=True)
+    line_voltage_2 = Column(Float, nullable=True)
+    line_voltage_3 = Column(Float, nullable=True)
+    current_1 = Column(Float, nullable=True)
+    current_2 = Column(Float, nullable=True)
+    current_3 = Column(Float, nullable=True)
+    active_power_1 = Column(Float, nullable=True)
+    active_power_2 = Column(Float, nullable=True)
+    active_power_3 = Column(Float, nullable=True)
+    power_1 = Column(Float, nullable=True)
+    power_2 = Column(Float, nullable=True)
+    power_3 = Column(Float, nullable=True)
+    reactive_power_1 = Column(Float, nullable=True)
+    reactive_power_2 = Column(Float, nullable=True)
+    reactive_power_3 = Column(Float, nullable=True)
+    power_factor_1 = Column(Float, nullable=True)
+    power_factor_2 = Column(Float, nullable=True)
+    power_factor_3 = Column(Float, nullable=True)
+    total_system_power = Column(Float, nullable=True)
+    total_system_VA = Column(Float, nullable=True)
+    total_system_VAr = Column(Float, nullable=True)
+    total_system_power_factor = Column(Float, nullable=True)
+    total_import_kwh = Column(Float, nullable=True)
+    total_export_kwh = Column(Float, nullable=True)
+    _1_to_2_voltage = Column(Float, nullable=True)
+    _2_to_3_voltage = Column(Float, nullable=True)
+    _3_to_1_voltage = Column(Float, nullable=True)
+    neutral_current = Column(Float, nullable=True)
+    total_kWh = Column(Float, nullable=True)
+    total_kVArh = Column(Float, nullable=True)
+    total_import_active_power = Column(Float, nullable=True)
+    total_export_active_power = Column(Float, nullable=True)
+
+    device = relationship("Device")
+
+    def __repr__(self):
+        return f"<SDM72DReport(id={self.id}, device_id={self.device_id}, timestamp={self.timestamp}, ...)>"
+
+class SDM72DReportTmp(Base):
+    __tablename__ = 'sdm72d_reports_tmp'
+
+    device_id = Column(Integer, ForeignKey('devices.id'), nullable=False)
+    timestamp = Column(DateTime, nullable=False, default=lambda: datetime.now(get_localzone()), primary_key=True)
+
+    line_voltage_1 = Column(Float, nullable=True)
+    line_voltage_2 = Column(Float, nullable=True)
+    line_voltage_3 = Column(Float, nullable=True)
+    current_1 = Column(Float, nullable=True)
+    current_2 = Column(Float, nullable=True)
+    current_3 = Column(Float, nullable=True)
+    power_1 = Column(Float, nullable=True)
+    power_2 = Column(Float, nullable=True)
+    power_3 = Column(Float, nullable=True)
+    total_kWh = Column(Float, nullable=True)
+
+    device = relationship("Device")
+
+    def __repr__(self):
+        return f"<SDM72DReportTmp(id={self.id}, device_id={self.device_id}, timestamp={self.timestamp}, ...)>"
