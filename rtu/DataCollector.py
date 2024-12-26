@@ -61,10 +61,11 @@ class DataCollector(QObject):
 
         tmp_report_data = {
             "device_id": device.id,
-            "voltage": new_data.get("voltage"),
-            "current": new_data.get("current"),
-            "active_power": new_data.get("active_power"),
+            "line_voltage_1": new_data.get("line_voltage_1"),
+            "current_1": new_data.get("current_1"),
+            "power_1": new_data.get("power_1"),
             "total_active_energy": new_data.get("total_active_energy"),
+            "total_reactive_energy": new_data.get("total_reactive_energy")
         }
 
         tmp_report = SDM120ReportTmp(**tmp_report_data)
@@ -128,6 +129,9 @@ class DataCollector(QObject):
             "power_1": new_data.get("power_1"),
             "power_2": new_data.get("power_2"),
             "power_3": new_data.get("power_3"),
+            "total_kWh_1": new_data.get("total_kWh_1"),
+            "total_kWh_2": new_data.get("total_kWh_2"),
+            "total_kWh_3": new_data.get("total_kWh_3"),
             "total_kWh": new_data.get("total_kWh"),
         }
 
