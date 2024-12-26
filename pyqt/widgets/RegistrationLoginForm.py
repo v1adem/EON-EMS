@@ -1,10 +1,9 @@
-import asyncio
+import time
 
+from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QLineEdit, QPushButton, QLabel, QHBoxLayout
-from PyQt5.QtCore import Qt, QTimer
-from qasync import asyncSlot
-from sqlalchemy.future import select
 from sqlalchemy.exc import IntegrityError
+
 from models.Admin import Admin
 
 
@@ -101,6 +100,7 @@ class RegistrationLoginForm(QWidget):
         if admin:
             self.main_window.isAdmin = True
             self.status_label.setText(f"Вітаємо, {username}!")
+            time.sleep(0.1)
             self.main_window.open_projects_list()
         else:
             self.status_label.setText("Невірний логін або пароль")

@@ -1,27 +1,22 @@
 from datetime import datetime, timedelta
-from time import sleep
 
 from PyQt5.QtCore import QObject
 from PyQt5.QtWidgets import QMessageBox
 
 from models.Device import Device
 from models.Project import Project
-from models.Report import SDM120Report, SDM630Report, SDM120ReportTmp
+from models.Report import SDM120Report, SDM630Report, SDM120ReportTmp, SDM630ReportTmp
 from rtu.SerialReaderRS485 import SerialReaderRS485
 
 
-def get_data_from_device(device, project, properties_list, main_window):
+def get_data_from_device(device, project, main_window):
     try:
         print(f"{device.name} - Reading started")
         client = SerialReaderRS485(device.name, device.model, project.port, device.device_address, project.baudrate,
                                    project.bytesize, project.parity, project.stopbits, main_window)
-        return client.read_all_properties(properties_list)
+        return client.read_all_properties()
     except Exception as e:
         QMessageBox.warning(main_window, title="Помилка зчитування", text=f"{device.name} - {e}")
-
-
-class SDM630ReportTmp:
-    pass
 
 
 class DataCollector(QObject):
@@ -46,7 +41,8 @@ class DataCollector(QObject):
             elif device.model == "SDM630":
                 self.collect_data_sdm630(device)
             else:
-                QMessageBox.warning(parent=self.main_window, title=f"{device.name}", text=f"{device.model} - Невідома модель")
+                QMessageBox.warning(parent=self.main_window, title=f"{device.name}",
+                                    text=f"{device.model} - Невідома модель")
                 continue
 
     def collect_data_sdm120(self, device):
@@ -57,19 +53,19 @@ class DataCollector(QObject):
             .first()
         )
 
-        properties_list = device.get_parameter_names()
         project = self.db_session.query(Project).filter(Project.id == self.project.id).first()
-        new_data = get_data_from_device(device, project, properties_list, self.main_window)
+        new_data = get_data_from_device(device, project, self.main_window)
 
         if all(value is None for value in new_data.values()):
             return
 
         tmp_report_data = {
             "device_id": device.id,
-            "voltage": new_data.get("voltage"),
-            "current": new_data.get("current"),
-            "active_power": new_data.get("active_power"),
+            "line_voltage_1": new_data.get("line_voltage_1"),
+            "current_1": new_data.get("current_1"),
+            "power_1": new_data.get("power_1"),
             "total_active_energy": new_data.get("total_active_energy"),
+            "total_reactive_energy": new_data.get("total_reactive_energy")
         }
 
         tmp_report = SDM120ReportTmp(**tmp_report_data)
@@ -116,19 +112,27 @@ class DataCollector(QObject):
             .first()
         )
 
-        properties_list = device.get_parameter_names()
         project = self.db_session.query(Project).filter(Project.id == self.project.id).first()
-        new_data = get_data_from_device(device, project, properties_list, self.main_window)
+        new_data = get_data_from_device(device, project, self.main_window)
 
         if all(value is None for value in new_data.values()):
             return
 
         tmp_report_data = {
             "device_id": device.id,
-            "voltage": new_data.get("voltage"),
-            "current": new_data.get("current"),
-            "active_power": new_data.get("active_power"),
-            "total_active_energy": new_data.get("total_active_energy"),
+            "line_voltage_1": new_data.get("line_voltage_1"),
+            "line_voltage_2": new_data.get("line_voltage_2"),
+            "line_voltage_3": new_data.get("line_voltage_3"),
+            "current_1": new_data.get("current_1"),
+            "current_2": new_data.get("current_2"),
+            "current_3": new_data.get("current_3"),
+            "power_1": new_data.get("power_1"),
+            "power_2": new_data.get("power_2"),
+            "power_3": new_data.get("power_3"),
+            "total_kWh_1": new_data.get("total_kWh_1"),
+            "total_kWh_2": new_data.get("total_kWh_2"),
+            "total_kWh_3": new_data.get("total_kWh_3"),
+            "total_kWh": new_data.get("total_kWh"),
         }
 
         tmp_report = SDM630ReportTmp(**tmp_report_data)

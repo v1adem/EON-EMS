@@ -1,13 +1,11 @@
+from PyQt5.QtCore import QTimer
 from PyQt5.QtWidgets import QMainWindow, QWidget, QVBoxLayout, \
     QStackedWidget, QAction, QDialog
 
-from PyQt5.QtCore import QTimer
-
 from models.Admin import Admin
 from models.Project import Project
-from pyqt.dialogs.ConnectionDialog import ConnectionDialog
 from pyqt.dialogs.LanguageDialog import LanguageDialog
-from pyqt.widgets.DeviceDetailsSDM120Widget import DeviceDetailsSDM120Widget
+from pyqt.widgets.DeviceDetailsWidget import DeviceDetailsWidget
 from pyqt.widgets.ProjectViewWidget import ProjectViewWidget
 from pyqt.widgets.ProjectsWidget import ProjectsWidget
 from pyqt.widgets.RegistrationLoginForm import RegistrationLoginForm
@@ -30,7 +28,7 @@ class MainWindow(QMainWindow):
 
             timer = QTimer(self)
             timer.timeout.connect(data_collector.collect_data)
-            timer.setInterval(1000)
+            timer.setInterval(3000)
             timer.start()
 
             self.timers.append(timer)
@@ -50,10 +48,10 @@ class MainWindow(QMainWindow):
         self.menu_bar.addAction(back_action)
         back_action.triggered.connect(self.go_back)
 
-        settings_menu = self.menu_bar.addMenu("Налаштування")
-        language_action = QAction("Мова", self)
-        settings_menu.addAction(language_action)
-        language_action.triggered.connect(self.change_language)
+        #settings_menu = self.menu_bar.addMenu("Налаштування")
+        #language_action = QAction("Мова", self)
+        #settings_menu.addAction(language_action)
+        #language_action.triggered.connect(self.change_language)
 
         self.central_widget = QWidget(self)
         self.setCentralWidget(self.central_widget)
@@ -78,10 +76,6 @@ class MainWindow(QMainWindow):
             current_language = language_dialog.selected_language
             print(f"Мова змінена на: {current_language}")
 
-    def open_connection_dialog(self):
-        dialog = ConnectionDialog(self)
-        dialog.exec_()
-
     def open_projects_list(self):
         self.projects_widget = ProjectsWidget(self)
         self.stacked_widget.addWidget(self.projects_widget)
@@ -93,12 +87,9 @@ class MainWindow(QMainWindow):
         self.stacked_widget.setCurrentIndex(2)
 
     def open_device_details(self, device):
-        if device.model == "SDM120":
-            device_details_widget = DeviceDetailsSDM120Widget(self, device)
-            self.stacked_widget.addWidget(device_details_widget)
-            self.stacked_widget.setCurrentIndex(3)
-        elif device.model == "SDM630":
-            pass
+        device_details_widget = DeviceDetailsWidget(self, device)
+        self.stacked_widget.addWidget(device_details_widget)
+        self.stacked_widget.setCurrentIndex(3)
 
 
     def go_back(self):

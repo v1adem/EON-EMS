@@ -1,6 +1,6 @@
-from PyQt5.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QLineEdit, QComboBox, QSpinBox, QLabel, QPushButton, \
-    QRadioButton, QTimeEdit, QCheckBox, QGroupBox, QFormLayout
 from PyQt5.QtCore import QTime
+from PyQt5.QtWidgets import QDialog, QVBoxLayout, QLineEdit, QComboBox, QSpinBox, QPushButton, \
+    QRadioButton, QTimeEdit, QCheckBox, QGroupBox, QFormLayout
 
 
 class EditDeviceDialog(QDialog):
