@@ -1,9 +1,9 @@
 from datetime import datetime
 
+from numpy import sqrt
 from sqlalchemy import Column, Integer, Float, DateTime, ForeignKey
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import relationship
-from sqlalchemy.sql import func
 from tzlocal import get_localzone
 
 from config import Base
@@ -31,8 +31,11 @@ class SDM120Report(Base):
     total_reactive_energy = Column(Float, nullable=True)
 
     @hybrid_property
-    def total_kWh(self):
-        return self.total_active_energy + self.total_reactive_energy if self.total_active_energy is not None and self.total_reactive_energy is not None else None
+    def total_kWh_1(self):
+        if self.total_active_energy is not None and self.total_reactive_energy is not None:
+            result = sqrt(self.total_active_energy ** 2 + self.total_reactive_energy ** 2)
+            return round(result, 2)
+        return None
 
     def __repr__(self):
         return (f"<SDM120Report(id={self.id}, device_id={self.device_id}, timestamp={self.timestamp}, "
@@ -53,8 +56,11 @@ class SDM120ReportTmp(Base):
     device = relationship("Device")
 
     @hybrid_property
-    def total_kWh(self):
-        return self.total_active_energy + self.total_reactive_energy if self.total_active_energy is not None and self.total_reactive_energy is not None else None
+    def total_kWh_1(self):
+        if self.total_active_energy is not None and self.total_reactive_energy is not None:
+            result = sqrt(self.total_active_energy ** 2 + self.total_reactive_energy ** 2)
+            return round(result, 2)
+        return None
 
     def __repr__(self):
         return (f"<SDM120ReportTmp(id={self.id}, device_id={self.device_id}, timestamp={self.timestamp}, "
@@ -148,6 +154,9 @@ class SDM630ReportTmp(Base):
     power_1 = Column(Float, nullable=True)
     power_2 = Column(Float, nullable=True)
     power_3 = Column(Float, nullable=True)
+    total_kWh_1 = Column(Float, nullable=True)
+    total_kWh_2 = Column(Float, nullable=True)
+    total_kWh_3 = Column(Float, nullable=True)
     total_kWh = Column(Float, nullable=True)
 
     device = relationship("Device")
