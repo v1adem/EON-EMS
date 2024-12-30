@@ -1,5 +1,5 @@
-from pymodbus.client import ModbusSerialClient
 from sqlalchemy import Column, Integer, String
+
 from config import Base
 
 
