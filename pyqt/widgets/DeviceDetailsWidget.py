@@ -524,13 +524,13 @@ class DeviceDetailsWidget(QWidget):
 
             # Оновлення значень
             if voltage_lcd and "voltage" in data:
-                voltage_lcd.display(f"{data['voltage']:}")
+                voltage_lcd.display(f"{data['voltage']}")
             if current_lcd and "current" in data:
-                current_lcd.display(f"{data['current']:}")
+                current_lcd.display(f"{data['current']}")
             if power_lcd and "power" in data:
-                power_lcd.display(f"{data['power']:}")
+                power_lcd.display(f"{data['power']}")
             if energy_lcd and "energy" in data:
-                energy_lcd.display(f"{data['energy']:}")
+                energy_lcd.display(f"{data['energy']}")
 
     def update_clock(self):
         current_time = QTime.currentTime().toString("HH:mm:ss")  # Час

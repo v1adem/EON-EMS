@@ -36,7 +36,7 @@ class MainWindow(QMainWindow):
         self.db_session = db_session
         self.isAdmin = False
 
-        self.setWindowTitle("EON EMS (SDM120 edition)")
+        self.setWindowTitle("EON EMS v0.2.2")
         self.setGeometry(100, 100, 1200, 800)
         self.setMinimumWidth(800)
         self.setMinimumHeight(600)
