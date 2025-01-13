@@ -1,232 +1,201 @@
+from tortoise import fields
+from tortoise.models import Model
 from datetime import datetime
 
-from numpy import sqrt
-from sqlalchemy import Column, Integer, Float, DateTime, ForeignKey
-from sqlalchemy.ext.hybrid import hybrid_property
-from sqlalchemy.orm import relationship
-from tzlocal import get_localzone
 
-from config import Base
+class SDM120Report(Model):
+    id = fields.IntField(pk=True)
+    device = fields.ForeignKeyField('models.Device', related_name='sdm120_reports')
+    timestamp = fields.DatetimeField(default=datetime.now)
 
+    line_voltage_1 = fields.FloatField(null=True)
+    current_1 = fields.FloatField(null=True)
+    active_power_1 = fields.FloatField(null=True)
+    power_1 = fields.FloatField(null=True)
+    reactive_power_1 = fields.FloatField(null=True)
+    power_factor_1 = fields.FloatField(null=True)
+    frequency_1 = fields.FloatField(null=True)
+    import_active_energy_1 = fields.FloatField(null=True)
+    export_active_energy_1 = fields.FloatField(null=True)
+    total_active_energy = fields.FloatField(null=True)
+    total_reactive_energy = fields.FloatField(null=True)
 
-class SDM120Report(Base):
-    __tablename__ = 'sdm120_reports'
-
-    id = Column(Integer, primary_key=True)
-    device_id = Column(Integer, ForeignKey('devices.id'), nullable=False)
-    timestamp = Column(DateTime, nullable=False, default=lambda: datetime.now(get_localzone()))
-
-    device = relationship("Device")
-
-    line_voltage_1 = Column(Float, nullable=True)
-    current_1 = Column(Float, nullable=True)
-    active_power_1 = Column(Float, nullable=True)
-    power_1 = Column(Float, nullable=True)
-    reactive_power_1 = Column(Float, nullable=True)
-    power_factor_1 = Column(Float, nullable=True)
-    frequency_1 = Column(Float, nullable=True)
-    import_active_energy_1 = Column(Float, nullable=True)
-    export_active_energy_1 = Column(Float, nullable=True)
-    total_active_energy = Column(Float, nullable=True)
-    total_reactive_energy = Column(Float, nullable=True)
-
-    @hybrid_property
+    @property
     def total_kWh_1(self):
         if self.total_active_energy is not None and self.total_reactive_energy is not None:
-            result = sqrt(self.total_active_energy ** 2 + self.total_reactive_energy ** 2)
+            result = (self.total_active_energy ** 2 + self.total_reactive_energy ** 2) ** 0.5
             return round(result, 2)
         return None
 
-    def __repr__(self):
-        return (f"<SDM120Report(id={self.id}, device_id={self.device_id}, timestamp={self.timestamp}, "
-                f"voltage={self.line_voltage_1}, current={self.current_1}, power={self.power_1})>")
+    class Meta:
+        table = "sdm120_reports"
 
 
-class SDM120ReportTmp(Base):
-    __tablename__ = 'sdm120_reports_tmp'
+class SDM120ReportTmp(Model):
+    device = fields.ForeignKeyField('models.Device', related_name='sdm120_reports_tmp')
+    timestamp = fields.DatetimeField(default=datetime.now, pk=True)
 
-    device_id = Column(Integer, ForeignKey('devices.id'), nullable=False)
-    timestamp = Column(DateTime, nullable=False, default=lambda: datetime.now(get_localzone()), primary_key=True)
-    line_voltage_1 = Column(Float, nullable=True)
-    current_1 = Column(Float, nullable=True)
-    power_1 = Column(Float, nullable=True)
-    total_active_energy = Column(Float, nullable=True)
-    total_reactive_energy = Column(Float, nullable=True)
+    line_voltage_1 = fields.FloatField(null=True)
+    current_1 = fields.FloatField(null=True)
+    power_1 = fields.FloatField(null=True)
+    total_active_energy = fields.FloatField(null=True)
+    total_reactive_energy = fields.FloatField(null=True)
 
-    device = relationship("Device")
-
-    @hybrid_property
+    @property
     def total_kWh_1(self):
         if self.total_active_energy is not None and self.total_reactive_energy is not None:
-            result = sqrt(self.total_active_energy ** 2 + self.total_reactive_energy ** 2)
+            result = (self.total_active_energy ** 2 + self.total_reactive_energy ** 2) ** 0.5
             return round(result, 2)
         return None
 
-    def __repr__(self):
-        return (f"<SDM120ReportTmp(id={self.id}, device_id={self.device_id}, timestamp={self.timestamp}, "
-                f"voltage={self.voltage}, current={self.current}, apparent_power={self.apparent_power})>")
+    class Meta:
+        table = "sdm120_reports_tmp"
 
 
-class SDM630Report(Base):
-    __tablename__ = 'sdm630_reports'
+class SDM630Report(Model):
+    id = fields.IntField(pk=True)
+    device = fields.ForeignKeyField('models.Device', related_name='sdm630_reports')
+    timestamp = fields.DatetimeField(default=datetime.now)
 
-    id = Column(Integer, primary_key=True)
-    device_id = Column(Integer, ForeignKey('devices.id'), nullable=False)
-    timestamp = Column(DateTime, nullable=False, default=lambda: datetime.now(get_localzone()))
+    line_voltage_1 = fields.FloatField(null=True)
+    line_voltage_2 = fields.FloatField(null=True)
+    line_voltage_3 = fields.FloatField(null=True)
+    current_1 = fields.FloatField(null=True)
+    current_2 = fields.FloatField(null=True)
+    current_3 = fields.FloatField(null=True)
+    power_1 = fields.FloatField(null=True)
+    power_2 = fields.FloatField(null=True)
+    power_3 = fields.FloatField(null=True)
+    power_factor_1 = fields.FloatField(null=True)
+    power_factor_2 = fields.FloatField(null=True)
+    power_factor_3 = fields.FloatField(null=True)
+    total_system_power = fields.FloatField(null=True)
+    total_system_VA = fields.FloatField(null=True)
+    total_system_VAr = fields.FloatField(null=True)
+    total_system_power_factor = fields.FloatField(null=True)
+    total_import_kwh = fields.FloatField(null=True)
+    total_export_kwh = fields.FloatField(null=True)
+    total_import_kVAh = fields.FloatField(null=True)
+    total_export_kVAh = fields.FloatField(null=True)
+    total_kVAh = fields.FloatField(null=True)
+    _1_to_2_voltage = fields.FloatField(null=True)
+    _2_to_3_voltage = fields.FloatField(null=True)
+    _3_to_1_voltage = fields.FloatField(null=True)
+    neutral_current = fields.FloatField(null=True)
+    line_voltage_THD_1 = fields.FloatField(null=True)
+    line_voltage_THD_2 = fields.FloatField(null=True)
+    line_voltage_THD_3 = fields.FloatField(null=True)
+    line_current_THD_1 = fields.FloatField(null=True)
+    line_current_THD_2 = fields.FloatField(null=True)
+    line_current_THD_3 = fields.FloatField(null=True)
+    current_demand_1 = fields.FloatField(null=True)
+    current_demand_2 = fields.FloatField(null=True)
+    current_demand_3 = fields.FloatField(null=True)
+    phase_voltage_THD_1 = fields.FloatField(null=True)
+    phase_voltage_THD_2 = fields.FloatField(null=True)
+    phase_voltage_THD_3 = fields.FloatField(null=True)
+    average_line_to_line_voltage_THD = fields.FloatField(null=True)
+    total_kWh = fields.FloatField(null=True)
+    total_kVArh = fields.FloatField(null=True)
+    import_kWh_1 = fields.FloatField(null=True)
+    import_kWh_2 = fields.FloatField(null=True)
+    import_kWh_3 = fields.FloatField(null=True)
+    export_kWh_1 = fields.FloatField(null=True)
+    export_kWh_2 = fields.FloatField(null=True)
+    export_kWh_3 = fields.FloatField(null=True)
+    total_kWh_1 = fields.FloatField(null=True)
+    total_kWh_2 = fields.FloatField(null=True)
+    total_kWh_3 = fields.FloatField(null=True)
+    import_kVArh_1 = fields.FloatField(null=True)
+    import_kVArh_2 = fields.FloatField(null=True)
+    import_kVArh_3 = fields.FloatField(null=True)
+    export_kVArh_1 = fields.FloatField(null=True)
+    export_kVArh_2 = fields.FloatField(null=True)
+    export_kVArh_3 = fields.FloatField(null=True)
+    total_kVArh_1 = fields.FloatField(null=True)
+    total_kVArh_2 = fields.FloatField(null=True)
+    total_kVArh_3 = fields.FloatField(null=True)
 
-    line_voltage_1 = Column(Float, nullable=True)
-    line_voltage_2 = Column(Float, nullable=True)
-    line_voltage_3 = Column(Float, nullable=True)
-    current_1 = Column(Float, nullable=True)
-    current_2 = Column(Float, nullable=True)
-    current_3 = Column(Float, nullable=True)
-    power_1 = Column(Float, nullable=True)
-    power_2 = Column(Float, nullable=True)
-    power_3 = Column(Float, nullable=True)
-    power_factor_1 = Column(Float, nullable=True)
-    power_factor_2 = Column(Float, nullable=True)
-    power_factor_3 = Column(Float, nullable=True)
-    total_system_power = Column(Float, nullable=True)
-    total_system_VA = Column(Float, nullable=True)
-    total_system_VAr = Column(Float, nullable=True)
-    total_system_power_factor = Column(Float, nullable=True)
-    total_import_kwh = Column(Float, nullable=True)
-    total_export_kwh = Column(Float, nullable=True)
-    total_import_kVAh = Column(Float, nullable=True)
-    total_export_kVAh = Column(Float, nullable=True)
-    total_kVAh = Column(Float, nullable=True)
-    _1_to_2_voltage = Column(Float, nullable=True)
-    _2_to_3_voltage = Column(Float, nullable=True)
-    _3_to_1_voltage = Column(Float, nullable=True)
-    neutral_current = Column(Float, nullable=True)
-    line_voltage_THD_1 = Column(Float, nullable=True)
-    line_voltage_THD_2 = Column(Float, nullable=True)
-    line_voltage_THD_3 = Column(Float, nullable=True)
-    line_current_THD_1 = Column(Float, nullable=True)
-    line_current_THD_2 = Column(Float, nullable=True)
-    line_current_THD_3 = Column(Float, nullable=True)
-    current_demand_1 = Column(Float, nullable=True)
-    current_demand_2 = Column(Float, nullable=True)
-    current_demand_3 = Column(Float, nullable=True)
-    phase_voltage_THD_1 = Column(Float, nullable=True)
-    phase_voltage_THD_2 = Column(Float, nullable=True)
-    phase_voltage_THD_3 = Column(Float, nullable=True)
-    average_line_to_line_voltage_THD = Column(Float, nullable=True)
-    total_kWh = Column(Float, nullable=True)
-    total_kVArh = Column(Float, nullable=True)
-    import_kWh_1 = Column(Float, nullable=True)
-    import_kWh_2 = Column(Float, nullable=True)
-    import_kWh_3 = Column(Float, nullable=True)
-    export_kWh_1 = Column(Float, nullable=True)
-    export_kWh_2 = Column(Float, nullable=True)
-    export_kWh_3 = Column(Float, nullable=True)
-    total_kWh_1 = Column(Float, nullable=True)
-    total_kWh_2 = Column(Float, nullable=True)
-    total_kWh_3 = Column(Float, nullable=True)
-    import_kVArh_1 = Column(Float, nullable=True)
-    import_kVArh_2 = Column(Float, nullable=True)
-    import_kVArh_3 = Column(Float, nullable=True)
-    export_kVArh_1 = Column(Float, nullable=True)
-    export_kVArh_2 = Column(Float, nullable=True)
-    export_kVArh_3 = Column(Float, nullable=True)
-    total_kVArh_1 = Column(Float, nullable=True)
-    total_kVArh_2 = Column(Float, nullable=True)
-    total_kVArh_3 = Column(Float, nullable=True)
-
-    device = relationship("Device")
-
-    def __repr__(self):
-        return f"<SDM630Report(id={self.id}, device_id={self.device_id}, timestamp={self.timestamp}, ...)>"
+    class Meta:
+        table = "sdm630_reports"
 
 
-class SDM630ReportTmp(Base):
-    __tablename__ = 'sdm630_reports_tmp'
+class SDM630ReportTmp(Model):
+    device = fields.ForeignKeyField('models.Device', related_name='sdm630_reports_tmp')
+    timestamp = fields.DatetimeField(default=datetime.now, pk=True)
 
-    device_id = Column(Integer, ForeignKey('devices.id'), nullable=False)
-    timestamp = Column(DateTime, nullable=False, default=lambda: datetime.now(get_localzone()), primary_key=True)
+    line_voltage_1 = fields.FloatField(null=True)
+    line_voltage_2 = fields.FloatField(null=True)
+    line_voltage_3 = fields.FloatField(null=True)
+    current_1 = fields.FloatField(null=True)
+    current_2 = fields.FloatField(null=True)
+    current_3 = fields.FloatField(null=True)
+    power_1 = fields.FloatField(null=True)
+    power_2 = fields.FloatField(null=True)
+    power_3 = fields.FloatField(null=True)
+    total_kWh_1 = fields.FloatField(null=True)
+    total_kWh_2 = fields.FloatField(null=True)
+    total_kWh_3 = fields.FloatField(null=True)
+    total_kWh = fields.FloatField(null=True)
 
-    line_voltage_1 = Column(Float, nullable=True)
-    line_voltage_2 = Column(Float, nullable=True)
-    line_voltage_3 = Column(Float, nullable=True)
-    current_1 = Column(Float, nullable=True)
-    current_2 = Column(Float, nullable=True)
-    current_3 = Column(Float, nullable=True)
-    power_1 = Column(Float, nullable=True)
-    power_2 = Column(Float, nullable=True)
-    power_3 = Column(Float, nullable=True)
-    total_kWh_1 = Column(Float, nullable=True)
-    total_kWh_2 = Column(Float, nullable=True)
-    total_kWh_3 = Column(Float, nullable=True)
-    total_kWh = Column(Float, nullable=True)
+    class Meta:
+        table = "sdm630_reports_tmp"
 
-    device = relationship("Device")
+class SDM72DReport(Model):
+    id = fields.IntField(pk=True)
+    device = fields.ForeignKeyField('models.Device', related_name='sdm72d_reports')
+    timestamp = fields.DatetimeField(default=datetime.now)
 
-    def __repr__(self):
-        return f"<SDM630Report(device_id={self.device_id}, timestamp={self.timestamp}, ...)>"
+    line_voltage_1 = fields.FloatField(null=True)
+    line_voltage_2 = fields.FloatField(null=True)
+    line_voltage_3 = fields.FloatField(null=True)
+    current_1 = fields.FloatField(null=True)
+    current_2 = fields.FloatField(null=True)
+    current_3 = fields.FloatField(null=True)
+    active_power_1 = fields.FloatField(null=True)
+    active_power_2 = fields.FloatField(null=True)
+    active_power_3 = fields.FloatField(null=True)
+    power_1 = fields.FloatField(null=True)
+    power_2 = fields.FloatField(null=True)
+    power_3 = fields.FloatField(null=True)
+    reactive_power_1 = fields.FloatField(null=True)
+    reactive_power_2 = fields.FloatField(null=True)
+    reactive_power_3 = fields.FloatField(null=True)
+    power_factor_1 = fields.FloatField(null=True)
+    power_factor_2 = fields.FloatField(null=True)
+    power_factor_3 = fields.FloatField(null=True)
+    total_system_power = fields.FloatField(null=True)
+    total_system_VA = fields.FloatField(null=True)
+    total_system_VAr = fields.FloatField(null=True)
+    total_system_power_factor = fields.FloatField(null=True)
+    total_import_kwh = fields.FloatField(null=True)
+    total_export_kwh = fields.FloatField(null=True)
+    _1_to_2_voltage = fields.FloatField(null=True)
+    _2_to_3_voltage = fields.FloatField(null=True)
+    _3_to_1_voltage = fields.FloatField(null=True)
+    neutral_current = fields.FloatField(null=True)
+    total_kWh = fields.FloatField(null=True)
+    total_kVArh = fields.FloatField(null=True)
+    total_import_active_power = fields.FloatField(null=True)
+    total_export_active_power = fields.FloatField(null=True)
 
-class SDM72DReport(Base):
-    __tablename__ = 'sdm72d_reports'
+    class Meta:
+        table = "sdm72d_reports"
 
-    id = Column(Integer, primary_key=True)
-    device_id = Column(Integer, ForeignKey('devices.id'), nullable=False)
-    timestamp = Column(DateTime, nullable=False, default=lambda: datetime.now(get_localzone()))
+class SDM72DReportTmp(Model):
+    device = fields.ForeignKeyField('models.Device', related_name='sdm72d_reports_tmp')
+    timestamp = fields.DatetimeField(default=datetime.now, pk=True)
 
-    line_voltage_1 = Column(Float, nullable=True)
-    line_voltage_2 = Column(Float, nullable=True)
-    line_voltage_3 = Column(Float, nullable=True)
-    current_1 = Column(Float, nullable=True)
-    current_2 = Column(Float, nullable=True)
-    current_3 = Column(Float, nullable=True)
-    active_power_1 = Column(Float, nullable=True)
-    active_power_2 = Column(Float, nullable=True)
-    active_power_3 = Column(Float, nullable=True)
-    power_1 = Column(Float, nullable=True)
-    power_2 = Column(Float, nullable=True)
-    power_3 = Column(Float, nullable=True)
-    reactive_power_1 = Column(Float, nullable=True)
-    reactive_power_2 = Column(Float, nullable=True)
-    reactive_power_3 = Column(Float, nullable=True)
-    power_factor_1 = Column(Float, nullable=True)
-    power_factor_2 = Column(Float, nullable=True)
-    power_factor_3 = Column(Float, nullable=True)
-    total_system_power = Column(Float, nullable=True)
-    total_system_VA = Column(Float, nullable=True)
-    total_system_VAr = Column(Float, nullable=True)
-    total_system_power_factor = Column(Float, nullable=True)
-    total_import_kwh = Column(Float, nullable=True)
-    total_export_kwh = Column(Float, nullable=True)
-    _1_to_2_voltage = Column(Float, nullable=True)
-    _2_to_3_voltage = Column(Float, nullable=True)
-    _3_to_1_voltage = Column(Float, nullable=True)
-    neutral_current = Column(Float, nullable=True)
-    total_kWh = Column(Float, nullable=True)
-    total_kVArh = Column(Float, nullable=True)
-    total_import_active_power = Column(Float, nullable=True)
-    total_export_active_power = Column(Float, nullable=True)
+    line_voltage_1 = fields.FloatField(null=True)
+    line_voltage_2 = fields.FloatField(null=True)
+    line_voltage_3 = fields.FloatField(null=True)
+    current_1 = fields.FloatField(null=True)
+    current_2 = fields.FloatField(null=True)
+    current_3 = fields.FloatField(null=True)
+    power_1 = fields.FloatField(null=True)
+    power_2 = fields.FloatField(null=True)
+    power_3 = fields.FloatField(null=True)
+    total_kWh = fields.FloatField(null=True)
 
-    device = relationship("Device")
-
-    def __repr__(self):
-        return f"<SDM72DReport(id={self.id}, device_id={self.device_id}, timestamp={self.timestamp}, ...)>"
-
-class SDM72DReportTmp(Base):
-    __tablename__ = 'sdm72d_reports_tmp'
-
-    device_id = Column(Integer, ForeignKey('devices.id'), nullable=False)
-    timestamp = Column(DateTime, nullable=False, default=lambda: datetime.now(get_localzone()), primary_key=True)
-
-    line_voltage_1 = Column(Float, nullable=True)
-    line_voltage_2 = Column(Float, nullable=True)
-    line_voltage_3 = Column(Float, nullable=True)
-    current_1 = Column(Float, nullable=True)
-    current_2 = Column(Float, nullable=True)
-    current_3 = Column(Float, nullable=True)
-    power_1 = Column(Float, nullable=True)
-    power_2 = Column(Float, nullable=True)
-    power_3 = Column(Float, nullable=True)
-    total_kWh = Column(Float, nullable=True)
-
-    device = relationship("Device")
-
-    def __repr__(self):
-        return f"<SDM72DReportTmp(id={self.id}, device_id={self.device_id}, timestamp={self.timestamp}, ...)>"
+    class Meta:
+        table = "sdm72d_reports_tmp"

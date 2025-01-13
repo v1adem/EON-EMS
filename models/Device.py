@@ -1,28 +1,25 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, Boolean
-from sqlalchemy.orm import relationship
-
-from config import Base
+from tortoise.models import Model
+from tortoise import fields
 
 
-class Device(Base):
-    __tablename__ = 'devices'
+class Device(Model):
+    id = fields.IntField(pk=True)
+    project = fields.ForeignKeyField("models.Project", related_name="devices", on_delete=fields.CASCADE)
+    name = fields.CharField(max_length=255, unique=True)
+    manufacturer = fields.CharField(max_length=255)
+    model = fields.CharField(max_length=255)
+    device_address = fields.IntField()
 
-    id = Column(Integer, primary_key=True)
-    project_id = Column(Integer, ForeignKey('projects.id'), nullable=False)
-    name = Column(String, nullable=False, unique=True)
-    manufacturer = Column(String, nullable=False)
-    model = Column(String, nullable=False)
-    device_address = Column(Integer, nullable=False)
+    reading_type = fields.IntField(default=1)  # 1 for interval, 2 for time
+    reading_interval = fields.IntField(default=3600)  # Seconds
+    reading_time = fields.IntField(default=0)  # Minutes
 
-    reading_type = Column(Integer, nullable=False, default=1)  # 1 for interval, 2 for time
-    reading_interval = Column(Integer, nullable=False, default=3600)  # Seconds
-    reading_time = Column(Integer, nullable=False, default=0)  # Minutes
+    reading_status = fields.BooleanField(default=False)  # True = needs reading
 
-    reading_status = Column(Boolean, nullable=False, default=False)  # True = needs reading
+    class Meta:
+        table = "devices"
 
-    project = relationship("Project")
-
-    def __repr__(self):
+    def __str__(self):
         return (f"<Device(id={self.id}, name='{self.name}', manufacturer='{self.manufacturer}', "
                 f"model='{self.model}', device_address={self.device_address}, project_id={self.project_id}, "
                 f"reading_status={self.reading_status})>")
