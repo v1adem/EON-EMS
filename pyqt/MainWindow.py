@@ -1,9 +1,15 @@
-from PyQt5.QtCore import QTimer
-from PyQt5.QtWidgets import QMainWindow, QWidget, QVBoxLayout, \
-    QStackedWidget, QAction, QDialog
+import asyncio
+import os
+import sys
+from msilib import init_database
 
-from models.Admin import Admin
-from models.Project import Project
+from AsyncioPySide6 import AsyncioPySide6
+from PySide6.QtAsyncio import QAsyncioEventLoop
+from PySide6.QtGui import QAction
+from PySide6.QtWidgets import QMainWindow, QWidget, QStackedWidget, QVBoxLayout, QDialog
+from tortoise import Tortoise
+from typing_extensions import get_original_bases
+
 from pyqt.dialogs.LanguageDialog import LanguageDialog
 from pyqt.widgets.DeviceDetailsWidget import DeviceDetailsWidget
 from pyqt.widgets.ProjectViewWidget import ProjectViewWidget
@@ -12,28 +18,54 @@ from pyqt.widgets.RegistrationLoginForm import RegistrationLoginForm
 from rtu.DataCollector import DataCollector
 
 
+def get_database_path():
+    """
+    Визначає шлях до бази даних у каталозі APPDATA (Windows)
+    або відповідному каталозі для Linux/MacOS.
+    """
+    appdata_dir = os.getenv('APPDATA') if sys.platform == 'win32' else os.path.expanduser('~/.config')
+    app_dir = os.path.join(appdata_dir, 'EON')
+
+    os.makedirs(app_dir, exist_ok=True)
+
+    return os.path.join(app_dir, 'eon.db')
+
+
+def init_database(db_path):
+    """
+    Ініціалізує Tortoise ORM і створює таблиці, якщо вони ще не існують.
+    """
+    async def run_init_database():
+        await Tortoise.init(
+            db_url=f"sqlite:///{db_path}",
+            modules={"models": ["models.Admin", "models.Project", "models.Device", "models.Report"]},
+        )
+        await Tortoise.generate_schemas(safe=True)
+
+    AsyncioPySide6.runTask(run_init_database())
+
 class MainWindow(QMainWindow):
-    def __init__(self, db_session):
+    def __init__(self):
         super().__init__()
 
-        self.db_session = db_session
-        self.data_collectors = []
-        self.timers = []
+        init_database(get_database_path())
 
-        projects = self.db_session.query(Project).all()
+        #self.data_collectors = []
+        #self.timers = []
 
-        for project in projects:
-            data_collector = DataCollector(db_session, project, self)
-            self.data_collectors.append(data_collector)
+        #projects = Project.all()
 
-            timer = QTimer(self)
-            timer.timeout.connect(data_collector.collect_data)
-            timer.setInterval(3000)
-            timer.start()
+        #for project in projects:
+        #    data_collector = DataCollector(project, self)
+        #    self.data_collectors.append(data_collector)
+        #    timer = QTimer(self)
+        #    timer.timeout.connect(data_collector.collect_data)
+        #    timer.setInterval(3000)
+        #    timer.start()
 
-            self.timers.append(timer)
+        #    self.timers.append(timer)
 
-        self.db_session = db_session
+
         self.isAdmin = False
 
         self.setWindowTitle("EON EMS v0.2.2")
@@ -64,15 +96,10 @@ class MainWindow(QMainWindow):
         self.stacked_widget.addWidget(self.registration_widget)
 
         self.stacked_widget.setCurrentIndex(0)
-        admin = self.db_session.query(Admin).first()
-        if admin is not None:
-            if admin.always_admin is True:
-                self.isAdmin = True
-                self.open_projects_list()
 
     def change_language(self):
         language_dialog = LanguageDialog(self)
-        if language_dialog.exec_() == QDialog.Accepted:
+        if language_dialog.exec_() == QDialog.DialogCode.Accepted:
             current_language = language_dialog.selected_language
             print(f"Мова змінена на: {current_language}")
 
@@ -112,3 +139,7 @@ class MainWindow(QMainWindow):
             self.stacked_widget.addWidget(self.registration_widget)
 
             self.stacked_widget.setCurrentIndex(0)
+
+    def closeEvent(self, event):
+        asyncio.get_event_loop().stop()
+        super().closeEvent(event)

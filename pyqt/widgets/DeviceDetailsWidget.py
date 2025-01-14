@@ -2,14 +2,11 @@ from datetime import datetime
 
 import pyqtgraph as pg
 import xlsxwriter
-from PyQt5.QtCore import Qt, QSortFilterProxyModel, QTime, QTimer, QDate
-from PyQt5.QtGui import QIcon, QStandardItemModel, QStandardItem, QFont
-from PyQt5.QtWidgets import QMessageBox, QFileDialog, QTabWidget
-from PyQt5.QtWidgets import QVBoxLayout, QPushButton, QLabel, QWidget, QSplitter, QTableView, \
-    QHBoxLayout, QDialog, QLCDNumber, QCheckBox, QDateEdit, QGridLayout
-from sqlalchemy import desc
+from PySide6.QtCore import QTimer, QDate, Qt, QSortFilterProxyModel, QTime
+from PySide6.QtGui import QStandardItemModel, QFont, QStandardItem
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QSplitter, QLabel, QDateEdit, QTableView, QTabWidget, QHBoxLayout, \
+    QPushButton, QCheckBox, QGridLayout, QLCDNumber, QDialog, QMessageBox, QFileDialog
 
-from config import resource_path
 from models.Report import SDM630Report, SDM630ReportTmp, SDM120Report, SDM120ReportTmp, SDM72DReport, SDM72DReportTmp
 from pyqt.widgets.DateAxisItem import DateAxisItem
 from register_maps.RegisterMaps import RegisterMap
@@ -159,12 +156,12 @@ class DeviceDetailsWidget(QWidget):
 
         clock_title = QLabel("Поточний час")
         clock_title.setStyleSheet("font-size: 16pt; font-weight: bold;")
-        clock_title.setAlignment(Qt.AlignCenter)
+        clock_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         bottom_left_layout.addWidget(clock_title)
 
         clock_label = QLabel()
         clock_label.setStyleSheet("font-size: 16pt;")
-        clock_label.setAlignment(Qt.AlignCenter)
+        clock_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         bottom_left_layout.addWidget(clock_label)
 
         layout.addStretch()
@@ -175,25 +172,25 @@ class DeviceDetailsWidget(QWidget):
         voltage_label.setStyleSheet("font-size: 14pt; font-weight: bold;")
         voltage_lcd = QLCDNumber()
         voltage_lcd.setStyleSheet("font-size: 18pt;")
-        voltage_lcd.setSegmentStyle(QLCDNumber.Flat)
+        voltage_lcd.setSegmentStyle(QLCDNumber.SegmentStyle.Flat)
 
         current_label = QLabel("Струм (A)")
         current_label.setStyleSheet("font-size: 14pt; font-weight: bold;")
         current_lcd = QLCDNumber()
         current_lcd.setStyleSheet("font-size: 18pt;")
-        current_lcd.setSegmentStyle(QLCDNumber.Flat)
+        current_lcd.setSegmentStyle(QLCDNumber.SegmentStyle.Flat)
 
         power_label = QLabel("Потужність (W)")
         power_label.setStyleSheet("font-size: 14pt; font-weight: bold;")
         power_lcd = QLCDNumber()
         power_lcd.setStyleSheet("font-size: 18pt;")
-        power_lcd.setSegmentStyle(QLCDNumber.Flat)
+        power_lcd.setSegmentStyle(QLCDNumber.SegmentStyle.Flat)
 
         energy_label = QLabel("Спожито (kWh)")
         energy_label.setStyleSheet("font-size: 14pt; font-weight: bold;")
         energy_lcd = QLCDNumber()
         energy_lcd.setStyleSheet("font-size: 18pt;")
-        energy_lcd.setSegmentStyle(QLCDNumber.Flat)
+        energy_lcd.setSegmentStyle(QLCDNumber.SegmentStyle.Flat)
 
         if phase_name != "Загальне":
             indicators_layout.addWidget(voltage_label, 0, 0)
@@ -225,21 +222,21 @@ class DeviceDetailsWidget(QWidget):
         self.tabs.addTab(tab, phase_name)
 
     def load_report_data(self):
-        start_date = self.start_date_table_filter.date().toPyDate()
-        end_date = self.end_date_table_filter.date().addDays(1).toPyDate()
+        start_date = self.start_date_table_filter.date().toPython()
+        end_date = self.end_date_table_filter.date().addDays(1).toPython()
 
         if self.device_model == "SDM120":
             self.report_data = self.db_session.query(SDM120Report).filter_by(device_id=self.device.id).filter(
                 SDM120Report.timestamp >= start_date, SDM120Report.timestamp <= end_date
-            ).order_by(desc(SDM120Report.timestamp)).all()
+            ).order_by((SDM120Report.timestamp)).all()
         elif self.device_model == "SDM630":
             self.report_data = self.db_session.query(SDM630Report).filter_by(device_id=self.device.id).filter(
                 SDM630Report.timestamp >= start_date, SDM630Report.timestamp <= end_date
-            ).order_by(desc(SDM630Report.timestamp)).all()
+            ).order_by((SDM630Report.timestamp)).all()
         elif self.device_model == "SDM72D":
             self.report_data = self.db_session.query(SDM72DReport).filter_by(device_id=self.device.id).filter(
                 SDM72DReport.timestamp >= start_date, SDM72DReport.timestamp <= end_date
-            ).order_by(desc(SDM72DReport.timestamp)).all()
+            ).order_by((SDM72DReport.timestamp)).all()
         else:
             self.report_data = None
 
@@ -247,10 +244,10 @@ class DeviceDetailsWidget(QWidget):
 
         proxy_model = QSortFilterProxyModel()
         proxy_model.setSourceModel(model)
-        proxy_model.setSortCaseSensitivity(Qt.CaseInsensitive)
+        proxy_model.setSortCaseSensitivity(Qt.CaseSensitivity.CaseInsensitive)
 
         self.report_table.setModel(proxy_model)
-        self.report_table.sortByColumn(0, Qt.DescendingOrder)
+        self.report_table.sortByColumn(0, Qt.SortOrder.DescendingOrder)
         self.report_table.setSortingEnabled(True)
         self.report_table.resizeColumnsToContents()
 
@@ -444,17 +441,17 @@ class DeviceDetailsWidget(QWidget):
         if self.device_model == "SDM120":
             last_report = (self.db_session.query(SDM120ReportTmp)
                            .filter_by(device_id=self.device.id)
-                           .order_by(desc(SDM120ReportTmp.timestamp))
+                           .order_by((SDM120ReportTmp.timestamp))
                            .first())
         elif self.device_model == "SDM630":
             last_report = (self.db_session.query(SDM630ReportTmp)
                            .filter_by(device_id=self.device.id)
-                           .order_by(desc(SDM630ReportTmp.timestamp))
+                           .order_by((SDM630ReportTmp.timestamp))
                            .first())
         elif self.device_model == "SDM72D":
             last_report = (self.db_session.query(SDM72DReportTmp)
                            .filter_by(device_id=self.device.id)
-                           .order_by(desc(SDM72DReportTmp.timestamp))
+                           .order_by((SDM72DReportTmp.timestamp))
                            .first())
 
         if not last_report:

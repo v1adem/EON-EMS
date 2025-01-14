@@ -1,8 +1,7 @@
-from PyQt5.QtCore import Qt, QSize, QTime
-from PyQt5.QtGui import QStandardItemModel, QStandardItem, QIcon
-from PyQt5.QtWidgets import QWidget, QVBoxLayout, QLabel, QListView, QPushButton, QMessageBox, \
-    QHBoxLayout, QDialog, QFormLayout, QComboBox, QLineEdit, QDialogButtonBox, QSpinBox, QRadioButton, QTimeEdit, \
-    QCheckBox
+from PySide6.QtCore import Qt, QSize, QTime
+from PySide6.QtGui import QStandardItemModel, QStandardItem, QIcon
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QLabel, QListView, QPushButton, QHBoxLayout, QMessageBox, QDialog, \
+    QFormLayout, QLineEdit, QComboBox, QSpinBox, QDialogButtonBox, QRadioButton, QTimeEdit
 
 from config import resource_path
 from models.Device import Device
@@ -46,7 +45,7 @@ class ProjectViewWidget(QWidget):
 
         for index, device in enumerate(devices, start=1):
             item = QStandardItem()
-            item.setData(device.name, Qt.UserRole)
+            item.setData(device.name, Qt.ItemDataRole.UserRole)
             item.setSizeHint(QSize(0, 60))
             self.devices_model.appendRow(item)
 
@@ -56,7 +55,7 @@ class ProjectViewWidget(QWidget):
             number_label = QLabel(f"{index}")
             number_label.setStyleSheet("font-size: 14px; color: #666666;")
             number_label.setFixedWidth(40)
-            number_label.setAlignment(Qt.AlignCenter)
+            number_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
             item_layout.addWidget(number_label)
 
             name_label = QLabel(device.name)
@@ -115,13 +114,13 @@ class ProjectViewWidget(QWidget):
             device_address_input.setRange(1, 255)
             form_layout.addRow("Адреса пристрою:", device_address_input)
 
-            buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel, dialog)
+            buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel, dialog)
             form_layout.addRow(buttons)
 
             buttons.accepted.connect(dialog.accept)
             buttons.rejected.connect(dialog.reject)
 
-            if dialog.exec() == QDialog.Accepted:
+            if dialog.exec() == QDialog.DialogCode.Accepted:
                 device_name = device_name_input.text()
                 manufacturer = manufacturer_input.currentText()
                 model = model_input.currentText()
@@ -202,13 +201,13 @@ class ProjectViewWidget(QWidget):
             lambda: reading_interval_input.setEnabled(reading_type_interval.isChecked()))
         reading_type_time.toggled.connect(lambda: reading_time_input.setEnabled(reading_type_time.isChecked()))
 
-        buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel, dialog)
+        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel, dialog)
         form_layout.addRow(buttons)
 
         buttons.accepted.connect(dialog.accept)
         buttons.rejected.connect(dialog.reject)
 
-        if dialog.exec() == QDialog.Accepted:
+        if dialog.exec() == QDialog.DialogCode.Accepted:
             device.name = device_name_input.text()
             device.manufacturer = manufacturer_input.currentText()
             device.model = model_input.currentText()
@@ -224,8 +223,8 @@ class ProjectViewWidget(QWidget):
     def delete_device(self, device):
         reply = QMessageBox.question(self, "Підтвердження видалення",
                                      f"Ви впевнені, що хочете видалити пристрій '{device.name}'?",
-                                     QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
-        if reply == QMessageBox.Yes:
+                                     QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No, QMessageBox.StandardButton.No)
+        if reply == QMessageBox.StandardButton.Yes:
             # Видалення репортів, що відповідають пристрою
             if device.model == "SDM120":
                 self.db_session.query(SDM120Report).filter(SDM120Report.device_id == device.id).delete()
@@ -243,7 +242,7 @@ class ProjectViewWidget(QWidget):
             self.load_devices()
 
     def open_device_details(self, index):
-        device_name = self.devices_model.itemFromIndex(index).data(Qt.UserRole)
+        device_name = self.devices_model.itemFromIndex(index).data(Qt.ItemDataRole.UserRole)
         device = self.db_session.query(Device).filter_by(name=device_name, project_id=self.project.id).first()
         if device:
             self.main_window.open_device_details(device)

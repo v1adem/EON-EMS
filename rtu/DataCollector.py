@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta
 
-from PyQt5.QtCore import QObject
-from PyQt5.QtWidgets import QMessageBox
+from PySide6.QtCore import QObject
+from PySide6.QtWidgets import QMessageBox
 
 from models.Device import Device
 from models.Project import Project
