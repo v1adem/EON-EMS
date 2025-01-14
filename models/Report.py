@@ -32,8 +32,8 @@ class SDM120Report(Model):
 
 
 class SDM120ReportTmp(Model):
-    device = fields.ForeignKeyField('models.Device', related_name='sdm120_reports_tmp')
-    timestamp = fields.DatetimeField(default=datetime.now, pk=True)
+    device = fields.ForeignKeyField('models.Device', related_name='sdm120_reports_tmp', pk=True)
+    timestamp = fields.DatetimeField(default=datetime.now)
 
     line_voltage_1 = fields.FloatField(null=True)
     current_1 = fields.FloatField(null=True)
