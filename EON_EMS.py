@@ -1,44 +1,32 @@
-import os
+import asyncio
+
+from AsyncioPySide6 import AsyncioPySide6
+from PySide6.QtWidgets import (QApplication)
+
 import sys
 
-from PyQt5.QtWidgets import QApplication
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
+from tortoise import Tortoise
 
-from config import Base
 from pyqt.MainWindow import MainWindow
 
+async def cleanup():
+    await Tortoise.close_connections()
 
-def get_database_path():
-    """
-    Визначає шлях до бази даних у каталозі APPDATA (Windows)
-    або відповідному каталозі для Linux/MacOS.
-    """
-    appdata_dir = os.getenv('APPDATA') if sys.platform == 'win32' else os.path.expanduser('~/.config')
-    app_dir = os.path.join(appdata_dir, 'EON')
-
-    os.makedirs(app_dir, exist_ok=True)
-
-    return os.path.join(app_dir, 'app.db')
-
-
-def create_database_and_tables(db_path):
-    """
-    Створює базу даних і таблиці, якщо вони ще не існують.
-    """
-    engine = create_engine(f'sqlite:///{db_path}')
-    Base.metadata.create_all(engine)
-    return engine
-
+    tasks = [task for task in asyncio.all_tasks() if task is not asyncio.current_task()]
+    for task in tasks:
+        task.cancel()
+        try:
+            await task
+        except asyncio.CancelledError:
+            pass
 
 if __name__ == "__main__":
-    db_path = get_database_path()
-
-    engine = create_database_and_tables(db_path)
-    Session = sessionmaker(bind=engine)
-    session = Session()
-
     app = QApplication(sys.argv)
-    window = MainWindow(session)
-    window.show()
-    sys.exit(app.exec_())
+    with AsyncioPySide6.use_asyncio():
+        main_window = MainWindow()
+        main_window.show()
+
+        try:
+            sys.exit(app.exec())
+        finally:
+            asyncio.run(cleanup())
