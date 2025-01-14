@@ -94,7 +94,7 @@ class RegistrationLoginForm(QWidget):
             try:
                 await admin.save()
                 self.status_label.setText("Реєстрація успішна!")
-                await asyncio.sleep(2)
+                await asyncio.sleep(0.5)
                 self.show_login_form()
             except IntegrityError:
                 self.status_label.setText("Цей користувач вже існує!")

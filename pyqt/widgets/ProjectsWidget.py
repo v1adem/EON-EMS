@@ -1,5 +1,5 @@
 from AsyncioPySide6 import AsyncioPySide6
-from PySide6.QtCore import  Qt, QSize
+from PySide6.QtCore import Qt, QSize
 from PySide6.QtGui import QStandardItemModel, QIcon, QStandardItem
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QListView, QPushButton, QComboBox, QSizePolicy, \
     QInputDialog, QMessageBox, QDialog, QLineEdit, QSpinBox, QDialogButtonBox
@@ -18,6 +18,7 @@ class ProjectsWidget(QWidget):
         super().__init__(main_window)
 
         self.main_window = main_window
+        self.thread_manager = main_window.thread_manager
         self.isAdmin = main_window.isAdmin
         self.setWindowTitle("Список проєктів")
 
@@ -142,6 +143,7 @@ class ProjectsWidget(QWidget):
             await project.save(force_update=True)
 
             self.load_projects()
+
         AsyncioPySide6.runTask(run_change_port())
 
     def is_connected(self, project):
@@ -169,6 +171,10 @@ class ProjectsWidget(QWidget):
 
                 new_project = Project(name=project_name, port=1)
                 await new_project.save()
+
+                self.thread_manager.add_thread(new_project, self.main_window)
+                print(f"Project {new_project.name} created and thread started.")
+
                 self.edit_project(new_project)
 
         AsyncioPySide6.runTask(run_add_new_project())
@@ -202,6 +208,10 @@ class ProjectsWidget(QWidget):
 
                     # Видаляємо сам проєкт
                     await project.delete()
+
+                    self.thread_manager.remove_thread(project, self.main_window)
+                    print(f"Project {project.name} deleted and thread finished.")
+
                     self.load_projects()
 
                 except DoesNotExist:
