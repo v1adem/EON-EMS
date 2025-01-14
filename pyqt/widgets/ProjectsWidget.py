@@ -44,8 +44,6 @@ class ProjectsWidget(QWidget):
         self.projects_list.setModel(self.projects_model)
         self.projects_list.doubleClicked.connect(self.open_project_details)
 
-        self.load_projects()
-
         self.add_project_button = QPushButton("Додати новий проєкт", self)
         self.add_project_button.setStyleSheet("font-size: 18px;")
         self.layout.addWidget(self.add_project_button)
@@ -139,10 +137,12 @@ class ProjectsWidget(QWidget):
                 "color: red; font-size: 18px; alignment: right; margin: 0px; padding: 0px; border: 0px solid #cccccc;")
 
     def change_project_port(self, project, new_port):
-        project.port = int(new_port)
-        project.save(force_update=True)
+        async def run_change_port():
+            project.port = int(new_port)
+            await project.save(force_update=True)
 
-        self.load_projects()
+            self.load_projects()
+        AsyncioPySide6.runTask(run_change_port())
 
     def is_connected(self, project):
         client = ModbusSerialClient(
