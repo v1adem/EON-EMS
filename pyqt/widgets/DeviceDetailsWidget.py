@@ -6,7 +6,7 @@ from PySide6.QtCore import QTimer, QDate, Qt, QSortFilterProxyModel, QTime
 from PySide6.QtGui import QStandardItemModel, QFont, QStandardItem
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QSplitter, QLabel, QDateEdit, QTableView, QTabWidget, QHBoxLayout, \
     QPushButton, QCheckBox, QGridLayout, QLCDNumber, QDialog, QMessageBox, QFileDialog
-from nvd.AsyncioPySide6 import AsyncioPySide6
+from AsyncioPySide6 import AsyncioPySide6
 
 from models.Report import SDM630Report, SDM630ReportTmp, SDM120Report, SDM120ReportTmp, SDM72DReport, SDM72DReportTmp
 from pyqt.widgets.DateAxisItem import DateAxisItem
@@ -20,6 +20,8 @@ class DeviceDetailsWidget(QWidget):
         self.device = device
         self.device_model = self.device.model
         self.main_window = main_window
+
+        self.report_data = None
 
         self.init_column_labels()
 
@@ -240,7 +242,6 @@ class DeviceDetailsWidget(QWidget):
                 timestamp__gte=start_date,
                 timestamp__lte=end_date
             ).order_by("timestamp").all()
-
             model = self.create_table_model(self.report_data, self.device)
 
             proxy_model = QSortFilterProxyModel()
@@ -251,7 +252,7 @@ class DeviceDetailsWidget(QWidget):
             self.report_table.sortByColumn(0, Qt.SortOrder.DescendingOrder)
             self.report_table.setSortingEnabled(True)
             self.report_table.resizeColumnsToContents()
-            AsyncioPySide6.runTask(run_load_report_data())
+        AsyncioPySide6.runTask(run_load_report_data())
 
     def apply_date_filter(self):
         self.load_report_data()
@@ -293,97 +294,99 @@ class DeviceDetailsWidget(QWidget):
 
         return model
 
-    async def update_clock_indicators(self):
-        if self.device_model == "SDM120":
-            report_model = SDM120ReportTmp
-        elif self.device_model == "SDM630":
-            report_model = SDM630ReportTmp
-        elif self.device_model == "SDM72D":
-            report_model = SDM72DReportTmp
-        else:
-            return
+    def update_clock_indicators(self):
+        async def run_update_clock_indicators():
+            if self.device_model == "SDM120":
+                report_model = SDM120ReportTmp
+            elif self.device_model == "SDM630":
+                report_model = SDM630ReportTmp
+            elif self.device_model == "SDM72D":
+                report_model = SDM72DReportTmp
+            else:
+                return
 
-        last_report = await report_model.filter(
-            device_id=self.device.id
-        ).order_by("-timestamp").first()
+            last_report = await report_model.filter(
+                device_id=self.device.id
+            ).order_by("-timestamp").first()
 
-        if not last_report:
-            return
+            if not last_report:
+                return
 
-        if self.device_model == "SDM72D":
-            phases = {
-                "Фаза 1": {
-                    "voltage": getattr(last_report, 'line_voltage_1', 0),
-                    "current": getattr(last_report, 'current_1', 0),
-                    "power": getattr(last_report, 'power_1', 0),
-                    "energy": getattr(last_report, 'total_kWh', 0),
-                },
-                "Фаза 2": {
-                    "voltage": getattr(last_report, 'line_voltage_2', 0),
-                    "current": getattr(last_report, 'current_2', 0),
-                    "power": getattr(last_report, 'power_2', 0),
-                    "energy": getattr(last_report, 'total_kWh', 0),
-                },
-                "Фаза 3": {
-                    "voltage": getattr(last_report, 'line_voltage_3', 0),
-                    "current": getattr(last_report, 'current_3', 0),
-                    "power": getattr(last_report, 'power_3', 0),
-                    "energy": getattr(last_report, 'total_kWh', 0),
-                },
-                "Загальне": {
-                    "energy": getattr(last_report, 'total_kWh', 0),
+            if self.device_model == "SDM72D":
+                phases = {
+                    "Фаза 1": {
+                        "voltage": getattr(last_report, 'line_voltage_1', 0),
+                        "current": getattr(last_report, 'current_1', 0),
+                        "power": getattr(last_report, 'power_1', 0),
+                        "energy": getattr(last_report, 'total_kWh', 0),
+                    },
+                    "Фаза 2": {
+                        "voltage": getattr(last_report, 'line_voltage_2', 0),
+                        "current": getattr(last_report, 'current_2', 0),
+                        "power": getattr(last_report, 'power_2', 0),
+                        "energy": getattr(last_report, 'total_kWh', 0),
+                    },
+                    "Фаза 3": {
+                        "voltage": getattr(last_report, 'line_voltage_3', 0),
+                        "current": getattr(last_report, 'current_3', 0),
+                        "power": getattr(last_report, 'power_3', 0),
+                        "energy": getattr(last_report, 'total_kWh', 0),
+                    },
+                    "Загальне": {
+                        "energy": getattr(last_report, 'total_kWh', 0),
+                    }
                 }
-            }
-        else:
-            # Дані для фаз
-            phases = {
-                "Фаза 1": {
-                    "voltage": getattr(last_report, 'line_voltage_1', 0),
-                    "current": getattr(last_report, 'current_1', 0),
-                    "power": getattr(last_report, 'power_1', 0),
-                    "energy": getattr(last_report, 'total_kWh_1', 0),
-                },
-                "Фаза 2": {
-                    "voltage": getattr(last_report, 'line_voltage_2', 0),
-                    "current": getattr(last_report, 'current_2', 0),
-                    "power": getattr(last_report, 'power_2', 0),
-                    "energy": getattr(last_report, 'total_kWh_2', 0),
-                },
-                "Фаза 3": {
-                    "voltage": getattr(last_report, 'line_voltage_3', 0),
-                    "current": getattr(last_report, 'current_3', 0),
-                    "power": getattr(last_report, 'power_3', 0),
-                    "energy": getattr(last_report, 'total_kWh_3', 0),
-                },
-                "Загальне": {
-                    "energy": getattr(last_report, 'total_kWh', 0),
+            else:
+                # Дані для фаз
+                phases = {
+                    "Фаза 1": {
+                        "voltage": getattr(last_report, 'line_voltage_1', 0),
+                        "current": getattr(last_report, 'current_1', 0),
+                        "power": getattr(last_report, 'power_1', 0),
+                        "energy": getattr(last_report, 'total_kWh_1', 0),
+                    },
+                    "Фаза 2": {
+                        "voltage": getattr(last_report, 'line_voltage_2', 0),
+                        "current": getattr(last_report, 'current_2', 0),
+                        "power": getattr(last_report, 'power_2', 0),
+                        "energy": getattr(last_report, 'total_kWh_2', 0),
+                    },
+                    "Фаза 3": {
+                        "voltage": getattr(last_report, 'line_voltage_3', 0),
+                        "current": getattr(last_report, 'current_3', 0),
+                        "power": getattr(last_report, 'power_3', 0),
+                        "energy": getattr(last_report, 'total_kWh_3', 0),
+                    },
+                    "Загальне": {
+                        "energy": getattr(last_report, 'total_kWh', 0),
+                    }
                 }
-            }
 
-        for phase_name, data in phases.items():
-            if phase_name not in self.phase_data:
-                continue
+            for phase_name, data in phases.items():
+                if phase_name not in self.phase_data:
+                    continue
 
-            phase = self.phase_data[phase_name]
-            voltage_lcd = phase["voltage_lcd"]
-            current_lcd = phase["current_lcd"]
-            power_lcd = phase["power_lcd"]
-            energy_lcd = phase["energy_lcd"]
+                phase = self.phase_data[phase_name]
+                voltage_lcd = phase["voltage_lcd"]
+                current_lcd = phase["current_lcd"]
+                power_lcd = phase["power_lcd"]
+                energy_lcd = phase["energy_lcd"]
 
-            if voltage_lcd and "voltage" in data:
-                voltage_lcd.display(f"{data['voltage']}")
-            if current_lcd and "current" in data:
-                current_lcd.display(f"{data['current']}")
-            if power_lcd and "power" in data:
-                power_lcd.display(f"{data['power']}")
-            if energy_lcd and "energy" in data:
-                energy_lcd.display(f"{data['energy']}")
+                if voltage_lcd and "voltage" in data:
+                    voltage_lcd.display(f"{data['voltage']}")
+                if current_lcd and "current" in data:
+                    current_lcd.display(f"{data['current']}")
+                if power_lcd and "power" in data:
+                    power_lcd.display(f"{data['power']}")
+                if energy_lcd and "energy" in data:
+                    energy_lcd.display(f"{data['energy']}")
 
-        current_time = QTime.currentTime().toString("HH:mm:ss")  # Час
-        current_time += "\n" + QDate.currentDate().toString("dd.MM.yyyy")  # Дата
+            current_time = QTime.currentTime().toString("HH:mm:ss")  # Час
+            current_time += "\n" + QDate.currentDate().toString("dd.MM.yyyy")  # Дата
 
-        for phase_name, phase_data in self.phase_data.items():
-            phase_data["clock_label"].setText(current_time)
+            for phase_name, phase_data in self.phase_data.items():
+                phase_data["clock_label"].setText(current_time)
+        AsyncioPySide6.runTask(run_update_clock_indicators())
 
     def update_all_tabs_graphs(self):
         if self.auto_update_checkbox.isChecked():
