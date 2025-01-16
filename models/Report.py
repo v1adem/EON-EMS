@@ -1,12 +1,12 @@
 from tortoise import fields
 from tortoise.models import Model
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 class SDM120Report(Model):
     id = fields.IntField(pk=True)
     device = fields.ForeignKeyField('models.Device', related_name='sdm120_reports')
-    timestamp = fields.DatetimeField(default=datetime.now)
+    timestamp = fields.DatetimeField(default=lambda: datetime.now())
 
     line_voltage_1 = fields.FloatField(null=True)
     current_1 = fields.FloatField(null=True)
@@ -32,8 +32,9 @@ class SDM120Report(Model):
 
 
 class SDM120ReportTmp(Model):
-    device = fields.ForeignKeyField('models.Device', related_name='sdm120_reports_tmp', pk=True)
-    timestamp = fields.DatetimeField(default=datetime.now)
+    id = fields.IntField(pk=True)
+    device_id = fields.IntField()
+    timestamp = fields.DatetimeField(default=lambda: datetime.now())
 
     line_voltage_1 = fields.FloatField(null=True)
     current_1 = fields.FloatField(null=True)
@@ -55,7 +56,7 @@ class SDM120ReportTmp(Model):
 class SDM630Report(Model):
     id = fields.IntField(pk=True)
     device = fields.ForeignKeyField('models.Device', related_name='sdm630_reports')
-    timestamp = fields.DatetimeField(default=datetime.now)
+    timestamp = fields.DatetimeField(default=lambda: datetime.now())
 
     line_voltage_1 = fields.FloatField(null=True)
     line_voltage_2 = fields.FloatField(null=True)
@@ -121,8 +122,9 @@ class SDM630Report(Model):
 
 
 class SDM630ReportTmp(Model):
+    id = fields.IntField(pk=True)
     device = fields.ForeignKeyField('models.Device', related_name='sdm630_reports_tmp')
-    timestamp = fields.DatetimeField(default=datetime.now, pk=True)
+    timestamp = fields.DatetimeField(default=lambda: datetime.now())
 
     line_voltage_1 = fields.FloatField(null=True)
     line_voltage_2 = fields.FloatField(null=True)
@@ -144,7 +146,7 @@ class SDM630ReportTmp(Model):
 class SDM72DReport(Model):
     id = fields.IntField(pk=True)
     device = fields.ForeignKeyField('models.Device', related_name='sdm72d_reports')
-    timestamp = fields.DatetimeField(default=datetime.now)
+    timestamp = fields.DatetimeField(default=lambda: datetime.now())
 
     line_voltage_1 = fields.FloatField(null=True)
     line_voltage_2 = fields.FloatField(null=True)
@@ -183,8 +185,9 @@ class SDM72DReport(Model):
         table = "sdm72d_reports"
 
 class SDM72DReportTmp(Model):
+    id = fields.IntField(pk=True)
     device = fields.ForeignKeyField('models.Device', related_name='sdm72d_reports_tmp')
-    timestamp = fields.DatetimeField(default=datetime.now, pk=True)
+    timestamp = fields.DatetimeField(default=lambda: datetime.now())
 
     line_voltage_1 = fields.FloatField(null=True)
     line_voltage_2 = fields.FloatField(null=True)
