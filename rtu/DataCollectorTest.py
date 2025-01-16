@@ -47,7 +47,7 @@ class DataCollectorTest(QObject):
             await asyncio.sleep(1)
 
     async def collect_data_sdm120(self, device):
-        last_report = await SDM120Report.filter(device=device).first()
+        last_report = await SDM120Report.filter(device=device).last()
         print("Читається девайс: " + device.name + " / З проєкту " + self.project.name)
         new_data = {
             "line_voltage_1": random.randrange(210, 250),
@@ -55,8 +55,8 @@ class DataCollectorTest(QObject):
             "active_power_1": 50,
             "power_1": 60,
             "reactive_power_1": 50,
-            "power_factor": 1,
-            "frequency": 50,
+            "power_factor_1": 1,
+            "frequency_1": 50,
             "import_active_energy_1": 0,
             "export_active_energy_1": 0,
             "total_active_energy": 0,
@@ -76,21 +76,31 @@ class DataCollectorTest(QObject):
         tmp_report = SDM120ReportTmp(**tmp_report_data)
         await tmp_report.save()
 
-        tmp_reports = await SDM120ReportTmp.all()
-
-        if len(tmp_reports) > 1:
-            await tmp_reports[0].delete()
-
         if last_report:
-            device_reading_interval = device.reading_interval - 10
+            device_reading_interval = device.reading_interval
+            print(f"Device Reading Interval (in seconds): {device_reading_interval}")
+
+            last_report_time = last_report.timestamp.replace(tzinfo=None)
+            print(f"Last Report Timestamp (without tzinfo): {last_report_time}")
+
+            calculated_time = last_report_time + timedelta(seconds=device_reading_interval)
+            print(f"Last Report Timestamp + Interval: {calculated_time}")
+
+            current_time = datetime.now().replace(tzinfo=None)
+            print(f"Current Time: {current_time}")
+
             if device.reading_type == 2:
                 reading_time = device.reading_time
                 start_of_day = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
-                if datetime.now() < (
-                        start_of_day + timedelta(minutes=reading_time)) or last_report.timestamp >= start_of_day:
+                print(f"Start of Day: {start_of_day}")
+                print(f"Reading Time Limit: {start_of_day + timedelta(minutes=reading_time)}")
+
+                if current_time < (start_of_day + timedelta(minutes=reading_time)) or last_report_time >= start_of_day:
+                    print("Skipping due to daily reading time limit or recent report.")
                     return
 
-            if last_report.timestamp.replace(tzinfo=None) + timedelta(seconds=device_reading_interval) > datetime.now():
+            if calculated_time > current_time:
+                print("Skipping due to reading interval condition.")
                 return
 
         report_data = {
