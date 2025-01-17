@@ -45,7 +45,7 @@ async def cleanup():
 
 class ThreadManager:
     def __init__(self):
-        self.threads = {}  # Зберігаємо посилання на потоки, ключ — ідентифікатор проєкту
+        self.threads = {}
 
     def add_thread(self, project, main_window):
         if project.id in self.threads:

@@ -213,17 +213,27 @@ class ProjectViewWidget(QWidget):
 
         if dialog.exec() == QDialog.DialogCode.Accepted:
             async def run_save_changes():
-                device.name = device_name_input.text()
+                # Get values from the UI elements
+                device.name = device_name_input.text().strip()
                 device.manufacturer = manufacturer_input.currentText()
                 device.model = model_input.currentText()
                 device.device_address = device_address_input.value()
-                device.reading_type = 1 if reading_type_interval.isChecked() else 2
-                device.reading_interval = reading_interval_input.value() * 60 if reading_type_interval.isChecked() else 0
-                device.reading_time = reading_time_input.time().secsTo(
-                    QTime(0, 0)) * -1 if reading_type_time.isChecked() else 0
 
-                await device.save()
-                self.load_devices()
+                if reading_type_interval.isChecked():
+                    device.reading_type = 1
+                    device.reading_interval = reading_interval_input.value() * 60  # convert minutes to seconds
+                else:
+                    device.reading_type = 2
+                    device.reading_interval = 0  # No interval when using time-based reading
+
+                if reading_type_time.isChecked():
+                    device.reading_time = reading_time_input.time().secsTo(QTime(0, 0)) * -1  # Convert time to seconds
+                else:
+                    device.reading_time = 0  # No reading time for interval-based reading
+
+                # Make sure the save method works correctly
+                await device.save(force_update=True)
+                self.load_devices()  # Refresh the device list or UI
             AsyncioPySide6.runTask(run_save_changes())
 
     def delete_device(self, device):

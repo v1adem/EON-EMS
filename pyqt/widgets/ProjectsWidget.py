@@ -160,6 +160,7 @@ class ProjectsWidget(QWidget):
         return False
 
     def add_new_project(self):
+        self.new_project = None
         async def run_add_new_project():
             project_name, ok = QInputDialog.getText(self, "Додати новий проєкт", "Введіть назву проєкту:")
 
@@ -169,15 +170,14 @@ class ProjectsWidget(QWidget):
                     QMessageBox.warning(self, "Помилка", "Проєкт з такою назвою вже існує.")
                     return
 
-                new_project = Project(name=project_name, port=1)
-                await new_project.save()
+                self.new_project = Project(name=project_name, port=1)
+                await self.new_project.save()
 
-                self.thread_manager.add_thread(new_project, self.main_window)
-                print(f"Project {new_project.name} created and thread started.")
-
-                self.edit_project(new_project)
+                self.thread_manager.add_thread(self.new_project, self.main_window)
+                print(f"Project {self.new_project.name} created and thread started.")
 
         AsyncioPySide6.runTask(run_add_new_project())
+        self.edit_project(self.new_project)
 
     def delete_project(self, project):
         async def run_del_project():
@@ -220,7 +220,6 @@ class ProjectsWidget(QWidget):
         AsyncioPySide6.runTask(run_del_project())
 
     def edit_project(self, project):
-        async def run_edit_project():
             dialog = QDialog(self)
             dialog.setWindowTitle("Редагувати проєкт")
 
@@ -262,7 +261,7 @@ class ProjectsWidget(QWidget):
             baudrate_label = QLabel("Baudrate:")
             baudrate_edit = QComboBox()
             baudrate_options = [1200, 2400, 4800, 9600, 19200, 38400, 57600, 115200]
-            baudrate_edit.addItems(Sequence(str, baudrate_options))
+            baudrate_edit.addItems(map(str, baudrate_options))
             baudrate_edit.setCurrentText(str(project.baudrate))
             layout.addWidget(baudrate_label)
             layout.addWidget(baudrate_edit)
@@ -295,31 +294,32 @@ class ProjectsWidget(QWidget):
             button_box.rejected.connect(dialog.reject)
 
             if dialog.exec_() == QDialog.DialogCode.Accepted:
-                new_name = name_edit.text().strip()
-                new_description = description_edit.text().strip()
-                new_baudrate = int(baudrate_edit.currentText())
-                new_bytesize = bytesize_edit.value()
-                new_stopbits = float(stopbits_edit.currentText())
-                new_parity = parity_edit.currentText()
+                async def run_edit_project():
+                    new_name = name_edit.text().strip()
+                    new_description = description_edit.text().strip()
+                    new_baudrate = int(baudrate_edit.currentText())
+                    new_bytesize = bytesize_edit.value()
+                    new_stopbits = float(stopbits_edit.currentText())
+                    new_parity = parity_edit.currentText()
 
-                if new_name != project.name:
-                    existing_project = await Project.filter(name=new_name).first()
-                    if existing_project:
-                        QMessageBox.warning(self, "Помилка", "Проєкт з такою назвою вже існує.")
-                        return
+                    if new_name != project.name:
+                        existing_project = await Project.filter(name=new_name).first()
+                        if existing_project:
+                            QMessageBox.warning(self, "Помилка", "Проєкт з такою назвою вже існує.")
+                            return
 
-                project.name = new_name
-                project.description = new_description
-                project.baudrate = new_baudrate
-                project.bytesize = new_bytesize
-                project.stopbits = new_stopbits
-                project.parity = new_parity
+                    project.name = new_name
+                    project.description = new_description
+                    project.baudrate = new_baudrate
+                    project.bytesize = new_bytesize
+                    project.stopbits = new_stopbits
+                    project.parity = new_parity
 
-                await project.save(force_update=True)
+                    await project.save(force_update=True)
 
-                self.load_projects()
+                    self.load_projects()
 
-        AsyncioPySide6.runTask(run_edit_project())
+                AsyncioPySide6.runTask(run_edit_project())
 
     def open_project_details(self, index):
         async def run_open_details():
