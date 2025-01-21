@@ -69,24 +69,22 @@ class ProjectsWidget(QWidget):
                 item_widget = QWidget()
                 item_layout = QHBoxLayout(item_widget)
 
-                item_widget.setStyleSheet("border: 1px solid #cccccc;")
-
                 # Порядковий номер
                 number_label = QLabel(f"{index}")  # Номер по порядку
-                number_label.setStyleSheet("font-size: 18px; color: #666666; border: 0px solid #cccccc;")
+                number_label.setStyleSheet("font-size: 14px; color: #666666;")
                 number_label.setFixedWidth(40)  # Ширина для номера
                 number_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
                 item_layout.addWidget(number_label)
 
                 name_label = QLabel(project.name)
-                name_label.setStyleSheet("font-size: 18px; border: 0px solid #cccccc;")
+                name_label.setStyleSheet("font-size: 18px;")
                 item_layout.addWidget(name_label)
 
                 port_combo = QComboBox()
                 port_combo.addItems([str(i) for i in range(1, 256)])
                 port_combo.setCurrentText(str(project.port))
                 port_combo.setFixedWidth(48)
-                port_combo.setStyleSheet("font-size: 18px; border: 0px solid #cccccc;")
+                port_combo.setStyleSheet("font-size: 18px;")
                 port_combo.currentIndexChanged.connect(
                     lambda _, p=project, combo=port_combo:
                     self.change_project_port(p, combo.currentText())
@@ -100,16 +98,12 @@ class ProjectsWidget(QWidget):
 
                 edit_button = QPushButton()
                 edit_button.setIcon(QIcon(resource_path("pyqt/icons/edit.png")))
-                edit_button.setStyleSheet("margin: 0px;")
-                edit_button.setFixedSize(24, 24)
-                edit_button.setIconSize(QSize(22, 22))
+                edit_button.setFixedSize(36, 36)
                 edit_button.clicked.connect(lambda _, p=project: self.edit_project(p))
 
                 delete_button = QPushButton()
                 delete_button.setIcon(QIcon(resource_path("pyqt/icons/delete.png")))
-                delete_button.setFixedSize(24, 24)
-                delete_button.setStyleSheet("margin: 0px;")
-                delete_button.setIconSize(QSize(22, 22))
+                delete_button.setFixedSize(36, 36)
                 delete_button.clicked.connect(lambda _, p=project: self.delete_project(p))
 
                 if self.isAdmin:
@@ -121,10 +115,9 @@ class ProjectsWidget(QWidget):
                     port_label.setStyleSheet("font-size: 18px; border: 0px solid #cccccc; margin: 0px;")
                     item_layout.addWidget(port_label)
 
-                item_layout.setContentsMargins(10, 5, 10, 5)
-                item_layout.setSpacing(10)
-                self.projects_list.setIndexWidget(item.index(), item_widget)
+                item_layout.setContentsMargins(0, 0, 0, 0)
 
+                self.projects_list.setIndexWidget(item.index(), item_widget)
         AsyncioPySide6.runTask(run_load_projects())
 
     def update_connection_status(self, project, label):

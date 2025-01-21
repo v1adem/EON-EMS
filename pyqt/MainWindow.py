@@ -1,7 +1,11 @@
 import asyncio
-from PySide6.QtGui import QAction
+
+from PySide6 import QtCore, QtWidgets, QtGui
+from PySide6.QtCore import QSize
+from PySide6.QtGui import QAction, QIcon
 from PySide6.QtWidgets import QMainWindow, QWidget, QStackedWidget, QVBoxLayout, QDialog
 
+from config import resource_path
 from pyqt.dialogs.LanguageDialog import LanguageDialog
 from pyqt.widgets.DeviceDetailsWidget import DeviceDetailsWidget
 from pyqt.widgets.ProjectViewWidget import ProjectViewWidget
@@ -26,11 +30,15 @@ class MainWindow(QMainWindow):
         self.setMinimumHeight(600)
 
         self.menu_bar = self.menuBar()
-        self.menu_bar.setStyleSheet("font-size: 16px;")
 
-        back_action = QAction("Назад", self)
-        self.menu_bar.addAction(back_action)
-        back_action.triggered.connect(self.go_back)
+        back_icon = QIcon(resource_path("pyqt/icons/back.png"))
+        exitAct = QAction(back_icon, "Exit", self)
+        exitAct.setShortcut("Ctrl+Q")
+        exitAct.triggered.connect(self.go_back)
+        self.toolbar = self.addToolBar("Exit")
+        self.toolbar.addAction(exitAct)
+        self.toolbar.setMovable(False)
+        self.toolbar.setIconSize(QtCore.QSize(60, 30))
 
         self.central_widget = QWidget(self)
         self.setCentralWidget(self.central_widget)
