@@ -22,6 +22,8 @@ class DataCollectorThread(QThread):
         asyncio.set_event_loop(loop)  # Встановлюємо цей цикл як поточний
 
         loop.run_until_complete(self.collector.collect_data())
+        
+
 
 
 class DataCollectorTest(QObject):
