@@ -66,21 +66,19 @@ class DeviceDetailsWidget(QWidget):
             else:
                 self.create_phase_tab(phase_name)
 
-        self.load_report_data()
-
         self.set_light_theme()
 
-        #self.timer_clock_indicator = QTimer(self)
-        #self.timer_clock_indicator.timeout.connect(self.update_clock_indicators)
-        #self.timer_clock_indicator.setInterval(1000)
-        #self.timer_clock_indicator.start()
+        self.timer_clock_indicator = QTimer(self)
+        self.timer_clock_indicator.timeout.connect(self.update_clock_indicators)
+        self.timer_clock_indicator.setInterval(1000)
+        self.timer_clock_indicator.start()
 
-        #self.timer_update_all_tabs_graphs = QTimer(self)
-        #self.timer_update_all_tabs_graphs.timeout.connect(self.update_all_tabs_graphs)
-        #self.timer_update_all_tabs_graphs.setInterval(((device.reading_interval - 60) * 1000) + 1000)
-        #self.timer_update_all_tabs_graphs.start()
+        self.load_report_data()
 
-        #self.update_all_tabs_graphs()
+        self.timer_update_all_tabs_graphs = QTimer(self)
+        self.timer_update_all_tabs_graphs.timeout.connect(self.load_report_data)
+        self.timer_update_all_tabs_graphs.setInterval(((device.reading_interval - 60) * 1000) + 1000)
+        self.timer_update_all_tabs_graphs.start()
 
     def create_filter_buttons(self, layout):
         """Створення фільтрів і кнопок для таблиці."""
@@ -252,6 +250,11 @@ class DeviceDetailsWidget(QWidget):
             self.report_table.sortByColumn(0, Qt.SortOrder.DescendingOrder)
             self.report_table.setSortingEnabled(True)
             self.report_table.resizeColumnsToContents()
+
+            if self.device_model == "SDM72D":
+                self.update_graphs_sdm72d()
+            else:
+                self.update_graphs()
         AsyncioPySide6.runTask(run_load_report_data())
 
     def apply_date_filter(self):
@@ -388,14 +391,6 @@ class DeviceDetailsWidget(QWidget):
                 phase_data["clock_label"].setText(current_time)
         AsyncioPySide6.runTask(run_update_clock_indicators())
 
-    def update_all_tabs_graphs(self):
-        if self.auto_update_checkbox.isChecked():
-            self.load_report_data()
-            if self.device_model == "SDM72D":
-                self.update_graphs_sdm72d()
-            else:
-                self.update_graphs()
-
     def update_voltage_graph(self, timestamps, voltages, phase_name):
         timestamps_numeric = [ts.timestamp() for ts in timestamps]
 
@@ -527,7 +522,7 @@ class DeviceDetailsWidget(QWidget):
                 hourly_energy.append(current_hour_energy)
                 hourly_timestamps.append(current_hour_start)
 
-            self.update_energy_graph(hourly_timestamps, hourly_energy, phase_name)
+            #self.update_energy_graph(hourly_timestamps, hourly_energy, phase_name)
 
     def set_light_theme(self):
         for phase_name, phase_data in self.phase_data.items():

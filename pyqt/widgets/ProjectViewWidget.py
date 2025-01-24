@@ -3,7 +3,7 @@ import asyncio
 from PySide6.QtCore import Qt, QSize, QTime
 from PySide6.QtGui import QStandardItemModel, QStandardItem, QIcon
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QLabel, QListView, QPushButton, QHBoxLayout, QMessageBox, QDialog, \
-    QFormLayout, QLineEdit, QComboBox, QSpinBox, QDialogButtonBox, QRadioButton, QTimeEdit
+    QFormLayout, QLineEdit, QComboBox, QSpinBox, QDialogButtonBox, QRadioButton, QTimeEdit, QSpacerItem, QSizePolicy
 from AsyncioPySide6 import AsyncioPySide6
 
 from config import resource_path
@@ -83,6 +83,9 @@ class ProjectViewWidget(QWidget):
                     item_layout.addWidget(toggle_status_button)
                     item_layout.addWidget(edit_button)
                     item_layout.addWidget(delete_button)
+
+                    spacer = QSpacerItem(5, 0, QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Minimum)
+                    item_layout.addSpacerItem(spacer)
 
                 item_layout.setContentsMargins(0, 0, 0, 0)
 

@@ -2,8 +2,7 @@ from AsyncioPySide6 import AsyncioPySide6
 from PySide6.QtCore import Qt, QSize
 from PySide6.QtGui import QStandardItemModel, QIcon, QStandardItem
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QListView, QPushButton, QComboBox, QSizePolicy, \
-    QInputDialog, QMessageBox, QDialog, QLineEdit, QSpinBox, QDialogButtonBox
-from numpy.random.mtrand import Sequence
+    QInputDialog, QMessageBox, QDialog, QLineEdit, QSpinBox, QDialogButtonBox, QSpacerItem
 from pymodbus.client import ModbusSerialClient
 from tortoise.exceptions import DoesNotExist
 
@@ -62,8 +61,7 @@ class ProjectsWidget(QWidget):
             for index, project in enumerate(self.projects, start=1):
                 item = QStandardItem()
                 item.setData(project.name, Qt.ItemDataRole.UserRole)
-                cell_height = 60
-                item.setSizeHint(QSize(0, cell_height))
+                item.setSizeHint(QSize(0, 60))
                 self.projects_model.appendRow(item)
 
                 item_widget = QWidget()
@@ -110,6 +108,9 @@ class ProjectsWidget(QWidget):
                     item_layout.addWidget(port_combo)
                     item_layout.addWidget(edit_button)
                     item_layout.addWidget(delete_button)
+
+                    spacer = QSpacerItem(5, 0, QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Minimum)
+                    item_layout.addSpacerItem(spacer)
                 else:
                     port_label = QLabel(f"{project.port}")
                     port_label.setStyleSheet("font-size: 18px; border: 0px solid #cccccc; margin: 0px;")
