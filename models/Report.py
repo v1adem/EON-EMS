@@ -1,6 +1,7 @@
+from datetime import datetime
+
 from tortoise import fields
 from tortoise.models import Model
-from datetime import datetime, timezone
 
 
 class SDM120Report(Model):

@@ -1,7 +1,6 @@
 import asyncio
 
-from PySide6 import QtCore, QtWidgets, QtGui
-from PySide6.QtCore import QSize
+from PySide6 import QtCore
 from PySide6.QtGui import QAction, QIcon
 from PySide6.QtWidgets import QMainWindow, QWidget, QStackedWidget, QVBoxLayout, QDialog
 
@@ -11,9 +10,6 @@ from pyqt.widgets.DeviceDetailsWidget import DeviceDetailsWidget
 from pyqt.widgets.ProjectViewWidget import ProjectViewWidget
 from pyqt.widgets.ProjectsWidget import ProjectsWidget
 from pyqt.widgets.RegistrationLoginForm import RegistrationLoginForm
-
-
-
 
 
 class MainWindow(QMainWindow):

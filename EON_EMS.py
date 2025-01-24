@@ -1,41 +1,18 @@
-from AsyncioPySide6 import AsyncioPySide6
-from PySide6.QtWidgets import QApplication
 import asyncio
 import os
 import sys
 
+from AsyncioPySide6 import AsyncioPySide6
+from PySide6.QtCore import QThreadPool
+from PySide6.QtCore import Qt  # Named colors.
 from PySide6.QtGui import QPalette, QColor
-from PySide6.QtCore import Qt                   # Named colors.
-
-import sys
-
 from PySide6.QtWidgets import (
     QApplication,
-    QCheckBox,
-    QComboBox,
-    QDateEdit,
-    QDateTimeEdit,
-    QDial,
-    QDoubleSpinBox,
-    QFontComboBox,
-    QLabel,
-    QLCDNumber,
-    QLineEdit,
-    QMainWindow,
-    QProgressBar,
-    QPushButton,
-    QRadioButton,
-    QSlider,
-    QSpinBox,
-    QTimeEdit,
-    QVBoxLayout,
-    QWidget,
 )
-
 from tortoise import Tortoise
 
 from pyqt.MainWindow import MainWindow
-from rtu.DataCollectorTest import DataCollectorThread
+from rtu.DataCollectorTest import DataCollectorRunnable
 
 
 def get_darkModePalette(app=None):
@@ -84,46 +61,33 @@ async def init_database(db_path):
     )
     await Tortoise.generate_schemas(safe=True)
 
-
-async def cleanup():
-    await Tortoise.close_connections()
-
-    tasks = [task for task in asyncio.all_tasks() if task is not asyncio.current_task()]
-    for task in tasks:
-        task.cancel()
-        try:
-            await task
-        except asyncio.CancelledError:
-            pass
-
-
 class ThreadManager:
     def __init__(self):
         self.threads = {}
+        self.pool = QThreadPool()  # Використовуємо пул потоків
 
     def add_thread(self, project, main_window):
         if project.id in self.threads:
             print(f"Thread for project {project.id} already exists.")
             return
 
-        thread = DataCollectorThread(project, main_window)
-        thread.start()
-        self.threads[project.id] = thread
+        task = DataCollectorRunnable(project, main_window)
+        self.pool.start(task)  # Запускаємо задачу в пулі потоків
+        self.threads[project.id] = task
 
     def remove_thread(self, project_id):
-        thread = self.threads.get(project_id)
-        if thread:
-            thread.quit()
-            thread.wait()
+        task = self.threads.get(project_id)
+        if task:
+            task.stop_collecting = True  # Встановлюємо прапорець для зупинки збору
             del self.threads[project_id]
-            print(f"Thread for project {project_id} stopped and removed.")
+            print(f"Task for project {project_id} stopped and removed.")
         else:
-            print(f"No thread found for project {project_id}.")
+            print(f"No task found for project {project_id}.")
 
     def stop_all_threads(self):
         for project_id in list(self.threads.keys()):
             self.remove_thread(project_id)
-        print("All threads stopped.")
+        print("All tasks stopped.")
 
 
 async def initialize_threads(main_window, thread_manager):
@@ -133,6 +97,47 @@ async def initialize_threads(main_window, thread_manager):
     for project in projects:
         thread_manager.add_thread(project, main_window)
 
+def stop_threads_synchronously(thread_manager):
+    """Зупиняємо всі потоки в головному потоці."""
+    print("Stopping all threads...")
+    thread_manager.stop_all_threads()
+    print("All threads stopped.")
+
+def on_about_to_quit(loop, thread_manager):
+    """Обробник закриття програми."""
+    print("Application is about to quit...")
+
+    # Закриваємо всі потоки
+    stop_threads_synchronously(thread_manager)
+    loop_is_running = False
+
+    # Перевірка на наявність активного циклу подій
+    if loop:
+        loop_is_running = loop.is_running()
+
+    async def shutdown():
+        try:
+            print("Closing database connections...")
+            await Tortoise.close_connections()
+
+            print("Cancelling all asyncio tasks...")
+            tasks = [task for task in asyncio.all_tasks() if task is not asyncio.current_task()]
+            for task in tasks:
+                task.cancel()
+                try:
+                    await task
+                except asyncio.CancelledError:
+                    pass
+
+            print("All cleanup completed.")
+        except Exception as e:
+            print(f"Error during shutdown: {e}")
+
+    # Викликаємо завершальні дії
+    if loop_is_running:
+        loop.call_soon_threadsafe(lambda: asyncio.run(shutdown()))
+    else:
+        asyncio.run(shutdown())
 
 if __name__ == "__main__":
     db_path = os.path.join(get_database_path())
@@ -142,14 +147,17 @@ if __name__ == "__main__":
     app.setPalette(get_darkModePalette(app))
     thread_manager = ThreadManager()
 
-    with AsyncioPySide6.use_asyncio():
+    with AsyncioPySide6.use_asyncio() as loop:
         main_window = MainWindow(thread_manager)
         main_window.show()
 
+        # ініціалізуємо всі потоки
         AsyncioPySide6.runTask(initialize_threads(main_window, thread_manager))
+
+        # Реєструємо обробник закриття
+        app.aboutToQuit.connect(lambda: on_about_to_quit(loop, thread_manager))
 
         try:
             sys.exit(app.exec())
-        finally:
-            thread_manager.stop_all_threads()
-            asyncio.run(cleanup())
+        except Exception as e:
+            print(f"Error during shutdown: {e}")

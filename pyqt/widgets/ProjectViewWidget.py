@@ -1,10 +1,10 @@
 import asyncio
 
+from AsyncioPySide6 import AsyncioPySide6
 from PySide6.QtCore import Qt, QSize, QTime
 from PySide6.QtGui import QStandardItemModel, QStandardItem, QIcon
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QLabel, QListView, QPushButton, QHBoxLayout, QMessageBox, QDialog, \
     QFormLayout, QLineEdit, QComboBox, QSpinBox, QDialogButtonBox, QRadioButton, QTimeEdit, QSpacerItem, QSizePolicy
-from AsyncioPySide6 import AsyncioPySide6
 
 from config import resource_path
 from models.Device import Device
@@ -216,27 +216,36 @@ class ProjectViewWidget(QWidget):
 
         if dialog.exec() == QDialog.DialogCode.Accepted:
             async def run_save_changes():
-                # Get values from the UI elements
-                device.name = device_name_input.text().strip()
-                device.manufacturer = manufacturer_input.currentText()
-                device.model = model_input.currentText()
-                device.device_address = device_address_input.value()
+                new_name = device_name_input.text().strip()
+                new_manufacturer = manufacturer_input.currentText()
+                new_model = model_input.currentText()
+                new_device_address = device_address_input.value()
 
                 if reading_type_interval.isChecked():
-                    device.reading_type = 1
-                    device.reading_interval = reading_interval_input.value() * 60  # convert minutes to seconds
+                    new_reading_type = 1
+                    new_reading_interval = reading_interval_input.value() * 60
+                    new_reading_time = 0
+                elif reading_type_time.isChecked():
+                    new_reading_type = 2
+                    new_reading_interval = 0
+                    new_reading_time = reading_time_input.time().secsTo(QTime(0, 0)) * -1
                 else:
-                    device.reading_type = 2
-                    device.reading_interval = 0  # No interval when using time-based reading
+                    new_reading_type = device.reading_type
+                    new_reading_interval = device.reading_interval
+                    new_reading_time = device.reading_time
 
-                if reading_type_time.isChecked():
-                    device.reading_time = reading_time_input.time().secsTo(QTime(0, 0)) * -1  # Convert time to seconds
-                else:
-                    device.reading_time = 0  # No reading time for interval-based reading
+                device.name = new_name
+                device.manufacturer = new_manufacturer
+                device.model = new_model
+                device.device_address = new_device_address
+                device.reading_type = new_reading_type
+                device.reading_interval = new_reading_interval
+                device.reading_time = new_reading_time
 
-                # Make sure the save method works correctly
                 await device.save(force_update=True)
-                self.load_devices()  # Refresh the device list or UI
+
+                self.load_devices()
+
             AsyncioPySide6.runTask(run_save_changes())
 
     def delete_device(self, device):

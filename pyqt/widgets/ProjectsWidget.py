@@ -2,7 +2,7 @@ from AsyncioPySide6 import AsyncioPySide6
 from PySide6.QtCore import Qt, QSize
 from PySide6.QtGui import QStandardItemModel, QIcon, QStandardItem
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QListView, QPushButton, QComboBox, QSizePolicy, \
-    QInputDialog, QMessageBox, QDialog, QLineEdit, QSpinBox, QDialogButtonBox, QSpacerItem
+    QInputDialog, QMessageBox, QDialog, QLineEdit, QSpinBox, QDialogButtonBox, QSpacerItem, QFormLayout
 from pymodbus.client import ModbusSerialClient
 from tortoise.exceptions import DoesNotExist
 
@@ -214,106 +214,100 @@ class ProjectsWidget(QWidget):
         AsyncioPySide6.runTask(run_del_project())
 
     def edit_project(self, project):
-            dialog = QDialog(self)
-            dialog.setWindowTitle("Редагувати проєкт")
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Редагувати проєкт")
+        layout = QVBoxLayout(dialog)
 
-            layout = QVBoxLayout(dialog)
+        # Інформаційний блок
+        info_label = QLabel(
+            "Усі параметри проєкту мають збігатися з налаштуваннями на пристроях і з налаштуваннями "
+            "серійного порту Вашого ПК до якого підключений перетворювач."
+            "\nНЕ ВИКОРИСТОВУЙТЕ СИСТЕМНІ ПОРТИ (Зазвичай COM3 та COM4), це може призвести до помилок"
+        )
+        info_label.setWordWrap(True)
+        layout.addWidget(info_label)
 
-            info_label = QLabel(
-                "Усі параметри проєкту мають збігатися з налаштуваннями на пристроях і з налаштуваннями "
-                "серійного порту Вашого ПК до якого підключений перетворювач."
-                "\nНЕ ВИКОРИСТОВУЙТЕ СИСТЕМНІ ПОРТИ (Зазвичай COM3 та COM4), це може призвести до помилок"
-            )
-            info_label.setWordWrap(True)
-            layout.addWidget(info_label)
+        def open_device_manager():
+            import os
+            import platform
 
-            def open_device_manager():
-                import os
-                import platform
+            if platform.system() == "Windows":
+                os.system("start devmgmt.msc")
+            else:
+                QMessageBox.information(
+                    self, "Недоступно", "Функція доступна лише на Windows."
+                )
 
-                if platform.system() == "Windows":
-                    os.system("start devmgmt.msc")
-                else:
-                    QMessageBox.information(
-                        self, "Недоступно", "Функція доступна лише на Windows."
-                    )
+        open_settings_button = QPushButton("Подивитися налаштування порту")
+        open_settings_button.clicked.connect(open_device_manager)
+        layout.addWidget(open_settings_button)
 
-            open_settings_button = QPushButton("Подивитися налаштування порту")
-            open_settings_button.clicked.connect(open_device_manager)
-            layout.addWidget(open_settings_button)
+        # Основна форма
+        form_layout = QFormLayout()
+        layout.addLayout(form_layout)
 
-            name_label = QLabel("Назва проєкту:")
-            name_edit = QLineEdit(project.name)
-            layout.addWidget(name_label)
-            layout.addWidget(name_edit)
+        # Поля форми
+        name_edit = QLineEdit(project.name)
+        form_layout.addRow("Назва проєкту:", name_edit)
 
-            description_label = QLabel("Опис:")
-            description_edit = QLineEdit(project.description or "")
-            layout.addWidget(description_label)
-            layout.addWidget(description_edit)
+        description_edit = QLineEdit(project.description or "")
+        form_layout.addRow("Опис:", description_edit)
 
-            baudrate_label = QLabel("Baudrate:")
-            baudrate_edit = QComboBox()
-            baudrate_options = [1200, 2400, 4800, 9600, 19200, 38400, 57600, 115200]
-            baudrate_edit.addItems(map(str, baudrate_options))
-            baudrate_edit.setCurrentText(str(project.baudrate))
-            layout.addWidget(baudrate_label)
-            layout.addWidget(baudrate_edit)
+        baudrate_edit = QComboBox()
+        baudrate_options = [1200, 2400, 4800, 9600, 19200, 38400, 57600, 115200]
+        baudrate_edit.addItems(map(str, baudrate_options))
+        baudrate_edit.setCurrentText(str(project.baudrate))
+        form_layout.addRow("Baudrate:", baudrate_edit)
 
-            bytesize_label = QLabel("Bytesize:")
-            bytesize_edit = QSpinBox()
-            bytesize_edit.setRange(5, 8)
-            bytesize_edit.setValue(project.bytesize)
-            layout.addWidget(bytesize_label)
-            layout.addWidget(bytesize_edit)
+        bytesize_edit = QSpinBox()
+        bytesize_edit.setRange(5, 8)
+        bytesize_edit.setValue(project.bytesize)
+        form_layout.addRow("Bytesize:", bytesize_edit)
 
-            stopbits_label = QLabel("Stopbits:")
-            stopbits_edit = QComboBox()
-            stopbits_edit.addItems(["1", "1.5", "2"])
-            stopbits_edit.setCurrentText(str(project.stopbits))
-            layout.addWidget(stopbits_label)
-            layout.addWidget(stopbits_edit)
+        stopbits_edit = QComboBox()
+        stopbits_edit.addItems(["1", "1.5", "2"])
+        stopbits_edit.setCurrentText(str(project.stopbits))
+        form_layout.addRow("Stopbits:", stopbits_edit)
 
-            parity_label = QLabel("Parity:")
-            parity_edit = QComboBox()
-            parity_edit.addItems(["N", "E", "O"])  # None, Even, Odd
-            parity_edit.setCurrentText(project.parity)
-            layout.addWidget(parity_label)
-            layout.addWidget(parity_edit)
+        parity_edit = QComboBox()
+        parity_edit.addItems(["N", "E", "O"])  # None, Even, Odd
+        parity_edit.setCurrentText(project.parity)
+        form_layout.addRow("Parity:", parity_edit)
 
-            button_box = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
-            layout.addWidget(button_box)
+        # Кнопки
+        button_box = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
+        layout.addWidget(button_box)
 
-            button_box.accepted.connect(dialog.accept)
-            button_box.rejected.connect(dialog.reject)
+        button_box.accepted.connect(dialog.accept)
+        button_box.rejected.connect(dialog.reject)
 
-            if dialog.exec_() == QDialog.DialogCode.Accepted:
-                async def run_edit_project():
-                    new_name = name_edit.text().strip()
-                    new_description = description_edit.text().strip()
-                    new_baudrate = int(baudrate_edit.currentText())
-                    new_bytesize = bytesize_edit.value()
-                    new_stopbits = float(stopbits_edit.currentText())
-                    new_parity = parity_edit.currentText()
+        # Обробка результатів діалогу
+        if dialog.exec_() == QDialog.DialogCode.Accepted:
+            async def run_save_changes():
+                new_name = name_edit.text().strip()
+                new_description = description_edit.text().strip()
+                new_baudrate = int(baudrate_edit.currentText())
+                new_bytesize = bytesize_edit.value()
+                new_stopbits = float(stopbits_edit.currentText())
+                new_parity = parity_edit.currentText()
 
-                    if new_name != project.name:
-                        existing_project = await Project.filter(name=new_name).first()
-                        if existing_project:
-                            QMessageBox.warning(self, "Помилка", "Проєкт з такою назвою вже існує.")
-                            return
+                if new_name != project.name:
+                    existing_project = await Project.filter(name=new_name).first()
+                    if existing_project:
+                        QMessageBox.warning(self, "Помилка", "Проєкт з такою назвою вже існує.")
+                        return
 
-                    project.name = new_name
-                    project.description = new_description
-                    project.baudrate = new_baudrate
-                    project.bytesize = new_bytesize
-                    project.stopbits = new_stopbits
-                    project.parity = new_parity
+                project.name = new_name
+                project.description = new_description
+                project.baudrate = new_baudrate
+                project.bytesize = new_bytesize
+                project.stopbits = new_stopbits
+                project.parity = new_parity
 
-                    await project.save(force_update=True)
+                await project.save(force_update=True)
+                self.load_projects()
 
-                    self.load_projects()
-
-                AsyncioPySide6.runTask(run_edit_project())
+            AsyncioPySide6.runTask(run_save_changes())
 
     def open_project_details(self, index):
         async def run_open_details():

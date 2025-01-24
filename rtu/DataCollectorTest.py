@@ -2,36 +2,23 @@ import asyncio
 import random
 from datetime import datetime, timedelta
 
-from PySide6.QtCore import QObject, QThread
+from PySide6.QtCore import QRunnable
 from PySide6.QtWidgets import QMessageBox
 
 from models.Device import Device
 from models.Report import SDM120Report, SDM120ReportTmp
 
 
-class DataCollectorThread(QThread):
+class DataCollectorRunnable(QRunnable):
     def __init__(self, project, main_window):
         super().__init__()
         self.project = project
         self.main_window = main_window
-        self.collector = DataCollectorTest(self.project, main_window)  # Ваш клас збору даних
+        self.stop_collecting = False  # Прапорець для зупинки циклу
 
     def run(self):
         """Запуск асинхронного завдання в окремому потоці."""
-        loop = asyncio.new_event_loop()  # Створення нового циклу подій
-        asyncio.set_event_loop(loop)  # Встановлюємо цей цикл як поточний
-
-        loop.run_until_complete(self.collector.collect_data())
-        
-
-
-
-class DataCollectorTest(QObject):
-    def __init__(self, project, main_window):
-        super().__init__()
-        self.main_window = main_window
-        self.project = project
-        self.stop_collecting = False  # Прапорець для зупинки циклу
+        asyncio.run(self.collect_data())  # Використовуємо asyncio для збору даних
 
     async def collect_data(self):
         while not self.stop_collecting:  # Безкінечний цикл

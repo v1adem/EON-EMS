@@ -2,11 +2,11 @@ from datetime import datetime
 
 import pyqtgraph as pg
 import xlsxwriter
+from AsyncioPySide6 import AsyncioPySide6
 from PySide6.QtCore import QTimer, QDate, Qt, QSortFilterProxyModel, QTime
 from PySide6.QtGui import QStandardItemModel, QFont, QStandardItem
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QSplitter, QLabel, QDateEdit, QTableView, QTabWidget, QHBoxLayout, \
     QPushButton, QCheckBox, QGridLayout, QLCDNumber, QDialog, QMessageBox, QFileDialog
-from AsyncioPySide6 import AsyncioPySide6
 
 from models.Report import SDM630Report, SDM630ReportTmp, SDM120Report, SDM120ReportTmp, SDM72DReport, SDM72DReportTmp
 from pyqt.widgets.DateAxisItem import DateAxisItem
@@ -522,7 +522,7 @@ class DeviceDetailsWidget(QWidget):
                 hourly_energy.append(current_hour_energy)
                 hourly_timestamps.append(current_hour_start)
 
-            #self.update_energy_graph(hourly_timestamps, hourly_energy, phase_name)
+            self.update_energy_graph(hourly_timestamps, hourly_energy, phase_name)
 
     def set_light_theme(self):
         for phase_name, phase_data in self.phase_data.items():
