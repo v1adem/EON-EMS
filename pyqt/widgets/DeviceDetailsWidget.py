@@ -1,6 +1,7 @@
 from datetime import datetime
 
 import pyqtgraph as pg
+from PySide6.QtWidgets import QToolTip, QAbstractItemView
 import xlsxwriter
 from AsyncioPySide6 import AsyncioPySide6
 from PySide6.QtCore import QTimer, QDate, Qt, QSortFilterProxyModel, QTime
@@ -391,6 +392,37 @@ class DeviceDetailsWidget(QWidget):
                 phase_data["clock_label"].setText(current_time)
         AsyncioPySide6.runTask(run_update_clock_indicators())
 
+    def add_tooltips(self, graph_widget, timestamps, values):
+        points = list(zip(timestamps, values))
+
+        def on_mouse_moved(evt):
+            pos = evt
+            if graph_widget.sceneBoundingRect().contains(pos):
+                mouse_point = graph_widget.plotItem.vb.mapSceneToView(pos)
+                x, y = mouse_point.x(), mouse_point.y()
+
+                # Пошук найближчої точки
+                closest_point = min(points, key=lambda p: (p[0] - x) ** 2 + (p[1] - y) ** 2)
+                tooltip_text = f"{closest_point[1]:.2f}"
+
+                # Відображення підказки
+                QToolTip.showText(
+                    graph_widget.mapToGlobal(graph_widget.mapFromScene(pos)), tooltip_text
+                )
+
+        graph_widget.scene().sigMouseMoved.connect(on_mouse_moved)
+
+    def on_graph_point_clicked(self, plot, points):
+        if not points:
+            return  # Нічого не робимо, якщо точки не передані
+
+        point = points[0]  # Беремо першу точку
+        row_index = point.data()  # Отримуємо індекс рядка таблиці
+
+        # Виділяємо рядок у таблиці та прокручуємо до нього
+        self.report_table.selectRow(row_index)
+        self.report_table.scrollTo(self.report_table.model().index(row_index, 0))
+
     def update_voltage_graph(self, timestamps, voltages, phase_name):
         timestamps_numeric = [ts.timestamp() for ts in timestamps]
 
@@ -398,13 +430,29 @@ class DeviceDetailsWidget(QWidget):
         graph_widget = self.phase_data[phase_name]["voltage_graph"]
 
         if not hasattr(self, plot_attr):
+            # Додаємо графік
             setattr(self, plot_attr, graph_widget.plot(
                 timestamps_numeric,
                 voltages,
                 pen=pg.mkPen(color='b', width=2),
                 name=f"Напруга {phase_name}"
             ))
+
+            # Додаємо точки на графік
+            scatter_points = []
+            for i, (x, y) in enumerate(zip(timestamps_numeric, voltages)):
+                scatter_points.append({'pos': (x, y), 'data': i})  # Прив'язуємо індекс рядка таблиці
+
+            scatter = pg.ScatterPlotItem(pen=None, brush='b', size=10)
+            scatter.addPoints(scatter_points)
+
+            # Додаємо обробник кліків
+            scatter.sigClicked.connect(self.on_graph_point_clicked)
+
+            graph_widget.addItem(scatter)
+
         else:
+            # Оновлюємо графік
             getattr(self, plot_attr).setData(timestamps_numeric, voltages)
 
     def update_current_graph(self, timestamps, currents, phase_name):
@@ -414,13 +462,29 @@ class DeviceDetailsWidget(QWidget):
         graph_widget = self.phase_data[phase_name]["current_graph"]
 
         if not hasattr(self, plot_attr):
+            # Додаємо графік
             setattr(self, plot_attr, graph_widget.plot(
                 timestamps_numeric,
                 currents,
                 pen=pg.mkPen(color='r', width=2),
                 name=f"Струм {phase_name}"
             ))
+
+            # Додаємо точки на графік
+            scatter_points = []
+            for i, (x, y) in enumerate(zip(timestamps_numeric, currents)):
+                scatter_points.append({'pos': (x, y), 'data': i})  # Прив'язуємо індекс рядка таблиці
+
+            scatter = pg.ScatterPlotItem(pen=None, brush='r', size=10)
+            scatter.addPoints(scatter_points)
+
+            # Додаємо обробник кліків
+            scatter.sigClicked.connect(self.on_graph_point_clicked)
+
+            graph_widget.addItem(scatter)
+
         else:
+            # Оновлюємо графік
             getattr(self, plot_attr).setData(timestamps_numeric, currents)
 
     def update_energy_graph(self, hourly_timestamps, hourly_energy, phase_name):
