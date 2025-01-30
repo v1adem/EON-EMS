@@ -1,39 +1,23 @@
-from PyQt5.QtCore import QTimer
-from PyQt5.QtWidgets import QMainWindow, QWidget, QVBoxLayout, \
-    QStackedWidget, QAction, QDialog
+import asyncio
 
-from models.Admin import Admin
-from models.Project import Project
+from PySide6 import QtCore
+from PySide6.QtGui import QAction, QIcon
+from PySide6.QtWidgets import QMainWindow, QWidget, QStackedWidget, QVBoxLayout, QDialog
+
+from config import resource_path
 from pyqt.dialogs.LanguageDialog import LanguageDialog
 from pyqt.widgets.DeviceDetailsWidget import DeviceDetailsWidget
 from pyqt.widgets.ProjectViewWidget import ProjectViewWidget
 from pyqt.widgets.ProjectsWidget import ProjectsWidget
 from pyqt.widgets.RegistrationLoginForm import RegistrationLoginForm
-from rtu.DataCollector import DataCollector
 
 
 class MainWindow(QMainWindow):
-    def __init__(self, db_session):
+    def __init__(self, thread_manager):
         super().__init__()
 
-        self.db_session = db_session
-        self.data_collectors = []
-        self.timers = []
+        self.thread_manager = thread_manager
 
-        projects = self.db_session.query(Project).all()
-
-        for project in projects:
-            data_collector = DataCollector(db_session, project, self)
-            self.data_collectors.append(data_collector)
-
-            timer = QTimer(self)
-            timer.timeout.connect(data_collector.collect_data)
-            timer.setInterval(3000)
-            timer.start()
-
-            self.timers.append(timer)
-
-        self.db_session = db_session
         self.isAdmin = False
 
         self.setWindowTitle("EON EMS v0.2.2")
@@ -42,16 +26,15 @@ class MainWindow(QMainWindow):
         self.setMinimumHeight(600)
 
         self.menu_bar = self.menuBar()
-        self.menu_bar.setStyleSheet("font-size: 16px;")
 
-        back_action = QAction("Назад", self)
-        self.menu_bar.addAction(back_action)
-        back_action.triggered.connect(self.go_back)
-
-        #settings_menu = self.menu_bar.addMenu("Налаштування")
-        #language_action = QAction("Мова", self)
-        #settings_menu.addAction(language_action)
-        #language_action.triggered.connect(self.change_language)
+        back_icon = QIcon(resource_path("pyqt/icons/back.png"))
+        exitAct = QAction(back_icon, "Exit", self)
+        exitAct.setShortcut("Ctrl+Q")
+        exitAct.triggered.connect(self.go_back)
+        self.toolbar = self.addToolBar("Exit")
+        self.toolbar.addAction(exitAct)
+        self.toolbar.setMovable(False)
+        self.toolbar.setIconSize(QtCore.QSize(60, 30))
 
         self.central_widget = QWidget(self)
         self.setCentralWidget(self.central_widget)
@@ -64,15 +47,10 @@ class MainWindow(QMainWindow):
         self.stacked_widget.addWidget(self.registration_widget)
 
         self.stacked_widget.setCurrentIndex(0)
-        admin = self.db_session.query(Admin).first()
-        if admin is not None:
-            if admin.always_admin is True:
-                self.isAdmin = True
-                self.open_projects_list()
 
     def change_language(self):
         language_dialog = LanguageDialog(self)
-        if language_dialog.exec_() == QDialog.Accepted:
+        if language_dialog.exec_() == QDialog.DialogCode.Accepted:
             current_language = language_dialog.selected_language
             print(f"Мова змінена на: {current_language}")
 
@@ -82,13 +60,13 @@ class MainWindow(QMainWindow):
         self.stacked_widget.setCurrentIndex(1)
 
     def open_project_details(self, project):
-        project_view_widget = ProjectViewWidget(self, project)
-        self.stacked_widget.addWidget(project_view_widget)
+        self.project_view_widget = ProjectViewWidget(self, project)
+        self.stacked_widget.addWidget(self.project_view_widget)
         self.stacked_widget.setCurrentIndex(2)
 
     def open_device_details(self, device):
-        device_details_widget = DeviceDetailsWidget(self, device)
-        self.stacked_widget.addWidget(device_details_widget)
+        self.device_details_widget = DeviceDetailsWidget(self, device)
+        self.stacked_widget.addWidget(self.device_details_widget)
         self.stacked_widget.setCurrentIndex(3)
 
 
@@ -112,3 +90,7 @@ class MainWindow(QMainWindow):
             self.stacked_widget.addWidget(self.registration_widget)
 
             self.stacked_widget.setCurrentIndex(0)
+
+    def closeEvent(self, event):
+        asyncio.get_event_loop().stop()
+        super().closeEvent(event)

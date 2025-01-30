@@ -1,8 +1,9 @@
-from PyQt5.QtCore import Qt, QSize, QTime
-from PyQt5.QtGui import QStandardItemModel, QStandardItem, QIcon
-from PyQt5.QtWidgets import QWidget, QVBoxLayout, QLabel, QListView, QPushButton, QMessageBox, \
-    QHBoxLayout, QDialog, QFormLayout, QComboBox, QLineEdit, QDialogButtonBox, QSpinBox, QRadioButton, QTimeEdit, \
-    QCheckBox
+from AsyncioPySide6 import AsyncioPySide6
+from PySide6.QtCore import Qt, QSize, QTime
+from PySide6.QtGui import QStandardItemModel, QStandardItem, QIcon
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QLabel, QListView, QPushButton, QHBoxLayout, QMessageBox, QDialog, \
+    QFormLayout, QLineEdit, QComboBox, QSpinBox, QDialogButtonBox, QRadioButton, QTimeEdit, QSpacerItem, QSizePolicy
+from tortoise.exceptions import DoesNotExist
 
 from config import resource_path
 from models.Device import Device
@@ -14,7 +15,6 @@ class ProjectViewWidget(QWidget):
         super().__init__(main_window)
         self.main_window = main_window
         self.project = project
-        self.db_session = main_window.db_session
         self.isAdmin = main_window.isAdmin
 
         layout = QVBoxLayout(self)
@@ -42,60 +42,73 @@ class ProjectViewWidget(QWidget):
 
     def load_devices(self):
         self.devices_model.clear()
-        devices = self.db_session.query(Device).filter_by(project_id=self.project.id).all()
 
-        for index, device in enumerate(devices, start=1):
-            item = QStandardItem()
-            item.setData(device.name, Qt.UserRole)
-            item.setSizeHint(QSize(0, 60))
-            self.devices_model.appendRow(item)
+        async def run_load_devices():
+            self.devices = await Device.filter(project_id=self.project.id).all()
+            print(self.devices)
+            for index, device in enumerate(self.devices, start=1):
+                item = QStandardItem()
+                item.setData(device.name, Qt.ItemDataRole.UserRole)
+                item.setSizeHint(QSize(0, 60))
+                self.devices_model.appendRow(item)
 
-            item_widget = QWidget()
-            item_layout = QHBoxLayout(item_widget)
+                item_widget = QWidget()
+                item_layout = QHBoxLayout(item_widget)
 
-            number_label = QLabel(f"{index}")
-            number_label.setStyleSheet("font-size: 14px; color: #666666;")
-            number_label.setFixedWidth(40)
-            number_label.setAlignment(Qt.AlignCenter)
-            item_layout.addWidget(number_label)
+                number_label = QLabel(f"{index}")
+                number_label.setStyleSheet("font-size: 14px; color: #666666;")
+                number_label.setFixedWidth(40)
+                number_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+                item_layout.addWidget(number_label)
 
-            name_label = QLabel(device.name)
-            name_label.setStyleSheet("font-size: 18px;")
-            item_layout.addWidget(name_label)
+                name_label = QLabel(device.name)
+                name_label.setStyleSheet("font-size: 18px;")
+                item_layout.addWidget(name_label)
 
-            toggle_status_button = QPushButton("Увімкнути" if not device.get_reading_status() else "Вимкнути")
-            toggle_status_button.setFixedSize(100, 36)
-            toggle_status_button.clicked.connect(
-                lambda _, d=device, btn=toggle_status_button: self.toggle_device_status(d, btn))
+                toggle_status_button = QPushButton("Увімкнути" if not device.get_reading_status() else "Вимкнути")
+                toggle_status_button.setFixedSize(100, 36)
+                toggle_status_button.clicked.connect(
+                    lambda _, d=device, btn=toggle_status_button: AsyncioPySide6.runTask(
+                        self.toggle_device_status(d, btn)))
 
-            edit_button = QPushButton()
-            edit_button.setIcon(QIcon(resource_path("pyqt/icons/edit.png")))
-            edit_button.setFixedSize(36, 36)
-            edit_button.clicked.connect(lambda _, d=device: self.edit_device(d))
 
-            delete_button = QPushButton()
-            delete_button.setIcon(QIcon(resource_path("pyqt/icons/delete.png")))
-            delete_button.setFixedSize(36, 36)
-            delete_button.clicked.connect(lambda _, d=device: self.delete_device(d))
-            if self.isAdmin:
-                item_layout.addWidget(toggle_status_button)
-                item_layout.addWidget(edit_button)
-                item_layout.addWidget(delete_button)
+                edit_button = QPushButton()
+                edit_button.setIcon(QIcon(resource_path("pyqt/icons/edit.png")))
+                edit_button.setFixedSize(36, 36)
+                edit_button.clicked.connect(lambda _, d=device: self.edit_device(d))
 
-            item_layout.setContentsMargins(0, 0, 0, 0)
+                delete_button = QPushButton()
+                delete_button.setIcon(QIcon(resource_path("pyqt/icons/delete.png")))
+                delete_button.setFixedSize(36, 36)
+                delete_button.clicked.connect(lambda _, d=device: self.delete_device(d))
 
-            self.devices_list.setIndexWidget(item.index(), item_widget)
+                if self.isAdmin:
+                    item_layout.addWidget(toggle_status_button)
+                    item_layout.addWidget(edit_button)
+                    item_layout.addWidget(delete_button)
 
-    def toggle_device_status(self, device, button):
+                    spacer = QSpacerItem(5, 0, QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Minimum)
+                    item_layout.addSpacerItem(spacer)
+
+                item_layout.setContentsMargins(0, 0, 0, 0)
+
+                self.devices_list.setIndexWidget(item.index(), item_widget)
+
+        AsyncioPySide6.runTask(run_load_devices())
+
+    async def toggle_device_status(self, device, button):
         try:
             device.toggle_reading_status()
-            self.db_session.commit()
+            await device.save()
             button.setText("Увімкнути" if not device.get_reading_status() else "Вимкнути")
         except Exception as e:
-            QMessageBox.critical(self, "Помилка", f"Не вдалося змінити статус пристрою: {e}")
+            QMessageBox.critical(self, "Помилка", f"Не вдалося змінити статус пристрою: {e}",
+                                 QMessageBox.StandardButton.Ok, QMessageBox.StandardButton.Cancel)
 
     def add_new_device(self):
-        try:
+        self.new_device = None
+
+        async def run_add_device():
             dialog = QDialog(self)
             dialog.setWindowTitle("Додати новий пристрій")
             form_layout = QFormLayout(dialog)
@@ -115,137 +128,161 @@ class ProjectViewWidget(QWidget):
             device_address_input.setRange(1, 255)
             form_layout.addRow("Адреса пристрою:", device_address_input)
 
-            buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel, dialog)
+            buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel,
+                                       dialog)
             form_layout.addRow(buttons)
 
             buttons.accepted.connect(dialog.accept)
             buttons.rejected.connect(dialog.reject)
 
-            if dialog.exec() == QDialog.Accepted:
+            if dialog.exec() == QDialog.DialogCode.Accepted:
                 device_name = device_name_input.text()
                 manufacturer = manufacturer_input.currentText()
                 model = model_input.currentText()
                 device_address = device_address_input.value()
 
-                existing_device = self.db_session.query(Device).filter_by(name=device_name,
-                                                                          project_id=self.project.id).first()
+                existing_device = await Device.filter(name=device_name, project_id=self.project.id).first()
                 if existing_device:
-                    QMessageBox.warning(self, "Помилка", "Пристрій з такою назвою вже існує в проєкті.")
+                    QMessageBox.warning(self, "Помилка", "Пристрій з такою назвою вже існує в проєкті.",
+                                        QMessageBox.StandardButton.Ok, QMessageBox.StandardButton.Cancel)
                     return
 
-                existing_address = self.db_session.query(Device).filter_by(device_address=device_address,
-                                                                           project_id=self.project.id).first()
+                existing_address = await Device.filter(device_address=device_address,
+                                                       project_id=self.project.id).first()
                 if existing_address:
-                    QMessageBox.warning(self, "Помилка", "Пристрій з такою адресою вже існує в проєкті.")
+                    QMessageBox.warning(self, "Помилка", "Пристрій з такою адресою вже існує в проєкті.",
+                                        QMessageBox.StandardButton.Ok, QMessageBox.StandardButton.Cancel)
                     return
 
-                new_device = Device(name=device_name, manufacturer=manufacturer, model=model,
-                                    device_address=device_address, project_id=self.project.id)
-                self.db_session.add(new_device)
-                self.db_session.commit()
+                self.new_device = Device(name=device_name, manufacturer=manufacturer, model=model,
+                                         device_address=device_address, project_id=self.project.id)
+                await self.new_device.save()
+                self.edit_device(self.new_device)
 
-                self.load_devices()
-
-                self.edit_device(new_device)
-        except Exception as e:
-            print(f"Помилка при додаванні пристрою: {e}")
-            QMessageBox.critical(self, "Помилка", "Не вдалося додати пристрій.")
+        AsyncioPySide6.runTask(run_add_device())
 
     def edit_device(self, device):
-        dialog = QDialog(self)
-        dialog.setWindowTitle("Редагувати пристрій")
-        form_layout = QFormLayout(dialog)
+        async def run_save_changes():
+            dialog = QDialog(self)
+            dialog.setWindowTitle("Редагувати пристрій")
+            form_layout = QFormLayout(dialog)
 
-        device_name_input = QLineEdit(dialog)
-        device_name_input.setText(device.name)
-        form_layout.addRow("Назва пристрою:", device_name_input)
+            device_name_input = QLineEdit(dialog)
+            device_name_input.setText(device.name)
+            form_layout.addRow("Назва пристрою:", device_name_input)
 
-        manufacturer_input = QComboBox(dialog)
-        manufacturer_input.addItem("Eastron")
-        manufacturer_input.setCurrentText(device.manufacturer)
-        manufacturer_input.setEditable(False)
-        form_layout.addRow("Виробник:", manufacturer_input)
+            manufacturer_input = QComboBox(dialog)
+            manufacturer_input.addItem("Eastron")
+            manufacturer_input.setCurrentText(device.manufacturer)
+            manufacturer_input.setEditable(False)
+            form_layout.addRow("Виробник:", manufacturer_input)
 
-        model_input = QComboBox(dialog)
-        model_input.addItems(["SDM120", "SDM630", "SDM72D"])
-        model_input.setCurrentText(device.model)
-        model_input.setEditable(False)
-        form_layout.addRow("Модель:", model_input)
+            model_input = QComboBox(dialog)
+            model_input.addItems(["SDM120", "SDM630", "SDM72D"])
+            model_input.setCurrentText(device.model)
+            model_input.setEditable(False)
+            form_layout.addRow("Модель:", model_input)
 
-        device_address_input = QSpinBox(dialog)
-        device_address_input.setRange(1, 255)
-        device_address_input.setValue(device.device_address)
-        form_layout.addRow("Адреса пристрою:", device_address_input)
+            device_address_input = QSpinBox(dialog)
+            device_address_input.setRange(1, 255)
+            device_address_input.setValue(device.device_address)
+            form_layout.addRow("Адреса пристрою:", device_address_input)
 
-        reading_type_interval = QRadioButton("Інтервал")
-        reading_type_time = QRadioButton("Час")
-        reading_type_interval.setChecked(device.reading_type == 1)
-        reading_type_time.setChecked(device.reading_type == 2)
-        form_layout.addRow("Тип зчитування:", reading_type_interval)
-        form_layout.addRow("", reading_type_time)
+            reading_type_interval = QRadioButton("Інтервал")
+            reading_type_time = QRadioButton("Час")
+            reading_type_interval.setChecked(device.reading_type == 1)
+            reading_type_time.setChecked(device.reading_type == 2)
+            form_layout.addRow("Тип зчитування:", reading_type_interval)
+            form_layout.addRow("", reading_type_time)
 
-        reading_interval_input = QSpinBox(dialog)
-        reading_interval_input.setRange(1, 1440)
-        reading_interval_input.setValue(device.reading_interval // 60)  # В хвилинах
-        if device.reading_type == 2:
-            reading_interval_input.setDisabled(True)
-        form_layout.addRow("Інтервал зчитування (хв):", reading_interval_input)
+            reading_interval_input = QSpinBox(dialog)
+            reading_interval_input.setRange(1, 1440)
+            reading_interval_input.setValue(device.reading_interval // 60)  # В хвилинах
+            if device.reading_type == 2:
+                reading_interval_input.setDisabled(True)
+            form_layout.addRow("Інтервал зчитування (хв):", reading_interval_input)
 
-        reading_time_input = QTimeEdit(dialog)
-        reading_time_input.setDisplayFormat("HH:mm")
-        reading_time_input.setTime(QTime(0, 0).addSecs(device.reading_time))
-        if device.reading_type == 1:
-            reading_time_input.setDisabled(True)
-        form_layout.addRow("Час зчитування:", reading_time_input)
+            reading_time_input = QTimeEdit(dialog)
+            reading_time_input.setDisplayFormat("HH:mm")
+            reading_time_input.setTime(QTime(0, 0).addSecs(device.reading_time))
+            if device.reading_type == 1:
+                reading_time_input.setDisabled(True)
+            form_layout.addRow("Час зчитування:", reading_time_input)
 
-        reading_type_interval.toggled.connect(
-            lambda: reading_interval_input.setEnabled(reading_type_interval.isChecked()))
-        reading_type_time.toggled.connect(lambda: reading_time_input.setEnabled(reading_type_time.isChecked()))
+            reading_type_interval.toggled.connect(
+                lambda: reading_interval_input.setEnabled(reading_type_interval.isChecked()))
+            reading_type_time.toggled.connect(lambda: reading_time_input.setEnabled(reading_type_time.isChecked()))
 
-        buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel, dialog)
-        form_layout.addRow(buttons)
+            buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel,
+                                       dialog)
+            form_layout.addRow(buttons)
 
-        buttons.accepted.connect(dialog.accept)
-        buttons.rejected.connect(dialog.reject)
+            buttons.accepted.connect(dialog.accept)
+            buttons.rejected.connect(dialog.reject)
 
-        if dialog.exec() == QDialog.Accepted:
-            device.name = device_name_input.text()
-            device.manufacturer = manufacturer_input.currentText()
-            device.model = model_input.currentText()
-            device.device_address = device_address_input.value()
-            device.reading_type = 1 if reading_type_interval.isChecked() else 2
-            device.reading_interval = reading_interval_input.value() * 60 if reading_type_interval.isChecked() else 0
-            device.reading_time = reading_time_input.time().secsTo(
-                QTime(0, 0)) * -1 if reading_type_time.isChecked() else 0
+            if dialog.exec() == QDialog.DialogCode.Accepted:
+                new_name = device_name_input.text().strip()
+                new_manufacturer = manufacturer_input.currentText()
+                new_model = model_input.currentText()
+                new_device_address = device_address_input.value()
 
-            self.db_session.commit()
-            self.load_devices()
+                if reading_type_interval.isChecked():
+                    new_reading_type = 1
+                    new_reading_interval = reading_interval_input.value() * 60
+                    new_reading_time = 0
+                elif reading_type_time.isChecked():
+                    new_reading_type = 2
+                    new_reading_interval = 0
+                    new_reading_time = reading_time_input.time().secsTo(QTime(0, 0)) * -1
+                else:
+                    new_reading_type = device.reading_type
+                    new_reading_interval = device.reading_interval
+                    new_reading_time = device.reading_time
+
+                device.name = new_name
+                device.manufacturer = new_manufacturer
+                device.model = new_model
+                device.device_address = new_device_address
+                device.reading_type = new_reading_type
+                device.reading_interval = new_reading_interval
+                device.reading_time = new_reading_time
+
+                await device.save(force_update=True)
+                self.load_devices()
+        AsyncioPySide6.runTask(run_save_changes())
 
     def delete_device(self, device):
-        reply = QMessageBox.question(self, "Підтвердження видалення",
-                                     f"Ви впевнені, що хочете видалити пристрій '{device.name}'?",
-                                     QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
-        if reply == QMessageBox.Yes:
-            # Видалення репортів, що відповідають пристрою
-            if device.model == "SDM120":
-                self.db_session.query(SDM120Report).filter(SDM120Report.device_id == device.id).delete()
-                self.db_session.query(SDM120ReportTmp).filter(SDM120ReportTmp.device_id == device.id).delete()
-            elif device.model == "SDM630":
-                self.db_session.query(SDM630Report).filter(SDM630Report.device_id == device.id).delete()
-                self.db_session.query(SDM630ReportTmp).filter(SDM630ReportTmp.device_id == device.id).delete()
-            elif device.model == "SDM72D":
-                self.db_session.query(SDM72DReport).filter(SDM72DReport.device_id == device.id).delete()
-                self.db_session.query(SDM72DReportTmp).filter(SDM72DReportTmp.device_id == device.id).delete()
+        async def run_delete_device():
+            reply = QMessageBox.question(self, "Підтвердження видалення",
+                                         f"Ви впевнені, що хочете видалити пристрій '{device.name}'?",
+                                         QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                                         QMessageBox.StandardButton.No)
+            if reply == QMessageBox.StandardButton.Yes:
+                try:
+                    if device.model == "SDM120":
+                        await SDM120Report.filter(device_id=device.id).delete()
+                        await SDM120ReportTmp.filter(device_id=device.id).delete()
+                    elif device.model == "SDM630":
+                        await SDM630Report.filter(device_id=device.id).delete()
+                        await SDM630ReportTmp.filter(device_id=device.id).delete()
+                    elif device.model == "SDM72D":
+                        await SDM72DReport.filter(device_id=device.id).delete()
+                        await SDM72DReportTmp.filter(device_id=device.id).delete()
 
-            # Видалення самого пристрою
-            self.db_session.delete(device)
-            self.db_session.commit()
-            self.load_devices()
+                    await device.delete()
+                    self.load_devices()
+
+                except DoesNotExist:
+                    print("Проєкт або пристрої не знайдені в базі даних.")
+        AsyncioPySide6.runTask(run_delete_device())
 
     def open_device_details(self, index):
-        device_name = self.devices_model.itemFromIndex(index).data(Qt.UserRole)
-        device = self.db_session.query(Device).filter_by(name=device_name, project_id=self.project.id).first()
-        if device:
-            self.main_window.open_device_details(device)
-        else:
-            print("Пристрій не знайдено.")
+        async def run_open_device_details():
+            device_name = self.devices_model.itemFromIndex(index).data(Qt.ItemDataRole.UserRole)
+            device = await Device.filter(name=device_name, project_id=self.project.id).first()
+            if device:
+                self.main_window.open_device_details(device)
+            else:
+                print("Пристрій не знайдено.")
+
+        AsyncioPySide6.runTask(run_open_device_details())
