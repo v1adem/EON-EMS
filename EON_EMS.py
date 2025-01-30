@@ -12,7 +12,7 @@ from PySide6.QtWidgets import (
 from tortoise import Tortoise
 
 from pyqt.MainWindow import MainWindow
-from rtu.DataCollectorTest import DataCollectorRunnable
+from rtu.DataCollector import DataCollectorRunnable
 
 
 def get_darkModePalette(app=None):
