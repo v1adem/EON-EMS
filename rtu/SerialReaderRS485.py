@@ -96,7 +96,7 @@ class SerialReaderRS485:
 
         return grouped
 
-    def read_all_properties(self):
+    async def read_all_properties(self):
         """
         Читає всі властивості пристрою на основі мапи регістрів.
         """
@@ -130,20 +130,22 @@ class SerialReaderRS485:
                 self.client.close()
 
         if self.error_flag or self.no_response_error_flag:
-            self.update_device_status()
+            await self.update_device_status()
 
         return result
 
-    def update_device_status(self):
-        """
-        Оновлює статус пристрою в базі даних і показує попередження.
-        """
-        device = self.main_window.db_session.query(Device).filter(Device.name == self.device_custom_name).first()
+    async def update_device_status(self):
+        device = await Device.filter(name=self.device_custom_name).first()
         if device:
             device.reading_status = False
-            self.main_window.db_session.commit()
+            await device.save()
 
         msg = "Пристрій не підключено" if self.error_flag else "Немає відповіді від пристрою"
-        QMessageBox.warning(self.main_window, f"{datetime.now().strftime('%d/%m/%Y %H:%M:%S')}",
-                            f"{self.device_custom_name} - {msg}")
+        QMessageBox.warning(
+            self.main_window,
+            f"{datetime.now().strftime('%d/%m/%Y %H:%M:%S')}",
+            f"{self.device_custom_name} - {msg}",
+            QMessageBox.StandardButton.Ok,
+            QMessageBox.StandardButton.Cancel
+        )
 

@@ -72,7 +72,7 @@ class ThreadManager:
             return
 
         task = DataCollectorRunnable(project, main_window)
-        self.pool.start(task)  # Запускаємо задачу в пулі потоків
+        self.pool.start(task)
         self.threads[project.id] = task
 
     def remove_thread(self, project_id):

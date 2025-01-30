@@ -1,6 +1,7 @@
 import asyncio
 from datetime import datetime, timedelta
 
+from AsyncioPySide6 import AsyncioPySide6
 from PySide6.QtCore import QRunnable
 from PySide6.QtWidgets import QMessageBox
 
@@ -9,14 +10,15 @@ from models.Report import SDM120Report, SDM120ReportTmp, SDM630Report, SDM72DRep
 from rtu.SerialReaderRS485 import SerialReaderRS485
 
 
-def get_data_from_device(device, project, main_window):
+async def get_data_from_device(device, project, main_window):
     try:
         print(f"{device.name} - Reading started")
         client = SerialReaderRS485(device.name, device.model, project.port, device.device_address, project.baudrate,
                                    project.bytesize, project.parity, project.stopbits, main_window)
-        return client.read_all_properties()
+        return await client.read_all_properties()
     except Exception as e:
-        QMessageBox.warning(main_window, title="Помилка зчитування", text=f"{device.name} - {e}")
+        QMessageBox.warning(main_window, "Помилка зчитування", f"{device.name} - {e}",
+                            QMessageBox.StandardButton.Ok, QMessageBox.StandardButton.Cancel)
 
 
 class DataCollectorRunnable(QRunnable):
@@ -27,7 +29,7 @@ class DataCollectorRunnable(QRunnable):
         self.stop_collecting = False
 
     def run(self):
-        asyncio.run(self.collect_data())
+        AsyncioPySide6.runTask(self.collect_data())
 
     async def collect_data(self):
         while not self.stop_collecting:
@@ -39,7 +41,7 @@ class DataCollectorRunnable(QRunnable):
 
                 last_report = await main_db_model.filter(device=device).last()
                 print(f"Читається девайс: {device.name} Моделі: {device.model} / З проєкту {self.project.name}")
-                new_data = get_data_from_device(device, self.project, self.main_window)
+                new_data = await get_data_from_device(device, self.project, self.main_window)
 
                 tmp_report_data = self.get_tmp_data(device, new_data)
 
@@ -58,17 +60,17 @@ class DataCollectorRunnable(QRunnable):
 
                         if current_time < (
                                 start_of_day + timedelta(minutes=reading_time)) or last_report_time >= start_of_day:
-                            return
+                            continue
 
                     if calculated_time > current_time:
-                        return
+                        continue
 
                 report_data = {
                     "device_id": device.id,
                 }
                 report_data.update({key: value for key, value in new_data.items() if value is not None})
 
-                new_report = SDM120Report(**report_data)
+                new_report = main_db_model(**report_data)
                 await new_report.save()
             await asyncio.sleep(1)
 
@@ -118,7 +120,8 @@ class DataCollectorRunnable(QRunnable):
             return tmp_report_data
         else:
             QMessageBox.warning(
-                self.main_window, f"{device.name}", f"{device.model} - Невідома модель")
+                self.main_window, f"{device.name}", f"{device.model} - Невідома модель", QMessageBox.StandardButton.Ok,
+                QMessageBox.StandardButton.Cancel)
 
     def get_db_model(self, device):
         if device.model == "SDM120":
@@ -129,4 +132,5 @@ class DataCollectorRunnable(QRunnable):
             return SDM72DReport, SDM72DReportTmp
         else:
             QMessageBox.warning(
-                self.main_window, f"{device.name}", f"{device.model} - Невідома модель")
+                self.main_window, f"{device.name}", f"{device.model} - Невідома модель", QMessageBox.StandardButton.Ok,
+                QMessageBox.StandardButton.Cancel)
