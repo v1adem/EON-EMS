@@ -58,6 +58,7 @@ class ProjectsWidget(QWidget):
 
         async def run_load_projects():
             self.projects = await Project.all()
+            print(self.projects)
             for index, project in enumerate(self.projects, start=1):
                 item = QStandardItem()
                 item.setData(project.name, Qt.ItemDataRole.UserRole)
@@ -68,9 +69,9 @@ class ProjectsWidget(QWidget):
                 item_layout = QHBoxLayout(item_widget)
 
                 # Порядковий номер
-                number_label = QLabel(f"{index}")  # Номер по порядку
+                number_label = QLabel(f"{index}")
                 number_label.setStyleSheet("font-size: 14px; color: #666666;")
-                number_label.setFixedWidth(40)  # Ширина для номера
+                number_label.setFixedWidth(40)
                 number_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
                 item_layout.addWidget(number_label)
 
@@ -170,11 +171,12 @@ class ProjectsWidget(QWidget):
                 self.thread_manager.add_thread(self.new_project, self.main_window)
                 print(f"Project {self.new_project.name} created and thread started.")
 
+                self.edit_project(self.new_project)
+
         AsyncioPySide6.runTask(run_add_new_project())
-        self.edit_project(self.new_project)
 
     def delete_project(self, project):
-        async def run_del_project():
+        async def run_delete_project():
             reply = QMessageBox.question(self, "Підтвердження видалення",
                                          f"Ви впевнені, що хочете видалити проєкт '{project.name}'?",
                                          QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
@@ -182,10 +184,8 @@ class ProjectsWidget(QWidget):
 
             if reply == QMessageBox.StandardButton.Yes:
                 try:
-                    # Отримуємо всі пристрої, пов'язані з проєктом
                     devices = await Device.filter(project_id=project.id)
 
-                    # Видаляємо всі репорти, пов'язані з пристроями
                     for device in devices:
                         if device.model == "SDM120":
                             await SDM120Report.filter(device_id=device.id).delete()
@@ -197,21 +197,17 @@ class ProjectsWidget(QWidget):
                             await SDM72DReport.filter(device_id=device.id).delete()
                             await SDM72DReportTmp.filter(device_id=device.id).delete()
 
-                        # Видаляємо пристрій
                         await device.delete()
 
-                    # Видаляємо сам проєкт
                     await project.delete()
+                    self.load_projects()
 
                     self.thread_manager.remove_thread(project, self.main_window)
-                    print(f"Project {project.name} deleted and thread finished.")
-
-                    self.load_projects()
 
                 except DoesNotExist:
                     print("Проєкт або пристрої не знайдені в базі даних.")
 
-        AsyncioPySide6.runTask(run_del_project())
+        AsyncioPySide6.runTask(run_delete_project())
 
     def edit_project(self, project):
         dialog = QDialog(self)
