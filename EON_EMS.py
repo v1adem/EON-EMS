@@ -9,8 +9,10 @@ from PySide6.QtGui import QPalette, QColor
 from PySide6.QtWidgets import (
     QApplication,
 )
+
 from tortoise import Tortoise
 
+import config
 from pyqt.MainWindow import MainWindow
 from rtu.DataCollector import DataCollectorRunnable
 
@@ -140,6 +142,9 @@ def on_about_to_quit(loop, thread_manager):
         asyncio.run(shutdown())
 
 if __name__ == "__main__":
+    # Configuring the application
+    config.get_deleting_time()
+
     db_path = os.path.join(get_database_path())
     asyncio.run(init_database(db_path))
 

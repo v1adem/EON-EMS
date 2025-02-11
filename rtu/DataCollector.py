@@ -5,8 +5,10 @@ from AsyncioPySide6 import AsyncioPySide6
 from PySide6.QtCore import QRunnable
 from PySide6.QtWidgets import QMessageBox
 
+from config import DELETING_TIME, get_deleting_time
 from models.Device import Device
 from models.Report import SDM120Report, SDM120ReportTmp, SDM630Report, SDM72DReport, SDM630ReportTmp, SDM72DReportTmp
+from rtu.DataCollectorTestingTools import get_test_data
 from rtu.SerialReaderRS485 import SerialReaderRS485
 
 
@@ -41,8 +43,7 @@ class DataCollectorRunnable(QRunnable):
 
                 last_report = await main_db_model.filter(device=device).last()
                 print(f"Читається девайс: {device.name} Моделі: {device.model} / З проєкту {self.project.name}")
-                new_data = await get_data_from_device(device, self.project, self.main_window)
-
+                new_data = get_test_data(device.model) # await get_data_from_device(device, self.project, self.main_window)
                 tmp_report_data = self.get_tmp_data(device, new_data)
 
                 tmp_report = tmp_db_model(**tmp_report_data)
@@ -72,6 +73,19 @@ class DataCollectorRunnable(QRunnable):
 
                 new_report = main_db_model(**report_data)
                 await new_report.save()
+
+                # Отримуємо дату, до якої потрібно зберігати звіти
+                deleting_time = get_deleting_time()
+                if deleting_time > 0:
+                    delete_before_date = datetime.now().replace(tzinfo=None) - timedelta(days=deleting_time)
+
+                    # Отримуємо найстаріший звіт
+                    first_report = await main_db_model.filter(device=device).first()
+
+                    # Перевіряємо, чи він був створений раніше, ніж delete_before_date, і видаляємо його
+                    if first_report and first_report.timestamp.replace(tzinfo=None) < delete_before_date:
+                        await first_report.delete()
+
             await asyncio.sleep(1)
 
     def get_tmp_data(self, device, new_data):

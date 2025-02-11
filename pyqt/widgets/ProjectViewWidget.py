@@ -45,7 +45,6 @@ class ProjectViewWidget(QWidget):
 
         async def run_load_devices():
             self.devices = await Device.filter(project_id=self.project.id).all()
-            print(self.devices)
             for index, device in enumerate(self.devices, start=1):
                 item = QStandardItem()
                 item.setData(device.name, Qt.ItemDataRole.UserRole)
