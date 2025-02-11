@@ -21,10 +21,11 @@ def get_deleting_time():
     try:
         with open("conf.json", "r", encoding="utf-8") as file:
             config = json.load(file)
-            DELETING_TIME = config.get("deleting_time", 10)
+            DELETING_TIME = config.get("deleting_time")
     except (FileNotFoundError, json.JSONDecodeError) as e:
         print(f"Помилка завантаження конфігурації: {e}")
         DELETING_TIME = 10
+    return DELETING_TIME
 
 
 def set_deleting_time(new_time):
