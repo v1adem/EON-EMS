@@ -9,7 +9,7 @@ from PySide6.QtGui import QPalette, QColor
 from PySide6.QtWidgets import (
     QApplication,
 )
-from PySide6.scripts.deploy_lib import Config
+
 from tortoise import Tortoise
 
 import config
