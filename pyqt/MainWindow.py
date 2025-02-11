@@ -6,6 +6,7 @@ from PySide6.QtWidgets import QMainWindow, QWidget, QStackedWidget, QVBoxLayout,
 
 from config import resource_path
 from pyqt.dialogs.LanguageDialog import LanguageDialog
+from pyqt.dialogs.SettingsDialog import SettingsDialog
 from pyqt.widgets.DeviceDetailsWidget import DeviceDetailsWidget
 from pyqt.widgets.ProjectViewWidget import ProjectViewWidget
 from pyqt.widgets.ProjectsWidget import ProjectsWidget
@@ -36,6 +37,13 @@ class MainWindow(QMainWindow):
         self.toolbar.setMovable(False)
         self.toolbar.setIconSize(QtCore.QSize(60, 30))
 
+        # Додаємо вкладку "Налаштування" в тулбар
+        # settings_icon = QIcon(resource_path("pyqt/icons/settings.png"))
+        settings_menu = self.menu_bar.addMenu("Налаштування")
+        settings_action = QAction("Час видалення", self) #(settings_icon, "Час видалення", self)
+        settings_action.triggered.connect(self.open_settings_dialog)
+        settings_menu.addAction(settings_action)
+
         self.central_widget = QWidget(self)
         self.setCentralWidget(self.central_widget)
 
@@ -47,6 +55,11 @@ class MainWindow(QMainWindow):
         self.stacked_widget.addWidget(self.registration_widget)
 
         self.stacked_widget.setCurrentIndex(0)
+
+    def open_settings_dialog(self):
+        """Відкриває діалогове вікно для зміни часу видалення."""
+        dialog = SettingsDialog(self)
+        dialog.exec()
 
     def change_language(self):
         language_dialog = LanguageDialog(self)
