@@ -1,23 +1,23 @@
-from sqlalchemy import Column, Integer, String
+from tortoise import fields
+from tortoise.models import Model
 
-from config import Base
 
+class Project(Model):
+    id = fields.IntField(pk=True)
+    name = fields.CharField(max_length=255, unique=True)
+    description = fields.TextField(null=True)
+    port = fields.IntField(null=True)
+    baudrate = fields.IntField(default=9600)
+    bytesize = fields.IntField(default=8)
+    stopbits = fields.IntField(default=1)
+    parity = fields.CharField(max_length=1, default='N')  # 'N', 'E', 'O', etc.
 
-class Project(Base):
-    __tablename__ = 'projects'
+    is_connected: bool = False
 
-    id = Column(Integer, primary_key=True)
-    name = Column(String, nullable=False, unique=True)
-    description = Column(String, nullable=True)
-    port = Column(Integer, nullable=True)
-    baudrate = Column(Integer, nullable=False, default=9600)
-    bytesize = Column(Integer, nullable=False, default=8)
-    stopbits = Column(Integer, nullable=False, default=1)
-    parity = Column(String, nullable=False, default='N')  # 'N', 'E', 'O', etc.
+    class Meta:
+        table = "projects"
 
-    is_connected = False
-
-    def __repr__(self):
+    def __str__(self):
         return (f"<Project(id={self.id}, name='{self.name}', description='{self.description}', "
                 f"port={self.port}, baudrate={self.baudrate}, bytesize={self.bytesize}, "
                 f"stopbits={self.stopbits}, parity='{self.parity}')>")

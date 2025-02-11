@@ -1,15 +1,15 @@
-from sqlalchemy import Column, Integer, String, Boolean
+from tortoise import fields
+from tortoise.models import Model
 
-from config import Base
 
+class Admin(Model):
+    id = fields.IntField(pk=True)
+    username = fields.CharField(max_length=255, null=False)
+    password = fields.CharField(max_length=255, null=False)
+    always_admin = fields.BooleanField(default=False)
 
-class Admin(Base):
-    __tablename__ = 'admin'
+    class Meta:
+        table = "admin"
 
-    id = Column(Integer, primary_key=True)
-    username = Column(String, nullable=False)
-    password = Column(String, nullable=False)
-    always_admin = Column(Boolean, nullable=False, default=False)
-
-    def __repr__(self):
+    def __str__(self):
         return f"<Admin(username='{self.username}')>"

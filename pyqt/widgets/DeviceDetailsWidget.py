@@ -1,15 +1,14 @@
 from datetime import datetime
 
 import pyqtgraph as pg
+from PySide6.QtWidgets import QToolTip, QAbstractItemView
 import xlsxwriter
-from PyQt5.QtCore import Qt, QSortFilterProxyModel, QTime, QTimer, QDate
-from PyQt5.QtGui import QIcon, QStandardItemModel, QStandardItem, QFont
-from PyQt5.QtWidgets import QMessageBox, QFileDialog, QTabWidget
-from PyQt5.QtWidgets import QVBoxLayout, QPushButton, QLabel, QWidget, QSplitter, QTableView, \
-    QHBoxLayout, QDialog, QLCDNumber, QCheckBox, QDateEdit, QGridLayout
-from sqlalchemy import desc
+from AsyncioPySide6 import AsyncioPySide6
+from PySide6.QtCore import QTimer, QDate, Qt, QSortFilterProxyModel, QTime
+from PySide6.QtGui import QStandardItemModel, QFont, QStandardItem
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QSplitter, QLabel, QDateEdit, QTableView, QTabWidget, QHBoxLayout, \
+    QPushButton, QCheckBox, QGridLayout, QLCDNumber, QDialog, QMessageBox, QFileDialog
 
-from config import resource_path
 from models.Report import SDM630Report, SDM630ReportTmp, SDM120Report, SDM120ReportTmp, SDM72DReport, SDM72DReportTmp
 from pyqt.widgets.DateAxisItem import DateAxisItem
 from register_maps.RegisterMaps import RegisterMap
@@ -21,14 +20,15 @@ class DeviceDetailsWidget(QWidget):
         self.auto_update_checkbox = None
         self.device = device
         self.device_model = self.device.model
-        self.db_session = main_window.db_session
         self.main_window = main_window
+
+        self.report_data = None
 
         self.init_column_labels()
 
         layout = QVBoxLayout(self)
 
-        main_splitter = QSplitter(Qt.Horizontal)
+        main_splitter = QSplitter(Qt.Orientation.Horizontal)
         main_splitter.setChildrenCollapsible(False)
         layout.addWidget(main_splitter)
 
@@ -67,8 +67,6 @@ class DeviceDetailsWidget(QWidget):
             else:
                 self.create_phase_tab(phase_name)
 
-        self.load_report_data()
-
         self.set_light_theme()
 
         self.timer_clock_indicator = QTimer(self)
@@ -76,12 +74,12 @@ class DeviceDetailsWidget(QWidget):
         self.timer_clock_indicator.setInterval(1000)
         self.timer_clock_indicator.start()
 
+        self.load_report_data()
+
         self.timer_update_all_tabs_graphs = QTimer(self)
-        self.timer_update_all_tabs_graphs.timeout.connect(self.update_all_tabs_graphs)
+        self.timer_update_all_tabs_graphs.timeout.connect(self.load_report_data)
         self.timer_update_all_tabs_graphs.setInterval(((device.reading_interval - 60) * 1000) + 1000)
         self.timer_update_all_tabs_graphs.start()
-
-        self.update_all_tabs_graphs()
 
     def create_filter_buttons(self, layout):
         """Створення фільтрів і кнопок для таблиці."""
@@ -159,12 +157,12 @@ class DeviceDetailsWidget(QWidget):
 
         clock_title = QLabel("Поточний час")
         clock_title.setStyleSheet("font-size: 16pt; font-weight: bold;")
-        clock_title.setAlignment(Qt.AlignCenter)
+        clock_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         bottom_left_layout.addWidget(clock_title)
 
         clock_label = QLabel()
         clock_label.setStyleSheet("font-size: 16pt;")
-        clock_label.setAlignment(Qt.AlignCenter)
+        clock_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         bottom_left_layout.addWidget(clock_label)
 
         layout.addStretch()
@@ -175,25 +173,25 @@ class DeviceDetailsWidget(QWidget):
         voltage_label.setStyleSheet("font-size: 14pt; font-weight: bold;")
         voltage_lcd = QLCDNumber()
         voltage_lcd.setStyleSheet("font-size: 18pt;")
-        voltage_lcd.setSegmentStyle(QLCDNumber.Flat)
+        voltage_lcd.setSegmentStyle(QLCDNumber.SegmentStyle.Flat)
 
         current_label = QLabel("Струм (A)")
         current_label.setStyleSheet("font-size: 14pt; font-weight: bold;")
         current_lcd = QLCDNumber()
         current_lcd.setStyleSheet("font-size: 18pt;")
-        current_lcd.setSegmentStyle(QLCDNumber.Flat)
+        current_lcd.setSegmentStyle(QLCDNumber.SegmentStyle.Flat)
 
         power_label = QLabel("Потужність (W)")
         power_label.setStyleSheet("font-size: 14pt; font-weight: bold;")
         power_lcd = QLCDNumber()
         power_lcd.setStyleSheet("font-size: 18pt;")
-        power_lcd.setSegmentStyle(QLCDNumber.Flat)
+        power_lcd.setSegmentStyle(QLCDNumber.SegmentStyle.Flat)
 
         energy_label = QLabel("Спожито (kWh)")
         energy_label.setStyleSheet("font-size: 14pt; font-weight: bold;")
         energy_lcd = QLCDNumber()
         energy_lcd.setStyleSheet("font-size: 18pt;")
-        energy_lcd.setSegmentStyle(QLCDNumber.Flat)
+        energy_lcd.setSegmentStyle(QLCDNumber.SegmentStyle.Flat)
 
         if phase_name != "Загальне":
             indicators_layout.addWidget(voltage_label, 0, 0)
@@ -225,34 +223,40 @@ class DeviceDetailsWidget(QWidget):
         self.tabs.addTab(tab, phase_name)
 
     def load_report_data(self):
-        start_date = self.start_date_table_filter.date().toPyDate()
-        end_date = self.end_date_table_filter.date().addDays(1).toPyDate()
+        async def run_load_report_data():
+            start_date = self.start_date_table_filter.date().toPython()
+            end_date = self.end_date_table_filter.date().addDays(1).toPython()
 
-        if self.device_model == "SDM120":
-            self.report_data = self.db_session.query(SDM120Report).filter_by(device_id=self.device.id).filter(
-                SDM120Report.timestamp >= start_date, SDM120Report.timestamp <= end_date
-            ).order_by(desc(SDM120Report.timestamp)).all()
-        elif self.device_model == "SDM630":
-            self.report_data = self.db_session.query(SDM630Report).filter_by(device_id=self.device.id).filter(
-                SDM630Report.timestamp >= start_date, SDM630Report.timestamp <= end_date
-            ).order_by(desc(SDM630Report.timestamp)).all()
-        elif self.device_model == "SDM72D":
-            self.report_data = self.db_session.query(SDM72DReport).filter_by(device_id=self.device.id).filter(
-                SDM72DReport.timestamp >= start_date, SDM72DReport.timestamp <= end_date
-            ).order_by(desc(SDM72DReport.timestamp)).all()
-        else:
-            self.report_data = None
+            if self.device_model == "SDM120":
+                report_model = SDM120Report
+            elif self.device_model == "SDM630":
+                report_model = SDM630Report
+            elif self.device_model == "SDM72D":
+                report_model = SDM72DReport
+            else:
+                return
 
-        model = self.create_table_model(self.report_data, self.device)
+            self.report_data = await report_model.filter(
+                device_id=self.device.id,
+                timestamp__gte=start_date,
+                timestamp__lte=end_date
+            ).order_by("timestamp").all()
+            model = self.create_table_model(self.report_data, self.device)
 
-        proxy_model = QSortFilterProxyModel()
-        proxy_model.setSourceModel(model)
-        proxy_model.setSortCaseSensitivity(Qt.CaseInsensitive)
+            proxy_model = QSortFilterProxyModel()
+            proxy_model.setSourceModel(model)
+            proxy_model.setSortCaseSensitivity(Qt.CaseSensitivity.CaseInsensitive)
 
-        self.report_table.setModel(proxy_model)
-        self.report_table.sortByColumn(0, Qt.DescendingOrder)
-        self.report_table.setSortingEnabled(True)
-        self.report_table.resizeColumnsToContents()
+            self.report_table.setModel(proxy_model)
+            self.report_table.sortByColumn(0, Qt.SortOrder.DescendingOrder)
+            self.report_table.setSortingEnabled(True)
+            self.report_table.resizeColumnsToContents()
+
+            if self.device_model == "SDM72D":
+                self.update_graphs_sdm72d()
+            else:
+                self.update_graphs()
+        AsyncioPySide6.runTask(run_load_report_data())
 
     def apply_date_filter(self):
         self.load_report_data()
@@ -279,8 +283,8 @@ class DeviceDetailsWidget(QWidget):
         bold_font.setPointSize(12)
 
         for col_index, header in enumerate(header_labels):
-            model.setHeaderData(col_index, Qt.Horizontal, header)
-            model.setHeaderData(col_index, Qt.Horizontal, bold_font, Qt.FontRole)
+            model.setHeaderData(col_index, Qt.Orientation.Horizontal, header)
+            model.setHeaderData(col_index, Qt.Orientation.Horizontal, bold_font, Qt.ItemDataRole.FontRole)
 
         for row, report in enumerate(report_data):
             for col, column in enumerate(columns):
@@ -295,16 +299,129 @@ class DeviceDetailsWidget(QWidget):
         return model
 
     def update_clock_indicators(self):
-        self.update_indicators()
-        self.update_clock()
-
-    def update_all_tabs_graphs(self):
-        if self.auto_update_checkbox.isChecked():
-            self.load_report_data()
-            if self.device_model == "SDM72D":
-                self.update_graphs_sdm72d()
+        async def run_update_clock_indicators():
+            if self.device_model == "SDM120":
+                report_model = SDM120ReportTmp
+            elif self.device_model == "SDM630":
+                report_model = SDM630ReportTmp
+            elif self.device_model == "SDM72D":
+                report_model = SDM72DReportTmp
             else:
-                self.update_graphs()
+                return
+
+            last_report = await report_model.filter(
+                device_id=self.device.id
+            ).order_by("-timestamp").first()
+
+            if not last_report:
+                return
+
+            if self.device_model == "SDM72D":
+                phases = {
+                    "Фаза 1": {
+                        "voltage": getattr(last_report, 'line_voltage_1', 0),
+                        "current": getattr(last_report, 'current_1', 0),
+                        "power": getattr(last_report, 'power_1', 0),
+                        "energy": getattr(last_report, 'total_kWh', 0),
+                    },
+                    "Фаза 2": {
+                        "voltage": getattr(last_report, 'line_voltage_2', 0),
+                        "current": getattr(last_report, 'current_2', 0),
+                        "power": getattr(last_report, 'power_2', 0),
+                        "energy": getattr(last_report, 'total_kWh', 0),
+                    },
+                    "Фаза 3": {
+                        "voltage": getattr(last_report, 'line_voltage_3', 0),
+                        "current": getattr(last_report, 'current_3', 0),
+                        "power": getattr(last_report, 'power_3', 0),
+                        "energy": getattr(last_report, 'total_kWh', 0),
+                    },
+                    "Загальне": {
+                        "energy": getattr(last_report, 'total_kWh', 0),
+                    }
+                }
+            else:
+                # Дані для фаз
+                phases = {
+                    "Фаза 1": {
+                        "voltage": getattr(last_report, 'line_voltage_1', 0),
+                        "current": getattr(last_report, 'current_1', 0),
+                        "power": getattr(last_report, 'power_1', 0),
+                        "energy": getattr(last_report, 'total_kWh_1', 0),
+                    },
+                    "Фаза 2": {
+                        "voltage": getattr(last_report, 'line_voltage_2', 0),
+                        "current": getattr(last_report, 'current_2', 0),
+                        "power": getattr(last_report, 'power_2', 0),
+                        "energy": getattr(last_report, 'total_kWh_2', 0),
+                    },
+                    "Фаза 3": {
+                        "voltage": getattr(last_report, 'line_voltage_3', 0),
+                        "current": getattr(last_report, 'current_3', 0),
+                        "power": getattr(last_report, 'power_3', 0),
+                        "energy": getattr(last_report, 'total_kWh_3', 0),
+                    },
+                    "Загальне": {
+                        "energy": getattr(last_report, 'total_kWh', 0),
+                    }
+                }
+
+            for phase_name, data in phases.items():
+                if phase_name not in self.phase_data:
+                    continue
+
+                phase = self.phase_data[phase_name]
+                voltage_lcd = phase["voltage_lcd"]
+                current_lcd = phase["current_lcd"]
+                power_lcd = phase["power_lcd"]
+                energy_lcd = phase["energy_lcd"]
+
+                if voltage_lcd and "voltage" in data:
+                    voltage_lcd.display(f"{data['voltage']}")
+                if current_lcd and "current" in data:
+                    current_lcd.display(f"{data['current']}")
+                if power_lcd and "power" in data:
+                    power_lcd.display(f"{data['power']}")
+                if energy_lcd and "energy" in data:
+                    energy_lcd.display(f"{data['energy']}")
+
+            current_time = QTime.currentTime().toString("HH:mm:ss")  # Час
+            current_time += "\n" + QDate.currentDate().toString("dd.MM.yyyy")  # Дата
+
+            for phase_name, phase_data in self.phase_data.items():
+                phase_data["clock_label"].setText(current_time)
+        AsyncioPySide6.runTask(run_update_clock_indicators())
+
+    def add_tooltips(self, graph_widget, timestamps, values):
+        points = list(zip(timestamps, values))
+
+        def on_mouse_moved(evt):
+            pos = evt
+            if graph_widget.sceneBoundingRect().contains(pos):
+                mouse_point = graph_widget.plotItem.vb.mapSceneToView(pos)
+                x, y = mouse_point.x(), mouse_point.y()
+
+                # Пошук найближчої точки
+                closest_point = min(points, key=lambda p: (p[0] - x) ** 2 + (p[1] - y) ** 2)
+                tooltip_text = f"{closest_point[1]:.2f}"
+
+                # Відображення підказки
+                QToolTip.showText(
+                    graph_widget.mapToGlobal(graph_widget.mapFromScene(pos)), tooltip_text
+                )
+
+        graph_widget.scene().sigMouseMoved.connect(on_mouse_moved)
+
+    def on_graph_point_clicked(self, plot, points):
+        if not points:
+            return  # Нічого не робимо, якщо точки не передані
+
+        point = points[0]  # Беремо першу точку
+        row_index = point.data()  # Отримуємо індекс рядка таблиці
+
+        # Виділяємо рядок у таблиці та прокручуємо до нього
+        self.report_table.selectRow(row_index)
+        self.report_table.scrollTo(self.report_table.model().index(row_index, 0))
 
     def update_voltage_graph(self, timestamps, voltages, phase_name):
         timestamps_numeric = [ts.timestamp() for ts in timestamps]
@@ -313,13 +430,29 @@ class DeviceDetailsWidget(QWidget):
         graph_widget = self.phase_data[phase_name]["voltage_graph"]
 
         if not hasattr(self, plot_attr):
+            # Додаємо графік
             setattr(self, plot_attr, graph_widget.plot(
                 timestamps_numeric,
                 voltages,
                 pen=pg.mkPen(color='b', width=2),
                 name=f"Напруга {phase_name}"
             ))
+
+            # Додаємо точки на графік
+            scatter_points = []
+            for i, (x, y) in enumerate(zip(timestamps_numeric, voltages)):
+                scatter_points.append({'pos': (x, y), 'data': i})  # Прив'язуємо індекс рядка таблиці
+
+            scatter = pg.ScatterPlotItem(pen=None, brush='b', size=10)
+            scatter.addPoints(scatter_points)
+
+            # Додаємо обробник кліків
+            scatter.sigClicked.connect(self.on_graph_point_clicked)
+
+            graph_widget.addItem(scatter)
+
         else:
+            # Оновлюємо графік
             getattr(self, plot_attr).setData(timestamps_numeric, voltages)
 
     def update_current_graph(self, timestamps, currents, phase_name):
@@ -329,13 +462,29 @@ class DeviceDetailsWidget(QWidget):
         graph_widget = self.phase_data[phase_name]["current_graph"]
 
         if not hasattr(self, plot_attr):
+            # Додаємо графік
             setattr(self, plot_attr, graph_widget.plot(
                 timestamps_numeric,
                 currents,
                 pen=pg.mkPen(color='r', width=2),
                 name=f"Струм {phase_name}"
             ))
+
+            # Додаємо точки на графік
+            scatter_points = []
+            for i, (x, y) in enumerate(zip(timestamps_numeric, currents)):
+                scatter_points.append({'pos': (x, y), 'data': i})  # Прив'язуємо індекс рядка таблиці
+
+            scatter = pg.ScatterPlotItem(pen=None, brush='r', size=10)
+            scatter.addPoints(scatter_points)
+
+            # Додаємо обробник кліків
+            scatter.sigClicked.connect(self.on_graph_point_clicked)
+
+            graph_widget.addItem(scatter)
+
         else:
+            # Оновлюємо графік
             getattr(self, plot_attr).setData(timestamps_numeric, currents)
 
     def update_energy_graph(self, hourly_timestamps, hourly_energy, phase_name):
@@ -438,106 +587,6 @@ class DeviceDetailsWidget(QWidget):
                 hourly_timestamps.append(current_hour_start)
 
             self.update_energy_graph(hourly_timestamps, hourly_energy, phase_name)
-
-    def update_indicators(self):
-        last_report = None
-        if self.device_model == "SDM120":
-            last_report = (self.db_session.query(SDM120ReportTmp)
-                           .filter_by(device_id=self.device.id)
-                           .order_by(desc(SDM120ReportTmp.timestamp))
-                           .first())
-        elif self.device_model == "SDM630":
-            last_report = (self.db_session.query(SDM630ReportTmp)
-                           .filter_by(device_id=self.device.id)
-                           .order_by(desc(SDM630ReportTmp.timestamp))
-                           .first())
-        elif self.device_model == "SDM72D":
-            last_report = (self.db_session.query(SDM72DReportTmp)
-                           .filter_by(device_id=self.device.id)
-                           .order_by(desc(SDM72DReportTmp.timestamp))
-                           .first())
-
-        if not last_report:
-            return
-
-        if self.device_model == "SDM72D":
-            phases = {
-                "Фаза 1": {
-                    "voltage": getattr(last_report, 'line_voltage_1', 0),
-                    "current": getattr(last_report, 'current_1', 0),
-                    "power": getattr(last_report, 'power_1', 0),
-                    "energy": getattr(last_report, 'total_kWh', 0),
-                },
-                "Фаза 2": {
-                    "voltage": getattr(last_report, 'line_voltage_2', 0),
-                    "current": getattr(last_report, 'current_2', 0),
-                    "power": getattr(last_report, 'power_2', 0),
-                    "energy": getattr(last_report, 'total_kWh', 0),
-                },
-                "Фаза 3": {
-                    "voltage": getattr(last_report, 'line_voltage_3', 0),
-                    "current": getattr(last_report, 'current_3', 0),
-                    "power": getattr(last_report, 'power_3', 0),
-                    "energy": getattr(last_report, 'total_kWh', 0),
-                },
-                "Загальне": {
-                    "energy": getattr(last_report, 'total_kWh', 0),
-                }
-            }
-        else:
-            # Дані для фаз
-            phases = {
-                "Фаза 1": {
-                    "voltage": getattr(last_report, 'line_voltage_1', 0),
-                    "current": getattr(last_report, 'current_1', 0),
-                    "power": getattr(last_report, 'power_1', 0),
-                    "energy": getattr(last_report, 'total_kWh_1', 0),
-                },
-                "Фаза 2": {
-                    "voltage": getattr(last_report, 'line_voltage_2', 0),
-                    "current": getattr(last_report, 'current_2', 0),
-                    "power": getattr(last_report, 'power_2', 0),
-                    "energy": getattr(last_report, 'total_kWh_2', 0),
-                },
-                "Фаза 3": {
-                    "voltage": getattr(last_report, 'line_voltage_3', 0),
-                    "current": getattr(last_report, 'current_3', 0),
-                    "power": getattr(last_report, 'power_3', 0),
-                    "energy": getattr(last_report, 'total_kWh_3', 0),
-                },
-                "Загальне": {
-                    "energy": getattr(last_report, 'total_kWh', 0),
-                }
-            }
-
-        # Оновлення індикаторів для кожної фази
-        for phase_name, data in phases.items():
-            if phase_name not in self.phase_data:
-                continue  # Якщо фаза не налаштована, пропускаємо її
-
-            # Отримання індикаторів
-            phase = self.phase_data[phase_name]
-            voltage_lcd = phase["voltage_lcd"]
-            current_lcd = phase["current_lcd"]
-            power_lcd = phase["power_lcd"]
-            energy_lcd = phase["energy_lcd"]
-
-            # Оновлення значень
-            if voltage_lcd and "voltage" in data:
-                voltage_lcd.display(f"{data['voltage']}")
-            if current_lcd and "current" in data:
-                current_lcd.display(f"{data['current']}")
-            if power_lcd and "power" in data:
-                power_lcd.display(f"{data['power']}")
-            if energy_lcd and "energy" in data:
-                energy_lcd.display(f"{data['energy']}")
-
-    def update_clock(self):
-        current_time = QTime.currentTime().toString("HH:mm:ss")  # Час
-        current_time += "\n" + QDate.currentDate().toString("dd.MM.yyyy")  # Дата
-
-        for phase_name, phase_data in self.phase_data.items():
-            phase_data["clock_label"].setText(current_time)
 
     def set_light_theme(self):
         for phase_name, phase_data in self.phase_data.items():
@@ -775,124 +824,122 @@ class DeviceDetailsWidget(QWidget):
         self.dialog.exec()
 
     def export_to_excel(self):
-        start_datetime = self.start_export_date.dateTime().toPyDateTime()
-        end_datetime_for_name = self.end_export_date.dateTime().toPyDateTime()
-        end_datetime = self.end_export_date.dateTime().addDays(1).toPyDateTime()
+        start_datetime = self.start_export_date.dateTime().toPython()
+        end_datetime_for_name = self.end_export_date.dateTime().toPython()
+        end_datetime = self.end_export_date.dateTime().addDays(1).toPython()
 
-        report_data = None
-        if self.device_model == "SDM120":
-            report_data = self.db_session.query(SDM120Report).filter(
-                SDM120Report.device_id == self.device.id,
-                SDM120Report.timestamp >= start_datetime,
-                SDM120Report.timestamp <= end_datetime
-            ).order_by(SDM120Report.timestamp).all()
-        elif self.device_model == "SDM630":
-            report_data = self.db_session.query(SDM630Report).filter(
-                SDM630Report.device_id == self.device.id,
-                SDM630Report.timestamp >= start_datetime,
-                SDM630Report.timestamp <= end_datetime
-            ).order_by(SDM630Report.timestamp).all()
-        elif self.device_model == "SDM72D":
-            report_data = self.db_session.query(SDM72DReport).filter(
-                SDM72DReport.device_id == self.device.id,
-                SDM72DReport.timestamp >= start_datetime,
-                SDM72DReport.timestamp <= end_datetime
-            ).order_by(SDM72DReport.timestamp).all()
+        async def run_export_to_excel():
+            if self.device_model == "SDM120":
+                report_model = SDM120Report
+            elif self.device_model == "SDM630":
+                report_model = SDM630Report
+            elif self.device_model == "SDM72D":
+                report_model = SDM72DReport
+            else:
+                return
 
-        if not report_data:
-            QMessageBox.warning(self, "Експорт", "Дані за вибраний період відсутні.")
-            return
+            # Виконуємо асинхронний запит для отримання даних
+            report_data = await report_model.filter(
+                device_id=self.device.id,
+                timestamp__gte=start_datetime,  # `__gte` означає ">="
+                timestamp__lte=end_datetime  # `__lte` означає "<="
+            ).order_by("timestamp").all()  # Сортування за `timestamp`
 
-        file_path, _ = QFileDialog.getSaveFileName(
-            self,
-            "Зберегти файл",
-            f"{self.device.name}_{start_datetime.date()}_{end_datetime_for_name.date()}.xlsx",
-            "Excel Files (*.xlsx)")
+            if not report_data:
+                QMessageBox.warning(self, "Експорт", "Дані за вибраний період відсутні.")
+                return
 
-        if not file_path:
-            return
+            file_path, _ = QFileDialog.getSaveFileName(
+                self,
+                "Зберегти файл",
+                f"{self.device.name}_{start_datetime.date()}_{end_datetime_for_name.date()}.xlsx",
+                "Excel Files (*.xlsx)")
 
-        try:
-            workbook = xlsxwriter.Workbook(file_path)
+            if not file_path:
+                return
 
-            # Визначення фаз та загальних колонок
-            phases = {1: [], 2: [], 3: [], 'general': []}
-            for column in self.column_labels_for_excel.keys():
-                if column == "timestamp":
-                    continue
-                if "_1" in column:
-                    phases[1].append(column)
-                elif "_2" in column:
-                    phases[2].append(column)
-                elif "_3" in column:
-                    phases[3].append(column)
-                else:
-                    phases['general'].append(column)
+            try:
+                workbook = xlsxwriter.Workbook(file_path)
 
-            # Функція для запису даних у лист
-            def write_sheet(worksheet, data, columns):
-                worksheet.write(0, 0, self.column_labels["timestamp"])
-                for col_idx, column in enumerate(columns, start=1):
-                    worksheet.write(0, col_idx, self.column_labels_for_excel.get(column, column))
+                # Визначення фаз та загальних колонок
+                phases = {1: [], 2: [], 3: [], 'general': []}
+                for column in self.column_labels_for_excel.keys():
+                    if column == "timestamp":
+                        continue
+                    if "_1" in column:
+                        phases[1].append(column)
+                    elif "_2" in column:
+                        phases[2].append(column)
+                    elif "_3" in column:
+                        phases[3].append(column)
+                    else:
+                        phases['general'].append(column)
 
-                for row_idx, entry in enumerate(data, start=1):
-                    worksheet.write(row_idx, 0, entry.timestamp.strftime('%Y-%m-%d %H:%M:%S'))
+                # Функція для запису даних у лист
+                def write_sheet(worksheet, data, columns):
+                    worksheet.write(0, 0, self.column_labels["timestamp"])
                     for col_idx, column in enumerate(columns, start=1):
-                        value = getattr(entry, column, None)
-                        worksheet.write(row_idx, col_idx, value)
+                        worksheet.write(0, col_idx, self.column_labels_for_excel.get(column, column))
 
-                worksheet.set_column(0, len(columns), 20)
+                    for row_idx, entry in enumerate(data, start=1):
+                        worksheet.write(row_idx, 0, entry.timestamp.strftime('%Y-%m-%d %H:%M:%S'))
+                        for col_idx, column in enumerate(columns, start=1):
+                            value = getattr(entry, column, None)
+                            worksheet.write(row_idx, col_idx, value)
 
-            # Створення листів для кожної фази
-            for phase, columns in phases.items():
-                if phase == 'general':
-                    sheet_name = "Загальне"
-                else:
-                    sheet_name = f"Фаза {phase}"
+                    worksheet.set_column(0, len(columns), 20)
 
-                phase_data = [entry for entry in report_data if any(hasattr(entry, col) for col in columns)]
-                if not phase_data:
-                    continue
+                # Створення листів для кожної фази
+                for phase, columns in phases.items():
+                    if phase == 'general':
+                        sheet_name = "Загальне"
+                    else:
+                        sheet_name = f"Фаза {phase}"
 
-                worksheet = workbook.add_worksheet(sheet_name)
-                write_sheet(worksheet, phase_data, columns)
+                    phase_data = [entry for entry in report_data if any(hasattr(entry, col) for col in columns)]
+                    if not phase_data:
+                        continue
 
-            if self.include_charts.isChecked():
-                parameters = {'line_voltage_1': 'Напруга', 'current_1': 'Струм', 'power_1': 'Потужність'}
-                for param in parameters.keys():
-                    worksheet_param = workbook.add_worksheet(param)
+                    worksheet = workbook.add_worksheet(sheet_name)
+                    write_sheet(worksheet, phase_data, columns)
 
-                    worksheet_param.write('A1', 'Дата/Час')
-                    worksheet_param.write('B1', param)
+                if self.include_charts.isChecked():
+                    parameters = {'line_voltage_1': 'Напруга', 'current_1': 'Струм', 'power_1': 'Потужність'}
+                    for param in parameters.keys():
+                        worksheet_param = workbook.add_worksheet(param)
 
-                    row = 1
-                    for entry in report_data:
-                        worksheet_param.write(row, 0, entry.timestamp.strftime('%Y-%m-%d %H:%M:%S'))
-                        worksheet_param.write(row, 1, getattr(entry, param.lower()))
-                        row += 1
+                        worksheet_param.write('A1', 'Дата/Час')
+                        worksheet_param.write('B1', param)
 
-                    worksheet_param.add_table(f'A1:B{row}', {'name': f'{param}_data',
-                                                             'columns': [{'header': 'Дата/Час'},
-                                                                         {'header': parameters[param]}], })
+                        row = 1
+                        for entry in report_data:
+                            worksheet_param.write(row, 0, entry.timestamp.strftime('%Y-%m-%d %H:%M:%S'))
+                            worksheet_param.write(row, 1, getattr(entry, param.lower()))
+                            row += 1
 
-                    chart = workbook.add_chart({'type': 'line'})
-                    chart.add_series({'values': f'={param}!$B$2:$B${row}', 'name': parameters[param],
-                                      'categories': f'={param}!$A$2:$A${row - 1}'})
-                    chart.set_title({'name': parameters[param]})
+                        worksheet_param.add_table(f'A1:B{row}', {'name': f'{param}_data',
+                                                                 'columns': [{'header': 'Дата/Час'},
+                                                                             {'header': parameters[param]}], })
 
-                    chart.set_x_axis({'date_axis': True, 'num_format': 'yyyy-mm-dd hh:mm:ss'})
+                        chart = workbook.add_chart({'type': 'line'})
+                        chart.add_series({'values': f'={param}!$B$2:$B${row}', 'name': parameters[param],
+                                          'categories': f'={param}!$A$2:$A${row - 1}'})
+                        chart.set_title({'name': parameters[param]})
 
-                    worksheet_param.insert_chart('D2', chart)
+                        chart.set_x_axis({'date_axis': True, 'num_format': 'yyyy-mm-dd hh:mm:ss'})
 
-                    for col in range(4):
-                        worksheet.set_column(col, col, 20)
+                        worksheet_param.insert_chart('D2', chart)
 
-            workbook.close()
-            QMessageBox.information(self, "Експорт", "Експорт даних в Excel пройшов успішно.")
-            self.dialog.accept()
+                        for col in range(4):
+                            worksheet.set_column(col, col, 20)
 
-        except Exception as e:
-            QMessageBox.warning(self, "Помилка", f"Сталася помилка при експорті даних: {e}")
+                workbook.close()
+                QMessageBox.information(self, "Експорт", "Експорт даних в Excel пройшов успішно.")
+                self.dialog.accept()
+
+            except Exception as e:
+                QMessageBox.warning(self, "Помилка", f"Сталася помилка при експорті даних: {e}")
+        AsyncioPySide6.runTask(run_export_to_excel())
 
     def create_phase_tab_sdm72d(self, phase_name):
         """Створює вкладку для заданої фази."""
@@ -926,12 +973,12 @@ class DeviceDetailsWidget(QWidget):
 
         clock_title = QLabel("Поточний час")
         clock_title.setStyleSheet("font-size: 16pt; font-weight: bold;")
-        clock_title.setAlignment(Qt.AlignCenter)
+        clock_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         bottom_left_layout.addWidget(clock_title)
 
         clock_label = QLabel()
         clock_label.setStyleSheet("font-size: 16pt;")
-        clock_label.setAlignment(Qt.AlignCenter)
+        clock_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         bottom_left_layout.addWidget(clock_label)
 
         layout.addStretch()
@@ -942,25 +989,25 @@ class DeviceDetailsWidget(QWidget):
         voltage_label.setStyleSheet("font-size: 14pt; font-weight: bold;")
         voltage_lcd = QLCDNumber()
         voltage_lcd.setStyleSheet("font-size: 18pt;")
-        voltage_lcd.setSegmentStyle(QLCDNumber.Flat)
+        voltage_lcd.setSegmentStyle(QLCDNumber.SegmentStyle.Flat)
 
         current_label = QLabel("Струм (A)")
         current_label.setStyleSheet("font-size: 14pt; font-weight: bold;")
         current_lcd = QLCDNumber()
         current_lcd.setStyleSheet("font-size: 18pt;")
-        current_lcd.setSegmentStyle(QLCDNumber.Flat)
+        current_lcd.setSegmentStyle(QLCDNumber.SegmentStyle.Flat)
 
         power_label = QLabel("Потужність (W)")
         power_label.setStyleSheet("font-size: 14pt; font-weight: bold;")
         power_lcd = QLCDNumber()
         power_lcd.setStyleSheet("font-size: 18pt;")
-        power_lcd.setSegmentStyle(QLCDNumber.Flat)
+        power_lcd.setSegmentStyle(QLCDNumber.SegmentStyle.Flat)
 
         energy_label = QLabel("Спожито (kWh)")
         energy_label.setStyleSheet("font-size: 14pt; font-weight: bold;")
         energy_lcd = QLCDNumber()
         energy_lcd.setStyleSheet("font-size: 18pt;")
-        energy_lcd.setSegmentStyle(QLCDNumber.Flat)
+        energy_lcd.setSegmentStyle(QLCDNumber.SegmentStyle.Flat)
 
         if phase_name != "Загальне":
             indicators_layout.addWidget(voltage_label, 0, 0)
