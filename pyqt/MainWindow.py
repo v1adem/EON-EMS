@@ -65,7 +65,6 @@ class MainWindow(QMainWindow):
         language_dialog = LanguageDialog(self)
         if language_dialog.exec_() == QDialog.DialogCode.Accepted:
             current_language = language_dialog.selected_language
-            print(f"Мова змінена на: {current_language}")
 
     def open_projects_list(self):
         self.projects_widget = ProjectsWidget(self)
