@@ -1,8 +1,11 @@
+import random
+
+
 def get_test_data(device_model):
     if device_model == "SDM120":
         return {
-            "line_voltage_1": 220.0,
-            "current_1": 1.0,
+            "line_voltage_1": random.randrange(200, 240),
+            "current_1": random.randrange(1, 20),
             "power_1": 0.22,
             "total_active_energy": 0.0,
             "total_reactive_energy": 0.0,
@@ -16,12 +19,12 @@ def get_test_data(device_model):
         }
     elif device_model == "SDM630":
         return {
-            "line_voltage_1": 220.0,
-            "line_voltage_2": 220.0,
-            "line_voltage_3": 220.0,
-            "current_1": 1.0,
-            "current_2": 1.0,
-            "current_3": 1.0,
+            "line_voltage_1": random.randrange(200, 240),
+            "line_voltage_2": random.randrange(200, 240),
+            "line_voltage_3": random.randrange(200, 240),
+            "current_1": random.randrange(1, 20),
+            "current_2": random.randrange(1, 20),
+            "current_3": random.randrange(1, 20),
             "power_1": 0.22,
             "power_2": 0.22,
             "power_3": 0.22,
@@ -79,12 +82,12 @@ def get_test_data(device_model):
         }
     elif device_model == "SDM72D":
         return {
-            "line_voltage_1": 220.0,
-            "line_voltage_2": 220.0,
-            "line_voltage_3": 220.0,
-            "current_1": 1.0,
-            "current_2": 1.0,
-            "current_3": 1.0,
+            "line_voltage_1": random.randrange(200, 240),
+            "line_voltage_2": random.randrange(200, 240),
+            "line_voltage_3": random.randrange(200, 240),
+            "current_1": random.randrange(1, 20),
+            "current_2": random.randrange(1, 20),
+            "current_3": random.randrange(1, 20),
             "power_1": 0.22,
             "power_2": 0.22,
             "power_3": 0.22,
