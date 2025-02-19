@@ -50,8 +50,18 @@ class DataCollectorRunnable(QRunnable):
 
                 tmp_report_data = self.get_tmp_data(device, new_data)
 
-                tmp_report = tmp_db_model(**tmp_report_data)
-                await tmp_report.save()
+                # Перевірка на існування tmp звіту для даного девайсу
+                existing_tmp_report = await tmp_db_model.filter(device_id=device.id).first()
+
+                if existing_tmp_report:
+                    # Оновлюємо існуючий запис
+                    for key, value in tmp_report_data.items():
+                        setattr(existing_tmp_report, key, value)
+                    await existing_tmp_report.save()
+                else:
+                    # Створюємо новий запис
+                    tmp_report = tmp_db_model(**tmp_report_data)
+                    await tmp_report.save()
 
                 if last_report:
                     device_reading_interval = device.reading_interval
