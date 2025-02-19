@@ -43,7 +43,7 @@ class DataCollectorRunnable(QRunnable):
 
                 last_report = await main_db_model.filter(device=device).last()
                 print(f"Читається девайс: {device.name} Моделі: {device.model} / З проєкту {self.project.name}")
-                new_data = get_test_data(device.model) # await get_data_from_device(device, self.project, self.main_window)
+                new_data = await get_data_from_device(device, self.project, self.main_window) # get_test_data(device.model)
                 tmp_report_data = self.get_tmp_data(device, new_data)
 
                 tmp_report = tmp_db_model(**tmp_report_data)
