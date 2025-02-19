@@ -150,6 +150,10 @@ class DeviceDetailsWidget(QWidget):
         energy_graph.setLabel('left', 'Споживання', units='кВт·год')
         top_layout.addWidget(energy_graph)
 
+        # Синхронізація осей X
+        current_graph.setXLink(voltage_graph)  # Прив'язуємо до voltage_graph
+        energy_graph.setXLink(voltage_graph)  # Прив'язуємо до voltage_graph
+
         layout.addLayout(top_layout)
 
         bottom_left_layout = QGridLayout()
@@ -421,15 +425,49 @@ class DeviceDetailsWidget(QWidget):
 
     def on_graph_point_clicked(self, plot, points):
         if not points:
-            return  # Нічого не робимо, якщо точки не передані
+            return
 
-        point = points[0]  # Беремо першу точку
-        row_index = point.data()  # Отримуємо індекс рядка таблиці
+        point = points[0]
+        x_value = point.pos().x()
+        x_value -= 7200
 
-        # Виділяємо рядок у таблиці та прокручуємо до нього
-        self.report_table.selectRow(row_index)
-        self.report_table.scrollTo(self.report_table.model().index(row_index, 0))
-        self.report_table.setSelectionBehavior(QTableView.SelectionBehavior.SelectRows)  # Залишаємо виділення
+        model = self.report_table.model()
+        timestamp_column_index = -1
+        for column in range(model.columnCount()):
+            header_text = model.headerData(column, Qt.Orientation.Horizontal)
+            if "час" in header_text.lower():
+                timestamp_column_index = column
+                break
+
+        if timestamp_column_index == -1:
+            print("Не знайдено стовпець з часовими мітками.")
+            return
+
+        closest_row = -1
+        min_time_diff = float('inf')
+
+        for row in range(model.rowCount()):
+            index = model.index(row, timestamp_column_index)
+            table_timestamp_str = index.data()
+
+            try:
+                table_datetime = datetime.strptime(table_timestamp_str, "%Y-%m-%d %H:%M:%S")
+                table_timestamp = table_datetime.timestamp()
+            except ValueError:
+                print(f"Помилка перетворення часу в рядку {row}: {table_timestamp_str}")
+                continue
+
+            time_diff = abs(table_timestamp - x_value)
+            if time_diff < min_time_diff:
+                min_time_diff = time_diff
+                closest_row = row
+
+        if closest_row != -1:
+            self.report_table.selectRow(closest_row)
+            self.report_table.scrollTo(model.index(closest_row, 0))
+            self.report_table.setSelectionBehavior(QTableView.SelectionBehavior.SelectRows)
+        else:
+            print("Не знайдено відповідний рядок у таблиці.")
 
     def update_voltage_graph(self, timestamps, voltages, phase_name):
         timestamps_numeric = [ts.timestamp() for ts in timestamps]
@@ -1045,6 +1083,10 @@ class DeviceDetailsWidget(QWidget):
             energy_graph.setAxisItems({'bottom': DateAxisItem(orientation='bottom')})
             energy_graph.setLabel('left', 'Споживання', units='кВт·год')
             top_layout.addWidget(energy_graph)
+
+        # Синхронізація осей X
+        current_graph.setXLink(voltage_graph)  # Прив'язуємо до voltage_graph
+        energy_graph.setXLink(voltage_graph)  # Прив'язуємо до voltage_graph
 
         layout.addLayout(top_layout)
 
