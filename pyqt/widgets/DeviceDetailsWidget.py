@@ -596,8 +596,17 @@ class DeviceDetailsWidget(QWidget):
 
         # Оптимізоване оновлення або додавання стовпчиків
         for i, (ts, energy) in enumerate(valid_data):
-            start_time = ts
-            end_time = start_time + 3600  # Діапазон стовпчика
+            current_time = datetime.fromtimestamp(ts)
+            hour_start = current_time.replace(minute=0, second=0, microsecond=0).timestamp()
+            hour_end = hour_start + 3600
+
+            if i == 0:  # Перший стовпчик
+                first_report_timestamp = self.report_data[0].timestamp.timestamp()
+                start_time = first_report_timestamp
+                end_time = hour_end  # Кінець - кінець години
+            else:
+                start_time = hour_start
+                end_time = hour_end
 
             if i < len(energy_bar_items):
                 # Оновлення існуючого стовпчика
@@ -613,12 +622,12 @@ class DeviceDetailsWidget(QWidget):
                 energy_bar_items.append(bar_item)
                 graph_widget.addItem(bar_item)
 
-                # Налаштування діапазону осей
+                # Налаштування діапазону осей (оновлюємо при додаванні нового стовпчика)
                 y_max = max(energy for _, energy in valid_data)
                 graph_widget.setYRange(0, y_max, padding=0.1)
 
                 x_min = min(ts for ts, _ in valid_data)
-                x_max = max(ts for ts, _ in valid_data) + 3600
+                x_max = max(hour_end for ts, _ in valid_data)  # Максимум по кінцю години
                 graph_widget.setXRange(x_min, x_max, padding=0.1)
 
     def update_graphs(self):
