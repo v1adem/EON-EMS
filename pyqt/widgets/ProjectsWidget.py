@@ -81,7 +81,7 @@ class ProjectsWidget(QWidget):
                 port_combo = QComboBox()
                 port_combo.addItems([str(i) for i in range(1, 256)])
                 port_combo.setCurrentText(str(project.port))
-                port_combo.setFixedWidth(48)
+                port_combo.setFixedWidth(60)
                 port_combo.setStyleSheet("font-size: 18px;")
                 port_combo.currentIndexChanged.connect(
                     lambda _, p=project, combo=port_combo:
