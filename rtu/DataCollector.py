@@ -46,8 +46,9 @@ class DataCollectorRunnable(QRunnable):
                 new_data = await get_data_from_device(device, self.project, self.main_window)
 
                 #new_data = get_test_data(device.model, last_report)
+                print(f"Нові дані: {new_data}")
 
-                if any(value is None for value in new_data.values()):
+                if new_data == {}:
                     continue
 
                 tmp_report_data = self.get_tmp_data(device, new_data)
