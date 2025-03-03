@@ -112,6 +112,7 @@ class SerialReaderRS485:
 
                     if response.isError():
                         error(f"{datetime.now().strftime('%d/%m/%Y %H:%M:%S')} | No response from {start_address}")
+                        self.error_text = f"{datetime.now().strftime('%d/%m/%Y %H:%M:%S')} | No response from {start_address}"
                         self.no_response_error_flag = True
                         continue
 
@@ -125,10 +126,12 @@ class SerialReaderRS485:
 
             except Exception as e:
                 error(f"{datetime.now().strftime('%d/%m/%Y %H:%M:%S')} | {e}")
+                self.error_text = f"{datetime.now().strftime('%d/%m/%Y %H:%M:%S')} | {e}"
                 self.error_flag = True
             finally:
                 self.client.close()
         else:
+            self.error_text = "No connection on port"
             self.error_flag = True
 
         if self.error_flag or self.no_response_error_flag:
@@ -146,7 +149,7 @@ class SerialReaderRS485:
         QMessageBox.warning(
             self.main_window,
             f"{datetime.now().strftime('%d/%m/%Y %H:%M:%S')}",
-            f"{self.device_custom_name} - {msg}",
+            f"{self.device_custom_name} - {msg} - {self.error_text}",
             QMessageBox.StandardButton.Ok,
             QMessageBox.StandardButton.Cancel
         )
