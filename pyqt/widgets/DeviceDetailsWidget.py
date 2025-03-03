@@ -580,7 +580,10 @@ class DeviceDetailsWidget(QWidget):
 
         # Перетворення timestamp в числовий формат
         hourly_timestamps_numeric = [ts.timestamp() for ts in hourly_timestamps]
-        valid_data = [(ts, energy) for ts, energy in zip(hourly_timestamps_numeric, hourly_energy) if energy > 0]
+        valid_data = [
+            (ts, energy) for ts, energy in zip(hourly_timestamps_numeric, hourly_energy)
+            if energy > 0
+        ]
 
         if not valid_data:
             return
@@ -588,13 +591,13 @@ class DeviceDetailsWidget(QWidget):
         bar_attr = f"energy_bar_items_{phase_name}"
         graph_widget = self.phase_data[phase_name]["energy_graph"]
 
-        # Ініціалізація списку стовпчиків, якщо його ще немає
-        if not hasattr(self, bar_attr):
-            setattr(self, bar_attr, [])
+        # Очищення графіка перед оновленням
+        graph_widget.clear()
 
-        energy_bar_items = getattr(self, bar_attr)
+        # Ініціалізація списку стовпчиків
+        energy_bar_items = []
 
-        # Оптимізоване оновлення або додавання стовпчиків
+        # Додавання стовпчиків
         for i, (ts, energy) in enumerate(valid_data):
             current_time = datetime.fromtimestamp(ts)
             hour_start = current_time.replace(minute=0, second=0, microsecond=0).timestamp()
@@ -608,27 +611,24 @@ class DeviceDetailsWidget(QWidget):
                 start_time = hour_start
                 end_time = hour_end
 
-            if i < len(energy_bar_items):
-                # Оновлення існуючого стовпчика
-                energy_bar_items[i].setOpts(x0=start_time, x1=end_time, height=energy)
-            else:
-                # Додавання нового стовпчика
-                bar_item = pg.BarGraphItem(
-                    x0=start_time,
-                    x1=end_time,
-                    height=energy,
-                    brush='g'
-                )
-                energy_bar_items.append(bar_item)
-                graph_widget.addItem(bar_item)
+            bar_item = pg.BarGraphItem(
+                x0=start_time,
+                x1=end_time,
+                height=energy,
+                brush='g'
+            )
+            energy_bar_items.append(bar_item)
+            graph_widget.addItem(bar_item)
 
-                # Налаштування діапазону осей (оновлюємо при додаванні нового стовпчика)
-                y_max = max(energy for _, energy in valid_data)
-                graph_widget.setYRange(0, y_max, padding=0.1)
+        # Налаштування діапазону осей (оновлюємо при кожному оновленні графіка)
+        y_max = max(energy for _, energy in valid_data)
+        graph_widget.setYRange(0, y_max, padding=0.1)
 
-                x_min = min(ts for ts, _ in valid_data)
-                x_max = max(hour_end for ts, _ in valid_data)  # Максимум по кінцю години
-                graph_widget.setXRange(x_min, x_max, padding=0.1)
+        x_min = min(ts for ts, _ in valid_data)
+        x_max = max(hour_end for ts, _ in valid_data)  # Максимум по кінцю години
+        graph_widget.setXRange(x_min, x_max, padding=0.1)
+
+        setattr(self, bar_attr, energy_bar_items)
 
     def update_graphs(self):
         for phase_name in self.phases:
@@ -661,25 +661,14 @@ class DeviceDetailsWidget(QWidget):
                 self.add_tooltips(self.phase_data[phase_name]["current_graph"], timestamps, currents)
 
             else:
-                # Транспонуємо списки, щоб кожен підсписок містив дані для окремої фази по часу.
                 transposed_voltages = list(zip(*voltages))
                 transposed_currents = list(zip(*currents))
 
                 self.update_voltage_graph(timestamps, transposed_voltages, phase_name)
                 self.update_current_graph(timestamps, transposed_currents, phase_name)
 
-                #for i in range(len(transposed_voltages)):  # Кількість фаз
-                #    voltage_curve = self.phase_data[phase_name]["voltage_graph"].listDataItems()[i]
-                #    current_curve = self.phase_data[phase_name]["current_graph"].listDataItems()[i]
-                #    self.add_tooltips(voltage_curve, timestamps, transposed_voltages[i])
-                #    self.add_tooltips(current_curve, timestamps, transposed_currents[i])
-
             hourly_energy = []
             hourly_timestamps = []
-
-            self.update_energy_graph(hourly_timestamps, hourly_energy, phase_name)
-            self.add_tooltips(self.phase_data[phase_name]["energy_graph"], hourly_timestamps,
-                              hourly_energy)  # Tooltips для графіку енергії
 
             last_energy = None
             current_hour_start = None
@@ -1173,7 +1162,6 @@ class DeviceDetailsWidget(QWidget):
             timestamps = []
             voltages = []
             currents = []
-            energies = []
 
             for report in self.report_data:
                 timestamps.append(report.timestamp)
@@ -1195,18 +1183,11 @@ class DeviceDetailsWidget(QWidget):
                 self.add_tooltips(self.phase_data[phase_name]["voltage_graph"], timestamps, voltages)
                 self.add_tooltips(self.phase_data[phase_name]["current_graph"], timestamps, currents)
             else:
-                # Транспонуємо списки, щоб кожен підсписок містив дані для окремої фази по часу.
                 transposed_voltages = list(zip(*voltages))
                 transposed_currents = list(zip(*currents))
 
                 self.update_voltage_graph(timestamps, transposed_voltages, phase_name)
                 self.update_current_graph(timestamps, transposed_currents, phase_name)
-
-                #for i in range(len(transposed_voltages)):  # Кількість фаз
-                #    voltage_curve = self.phase_data[phase_name]["voltage_graph"].listDataItems()[i]
-                #    current_curve = self.phase_data[phase_name]["current_graph"].listDataItems()[i]
-                #    self.add_tooltips(voltage_curve, timestamps, transposed_voltages[i])
-                #    self.add_tooltips(current_curve, timestamps, transposed_currents[i])
 
                 hourly_energy = []
                 hourly_timestamps = []
