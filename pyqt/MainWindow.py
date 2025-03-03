@@ -2,7 +2,7 @@ import asyncio
 
 from PySide6 import QtCore
 from PySide6.QtGui import QAction, QIcon
-from PySide6.QtWidgets import QMainWindow, QWidget, QStackedWidget, QVBoxLayout, QDialog
+from PySide6.QtWidgets import QMainWindow, QWidget, QStackedWidget, QVBoxLayout, QDialog, QSystemTrayIcon, QMenu
 
 from config import resource_path
 from pyqt.dialogs.LanguageDialog import LanguageDialog
@@ -16,6 +16,9 @@ from pyqt.widgets.RegistrationLoginForm import RegistrationLoginForm
 class MainWindow(QMainWindow):
     def __init__(self, thread_manager):
         super().__init__()
+
+        self.initTrayIcon()
+        self.is_exit = False  # Додаємо прапорець для відстеження виходу
 
         self.thread_manager = thread_manager
 
@@ -55,6 +58,25 @@ class MainWindow(QMainWindow):
         self.stacked_widget.addWidget(self.registration_widget)
 
         self.stacked_widget.setCurrentIndex(0)
+
+    def initTrayIcon(self):
+        self.tray_icon = QSystemTrayIcon(self)
+        self.tray_icon.setIcon(QIcon(resource_path("pyqt/icons/app-icon.png")))
+        self.tray_icon.setVisible(True)
+
+        tray_menu = QMenu()
+        exit_action = tray_menu.addAction('Завершити роботу')
+        exit_action.triggered.connect(self.exit_app)
+
+        self.tray_icon.setContextMenu(tray_menu)
+        self.tray_icon.show()
+
+        self.tray_icon.activated.connect(self.tray_icon_clicked)  # Додаємо обробник кліків
+
+    def tray_icon_clicked(self, reason):  # Обробник кліків
+        if reason == QSystemTrayIcon.ActivationReason.Trigger:  # Перевіряємо тип кліку
+            self.showNormal()  # Відновлюємо вікно
+            self.raise_()  # Піднімаємо вікно на передній план
 
     def open_settings_dialog(self):
         """Відкриває діалогове вікно для зміни часу видалення."""
@@ -103,6 +125,14 @@ class MainWindow(QMainWindow):
 
             self.stacked_widget.setCurrentIndex(0)
 
+    def exit_app(self): # Додаємо метод для виходу з програми
+        self.is_exit = True
+        self.close()
+
     def closeEvent(self, event):
-        asyncio.get_event_loop().stop()
-        super().closeEvent(event)
+        if self.is_exit: # Перевіряємо прапорець
+            asyncio.get_event_loop().stop()
+            super().closeEvent(event) # Викликаємо базовий closeEvent
+        else:
+            self.hide()
+            event.ignore()
