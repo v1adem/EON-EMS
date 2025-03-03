@@ -7,7 +7,7 @@ a = Analysis(
     binaries=[],
     datas=[
     ('pyqt/icons/*', 'pyqt/icons'),
-    ('venv1/lib/site-packages/tortoise_orm-0.24.0.dist-info', 'tortoise_orm-0.24.0.dist-info')],
+    ('venv/lib/site-packages/tortoise_orm-0.24.0.dist-info', 'tortoise_orm-0.24.0.dist-info')],
     hiddenimports=['tortoise.backends.sqlite', 'serial'],
     hookspath=[],
     hooksconfig={},
