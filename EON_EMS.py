@@ -150,6 +150,7 @@ if __name__ == "__main__":
 
     app = QApplication(sys.argv)
     app.setWindowIcon(QIcon(config.resource_path("pyqt/icons/app-icon.ico")))
+    app.setStyle("Fusion")  # Додаємо стиль Fusion
     app.setPalette(get_darkModePalette(app))
     thread_manager = ThreadManager()
 
