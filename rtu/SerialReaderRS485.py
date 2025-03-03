@@ -128,6 +128,8 @@ class SerialReaderRS485:
                 self.error_flag = True
             finally:
                 self.client.close()
+        else:
+            self.error_flag = True
 
         if self.error_flag or self.no_response_error_flag:
             await self.update_device_status()

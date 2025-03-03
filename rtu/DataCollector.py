@@ -5,7 +5,7 @@ from AsyncioPySide6 import AsyncioPySide6
 from PySide6.QtCore import QRunnable
 from PySide6.QtWidgets import QMessageBox
 
-from config import DELETING_TIME, get_deleting_time
+from config import get_deleting_time
 from models.Device import Device
 from models.Report import SDM120Report, SDM120ReportTmp, SDM630Report, SDM72DReport, SDM630ReportTmp, SDM72DReportTmp
 from rtu.DataCollectorTestingTools import get_test_data
@@ -43,11 +43,28 @@ class DataCollectorRunnable(QRunnable):
 
                 last_report = await main_db_model.filter(device=device).last()
                 print(f"Читається девайс: {device.name} Моделі: {device.model} / З проєкту {self.project.name}")
-                new_data = get_test_data(device.model) # await get_data_from_device(device, self.project, self.main_window)
+                new_data = await get_data_from_device(device, self.project, self.main_window)
+
+                #new_data = get_test_data(device.model, last_report)
+                print(f"Нові дані: {new_data}")
+
+                if new_data == {}:
+                    continue
+
                 tmp_report_data = self.get_tmp_data(device, new_data)
 
-                tmp_report = tmp_db_model(**tmp_report_data)
-                await tmp_report.save()
+                # Перевірка на існування tmp звіту для даного девайсу
+                existing_tmp_report = await tmp_db_model.filter(device_id=device.id).first()
+
+                if existing_tmp_report:
+                    # Оновлюємо існуючий запис
+                    for key, value in tmp_report_data.items():
+                        setattr(existing_tmp_report, key, value)
+                    await existing_tmp_report.save()
+                else:
+                    # Створюємо новий запис
+                    tmp_report = tmp_db_model(**tmp_report_data)
+                    await tmp_report.save()
 
                 if last_report:
                     device_reading_interval = device.reading_interval

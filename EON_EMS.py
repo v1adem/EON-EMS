@@ -5,7 +5,7 @@ import sys
 from AsyncioPySide6 import AsyncioPySide6
 from PySide6.QtCore import QThreadPool
 from PySide6.QtCore import Qt  # Named colors.
-from PySide6.QtGui import QPalette, QColor
+from PySide6.QtGui import QPalette, QColor, QIcon
 from PySide6.QtWidgets import (
     QApplication,
 )
@@ -149,6 +149,7 @@ if __name__ == "__main__":
     asyncio.run(init_database(db_path))
 
     app = QApplication(sys.argv)
+    app.setWindowIcon(QIcon(config.resource_path("pyqt/icons/app-icon.ico")))
     app.setPalette(get_darkModePalette(app))
     thread_manager = ThreadManager()
 

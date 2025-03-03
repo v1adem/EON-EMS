@@ -1,7 +1,7 @@
 from datetime import datetime
 
 import pyqtgraph as pg
-from PySide6.QtWidgets import QToolTip, QAbstractItemView
+from PySide6.QtWidgets import QToolTip
 import xlsxwriter
 from AsyncioPySide6 import AsyncioPySide6
 from PySide6.QtCore import QTimer, QDate, Qt, QSortFilterProxyModel, QTime
@@ -135,21 +135,24 @@ class DeviceDetailsWidget(QWidget):
 
         voltage_graph = pg.PlotWidget()
         current_graph = pg.PlotWidget()
-        if phase_name != "Загальне":
-            voltage_graph.showGrid(x=True, y=True, alpha=0.5)
-            current_graph.showGrid(x=True, y=True, alpha=0.5)
-            voltage_graph.setAxisItems({'bottom': DateAxisItem(orientation='bottom')})
-            current_graph.setAxisItems({'bottom': DateAxisItem(orientation='bottom')})
-            voltage_graph.setLabel('left', 'Напруга', units='В')
-            current_graph.setLabel('left', 'Струм', units='А')
-            top_layout.addWidget(voltage_graph)
-            top_layout.addWidget(current_graph)
+        voltage_graph.showGrid(x=True, y=True, alpha=0.5)
+        current_graph.showGrid(x=True, y=True, alpha=0.5)
+        voltage_graph.setAxisItems({'bottom': DateAxisItem(orientation='bottom')})
+        current_graph.setAxisItems({'bottom': DateAxisItem(orientation='bottom')})
+        voltage_graph.setLabel('left', 'Напруга', units='В')
+        current_graph.setLabel('left', 'Струм', units='А')
+        top_layout.addWidget(voltage_graph)
+        top_layout.addWidget(current_graph)
 
         energy_graph = pg.PlotWidget()
         energy_graph.showGrid(x=True, y=True, alpha=0.5)
         energy_graph.setAxisItems({'bottom': DateAxisItem(orientation='bottom')})
         energy_graph.setLabel('left', 'Споживання', units='кВт·год')
         top_layout.addWidget(energy_graph)
+
+        # Синхронізація осей X
+        current_graph.setXLink(voltage_graph)  # Прив'язуємо до voltage_graph
+        energy_graph.setXLink(voltage_graph)  # Прив'язуємо до voltage_graph
 
         layout.addLayout(top_layout)
 
@@ -248,7 +251,6 @@ class DeviceDetailsWidget(QWidget):
             proxy_model.setSortCaseSensitivity(Qt.CaseSensitivity.CaseInsensitive)
 
             self.report_table.setModel(proxy_model)
-            self.report_table.sortByColumn(0, Qt.SortOrder.DescendingOrder)
             self.report_table.setSortingEnabled(True)
             self.report_table.resizeColumnsToContents()
 
@@ -256,7 +258,9 @@ class DeviceDetailsWidget(QWidget):
                 self.update_graphs_sdm72d()
             else:
                 self.update_graphs()
+
         AsyncioPySide6.runTask(run_load_report_data())
+        self.report_table.setEditTriggers(QTableView.EditTrigger.NoEditTriggers)
 
     def apply_date_filter(self):
         self.load_report_data()
@@ -390,6 +394,7 @@ class DeviceDetailsWidget(QWidget):
 
             for phase_name, phase_data in self.phase_data.items():
                 phase_data["clock_label"].setText(current_time)
+
         AsyncioPySide6.runTask(run_update_clock_indicators())
 
     def add_tooltips(self, graph_widget, timestamps, values):
@@ -399,93 +404,175 @@ class DeviceDetailsWidget(QWidget):
             pos = evt
             if graph_widget.sceneBoundingRect().contains(pos):
                 mouse_point = graph_widget.plotItem.vb.mapSceneToView(pos)
-                x, y = mouse_point.x(), mouse_point.y()
+                x = mouse_point.x()  # Координата X миші (float)
+                y = mouse_point.y()  # Координата Y миші (float)
 
-                # Пошук найближчої точки
-                closest_point = min(points, key=lambda p: (p[0] - x) ** 2 + (p[1] - y) ** 2)
-                tooltip_text = f"{closest_point[1]:.2f}"
+                if points:
+                    # Перетворюємо координату x (час) для точок ГРАФІКА в timestamp (float) для порівняння
+                    points_with_timestamps = [(p[0].timestamp() if isinstance(p[0], datetime) else p[0], p[1]) for p in
+                                              points]
 
-                # Відображення підказки
-                QToolTip.showText(
-                    graph_widget.mapToGlobal(graph_widget.mapFromScene(pos)), tooltip_text
-                )
+                    closest_point_with_timestamp = min(points_with_timestamps,
+                                                       key=lambda p: (p[0] - x) ** 2 + (p[1] - y) ** 2)
+
+                    tooltip_text = f"{closest_point_with_timestamp[1]:.2f}"
+
+                    QToolTip.showText(
+                        graph_widget.mapToGlobal(graph_widget.mapFromScene(pos)), tooltip_text
+                    )
 
         graph_widget.scene().sigMouseMoved.connect(on_mouse_moved)
 
     def on_graph_point_clicked(self, plot, points):
         if not points:
-            return  # Нічого не робимо, якщо точки не передані
+            return
 
-        point = points[0]  # Беремо першу точку
-        row_index = point.data()  # Отримуємо індекс рядка таблиці
+        point = points[0]
+        x_value = point.pos().x()
+        x_value -= 7200
 
-        # Виділяємо рядок у таблиці та прокручуємо до нього
-        self.report_table.selectRow(row_index)
-        self.report_table.scrollTo(self.report_table.model().index(row_index, 0))
+        model = self.report_table.model()
+        timestamp_column_index = -1
+        for column in range(model.columnCount()):
+            header_text = model.headerData(column, Qt.Orientation.Horizontal)
+            if "час" in header_text.lower():
+                timestamp_column_index = column
+                break
+
+        if timestamp_column_index == -1:
+            print("Не знайдено стовпець з часовими мітками.")
+            return
+
+        closest_row = -1
+        min_time_diff = float('inf')
+
+        for row in range(model.rowCount()):
+            index = model.index(row, timestamp_column_index)
+            table_timestamp_str = index.data()
+
+            try:
+                table_datetime = datetime.strptime(table_timestamp_str, "%Y-%m-%d %H:%M:%S")
+                table_timestamp = table_datetime.timestamp()
+            except ValueError:
+                print(f"Помилка перетворення часу в рядку {row}: {table_timestamp_str}")
+                continue
+
+            time_diff = abs(table_timestamp - x_value)
+            if time_diff < min_time_diff:
+                min_time_diff = time_diff
+                closest_row = row
+
+        if closest_row != -1:
+            self.report_table.selectRow(closest_row)
+            self.report_table.scrollTo(model.index(closest_row, 0))
+            self.report_table.setSelectionBehavior(QTableView.SelectionBehavior.SelectRows)
+        else:
+            print("Не знайдено відповідний рядок у таблиці.")
 
     def update_voltage_graph(self, timestamps, voltages, phase_name):
         timestamps_numeric = [ts.timestamp() for ts in timestamps]
-
-        plot_attr = f"voltage_plot_item_{phase_name}"
         graph_widget = self.phase_data[phase_name]["voltage_graph"]
 
-        if not hasattr(self, plot_attr):
-            # Додаємо графік
-            setattr(self, plot_attr, graph_widget.plot(
-                timestamps_numeric,
-                voltages,
-                pen=pg.mkPen(color='b', width=2),
-                name=f"Напруга {phase_name}"
-            ))
+        if phase_name == "Загальне":
+            graph_widget.clear()  # Очищаємо перед перемалюванням
+            legend = pg.LegendItem(offset=(70, 10), pen=pg.mkPen(None), brush=pg.mkBrush('w'))
 
-            # Додаємо точки на графік
-            scatter_points = []
-            for i, (x, y) in enumerate(zip(timestamps_numeric, voltages)):
-                scatter_points.append({'pos': (x, y), 'data': i})  # Прив'язуємо індекс рядка таблиці
+            view_box = graph_widget.getViewBox()
+            legend.setParentItem(view_box)  # Робимо ViewBox батьківським елементом для легенди
+            legend.anchor(itemPos=(1, 0), parentPos=(1, 0), offset=(-10, 10))
+            blue_shades = [(0, 0, 153), (0, 102, 204), (0, 153, 255)]
 
-            scatter = pg.ScatterPlotItem(pen=None, brush='b', size=10)
-            scatter.addPoints(scatter_points)
+            for i in range(len(voltages)):  # num_phases замінено на len(voltages)
+                color = blue_shades[i % len(blue_shades)]
+                pen = pg.mkPen(color=color, width=2)
+                phase_voltages = voltages[i]
 
-            # Додаємо обробник кліків
-            scatter.sigClicked.connect(self.on_graph_point_clicked)
+                plot_item = graph_widget.plot(timestamps_numeric, phase_voltages, pen=pen,
+                                              name=f"Напруга {self.phases[i]}")
 
-            graph_widget.addItem(scatter)
+                scatter = pg.ScatterPlotItem(pen=None, brush=color, size=5)
+                scatter.setData(x=timestamps_numeric, y=phase_voltages)  # Оновлюємо scatter plot
+                scatter.sigClicked.connect(self.on_graph_point_clicked)
+                graph_widget.addItem(scatter)
+                legend.addItem(plot_item, f"{self.phases[i]}")
 
-        else:
-            # Оновлюємо графік
-            getattr(self, plot_attr).setData(timestamps_numeric, voltages)
+            graph_widget.scene().addItem(legend)
+
+        else:  # Single phase
+            plot_attr = f"voltage_plot_item_{phase_name}"
+            scatter_attr = f"voltage_scatter_item_{phase_name}"  # Атрибут для scatter plot
+
+            if not hasattr(self, plot_attr):
+                # Створюємо plot item та scatter plot
+                plot_item = graph_widget.plot(timestamps_numeric, voltages, pen=pg.mkPen(color=(0, 102, 204), width=2),
+                                              name=f"Напруга {phase_name}")
+                setattr(self, plot_attr, plot_item)
+
+                scatter = pg.ScatterPlotItem(pen=None, brush='b', size=5)
+                scatter.setData(x=timestamps_numeric, y=voltages)
+                scatter.sigClicked.connect(self.on_graph_point_clicked)
+                graph_widget.addItem(scatter)
+                setattr(self, scatter_attr, scatter)  # Зберігаємо scatter plot
+
+            else:
+                # Оновлюємо існуючі plot item та scatter plot
+                plot_item = getattr(self, plot_attr)
+                plot_item.setData(timestamps_numeric, voltages)
+
+                scatter = getattr(self, scatter_attr)  # Отримуємо scatter plot
+                scatter.setData(x=timestamps_numeric, y=voltages)  # Оновлюємо scatter plot
 
     def update_current_graph(self, timestamps, currents, phase_name):
         timestamps_numeric = [ts.timestamp() for ts in timestamps]
-
-        plot_attr = f"current_plot_item_{phase_name}"
         graph_widget = self.phase_data[phase_name]["current_graph"]
 
-        if not hasattr(self, plot_attr):
-            # Додаємо графік
-            setattr(self, plot_attr, graph_widget.plot(
-                timestamps_numeric,
-                currents,
-                pen=pg.mkPen(color='r', width=2),
-                name=f"Струм {phase_name}"
-            ))
+        if phase_name == "Загальне":
+            graph_widget.clear()  # Очищаємо перед перемалюванням
+            legend = pg.LegendItem(offset=(70, 10), pen=pg.mkPen(None), brush=pg.mkBrush('w'))
 
-            # Додаємо точки на графік
-            scatter_points = []
-            for i, (x, y) in enumerate(zip(timestamps_numeric, currents)):
-                scatter_points.append({'pos': (x, y), 'data': i})  # Прив'язуємо індекс рядка таблиці
+            view_box = graph_widget.getViewBox()
+            legend.setParentItem(view_box)  # Робимо ViewBox батьківським елементом для легенди
+            legend.anchor(itemPos=(1, 0), parentPos=(1, 0), offset=(-10, 10))
+            red_shades = [(153, 0, 0), (204, 51, 0), (255, 102, 0)]
 
-            scatter = pg.ScatterPlotItem(pen=None, brush='r', size=10)
-            scatter.addPoints(scatter_points)
+            for i in range(len(currents)):  # num_phases замінено на len(currents)
+                color = red_shades[i % len(red_shades)]
+                pen = pg.mkPen(color=color, width=2)
+                phase_currents = currents[i]
 
-            # Додаємо обробник кліків
-            scatter.sigClicked.connect(self.on_graph_point_clicked)
+                plot_item = graph_widget.plot(timestamps_numeric, phase_currents, pen=pen,
+                                              name=f"Струм {self.phases[i]}")
 
-            graph_widget.addItem(scatter)
+                scatter = pg.ScatterPlotItem(pen=None, brush=color, size=5)
+                scatter.setData(x=timestamps_numeric, y=phase_currents)  # Оновлюємо scatter plot
+                scatter.sigClicked.connect(self.on_graph_point_clicked)
+                graph_widget.addItem(scatter)
+                legend.addItem(plot_item, f"{self.phases[i]}")
 
-        else:
-            # Оновлюємо графік
-            getattr(self, plot_attr).setData(timestamps_numeric, currents)
+
+        else:  # Single phase
+            plot_attr = f"current_plot_item_{phase_name}"
+            scatter_attr = f"current_scatter_item_{phase_name}"  # Атрибут для scatter plot
+
+            if not hasattr(self, plot_attr):
+                # Створюємо plot item та scatter plot
+                plot_item = graph_widget.plot(timestamps_numeric, currents, pen=pg.mkPen(color=(204, 51, 0), width=2),
+                                              name=f"Струм {phase_name}")
+                setattr(self, plot_attr, plot_item)
+
+                scatter = pg.ScatterPlotItem(pen=None, brush='r', size=5)
+                scatter.setData(x=timestamps_numeric, y=currents)
+                scatter.sigClicked.connect(self.on_graph_point_clicked)
+                graph_widget.addItem(scatter)
+                setattr(self, scatter_attr, scatter)  # Зберігаємо scatter plot
+
+            else:
+                # Оновлюємо існуючі plot item та scatter plot
+                plot_item = getattr(self, plot_attr)
+                plot_item.setData(timestamps_numeric, currents)
+
+                scatter = getattr(self, scatter_attr)  # Отримуємо scatter plot
+                scatter.setData(x=timestamps_numeric, y=currents)  # Оновлюємо scatter plot
 
     def update_energy_graph(self, hourly_timestamps, hourly_energy, phase_name):
         if not hourly_timestamps or not hourly_energy:
@@ -493,7 +580,10 @@ class DeviceDetailsWidget(QWidget):
 
         # Перетворення timestamp в числовий формат
         hourly_timestamps_numeric = [ts.timestamp() for ts in hourly_timestamps]
-        valid_data = [(ts, energy) for ts, energy in zip(hourly_timestamps_numeric, hourly_energy) if energy > 0]
+        valid_data = [
+            (ts, energy) for ts, energy in zip(hourly_timestamps_numeric, hourly_energy)
+            if energy > 0
+        ]
 
         if not valid_data:
             return
@@ -501,38 +591,44 @@ class DeviceDetailsWidget(QWidget):
         bar_attr = f"energy_bar_items_{phase_name}"
         graph_widget = self.phase_data[phase_name]["energy_graph"]
 
-        # Ініціалізація списку стовпчиків, якщо його ще немає
-        if not hasattr(self, bar_attr):
-            setattr(self, bar_attr, [])
+        # Очищення графіка перед оновленням
+        graph_widget.clear()
 
-        energy_bar_items = getattr(self, bar_attr)
+        # Ініціалізація списку стовпчиків
+        energy_bar_items = []
 
-        # Оптимізоване оновлення або додавання стовпчиків
+        # Додавання стовпчиків
         for i, (ts, energy) in enumerate(valid_data):
-            start_time = ts
-            end_time = start_time + 3600  # Діапазон стовпчика
+            current_time = datetime.fromtimestamp(ts)
+            hour_start = current_time.replace(minute=0, second=0, microsecond=0).timestamp()
+            hour_end = hour_start + 3600
 
-            if i < len(energy_bar_items):
-                # Оновлення існуючого стовпчика
-                energy_bar_items[i].setOpts(x0=start_time, x1=end_time, height=energy)
+            if i == 0:  # Перший стовпчик
+                first_report_timestamp = self.report_data[0].timestamp.timestamp()
+                start_time = first_report_timestamp
+                end_time = hour_end  # Кінець - кінець години
             else:
-                # Додавання нового стовпчика
-                bar_item = pg.BarGraphItem(
-                    x0=start_time,
-                    x1=end_time,
-                    height=energy,
-                    brush='g'
-                )
-                energy_bar_items.append(bar_item)
-                graph_widget.addItem(bar_item)
+                start_time = hour_start
+                end_time = hour_end
 
-                # Налаштування діапазону осей
-                y_max = max(energy for _, energy in valid_data)
-                graph_widget.setYRange(0, y_max, padding=0.1)
+            bar_item = pg.BarGraphItem(
+                x0=start_time,
+                x1=end_time,
+                height=energy,
+                brush='g'
+            )
+            energy_bar_items.append(bar_item)
+            graph_widget.addItem(bar_item)
 
-                x_min = min(ts for ts, _ in valid_data)
-                x_max = max(ts for ts, _ in valid_data) + 3600
-                graph_widget.setXRange(x_min, x_max, padding=0.1)
+        # Налаштування діапазону осей (оновлюємо при кожному оновленні графіка)
+        y_max = max(energy for _, energy in valid_data)
+        graph_widget.setYRange(0, y_max, padding=0.1)
+
+        x_min = min(ts for ts, _ in valid_data)
+        x_max = max(hour_end for ts, _ in valid_data)  # Максимум по кінцю години
+        graph_widget.setXRange(x_min, x_max, padding=0.1)
+
+        setattr(self, bar_attr, energy_bar_items)
 
     def update_graphs(self):
         for phase_name in self.phases:
@@ -543,15 +639,33 @@ class DeviceDetailsWidget(QWidget):
 
             for report in self.report_data:
                 timestamps.append(report.timestamp)
+                energies.append(getattr(report,
+                                        f'total_kWh_{self.phases.index(phase_name) + 1}' if phase_name != "Загальне" else 'total_kWh'))
                 if phase_name == "Загальне":
-                    energies.append(getattr(report, f'total_kWh'))
+                    voltages_for_general = []
+                    currents_for_general = []
+                    for i in range(len(self.phases) - 1):  # -1 щоб не включати "Загальне"
+                        voltages_for_general.append(getattr(report, f'line_voltage_{i + 1}'))
+                        currents_for_general.append(getattr(report, f'current_{i + 1}'))
+                    voltages.append(voltages_for_general)
+                    currents.append(currents_for_general)
                 else:
                     voltages.append(getattr(report, f'line_voltage_{self.phases.index(phase_name) + 1}'))
                     currents.append(getattr(report, f'current_{self.phases.index(phase_name) + 1}'))
-                    energies.append(getattr(report, f'total_kWh_{self.phases.index(phase_name) + 1}'))
+
             if phase_name != "Загальне":
                 self.update_voltage_graph(timestamps, voltages, phase_name)
                 self.update_current_graph(timestamps, currents, phase_name)
+
+                self.add_tooltips(self.phase_data[phase_name]["voltage_graph"], timestamps, voltages)
+                self.add_tooltips(self.phase_data[phase_name]["current_graph"], timestamps, currents)
+
+            else:
+                transposed_voltages = list(zip(*voltages))
+                transposed_currents = list(zip(*currents))
+
+                self.update_voltage_graph(timestamps, transposed_voltages, phase_name)
+                self.update_current_graph(timestamps, transposed_currents, phase_name)
 
             hourly_energy = []
             hourly_timestamps = []
@@ -939,6 +1053,7 @@ class DeviceDetailsWidget(QWidget):
 
             except Exception as e:
                 QMessageBox.warning(self, "Помилка", f"Сталася помилка при експорті даних: {e}")
+
         AsyncioPySide6.runTask(run_export_to_excel())
 
     def create_phase_tab_sdm72d(self, phase_name):
@@ -952,20 +1067,24 @@ class DeviceDetailsWidget(QWidget):
         current_graph = pg.PlotWidget()
         energy_graph = pg.PlotWidget()
 
-        if phase_name != "Загальне":
-            voltage_graph.showGrid(x=True, y=True, alpha=0.5)
-            current_graph.showGrid(x=True, y=True, alpha=0.5)
-            voltage_graph.setAxisItems({'bottom': DateAxisItem(orientation='bottom')})
-            current_graph.setAxisItems({'bottom': DateAxisItem(orientation='bottom')})
-            voltage_graph.setLabel('left', 'Напруга', units='В')
-            current_graph.setLabel('left', 'Струм', units='А')
-            top_layout.addWidget(voltage_graph)
-            top_layout.addWidget(current_graph)
-        else:
+        voltage_graph.showGrid(x=True, y=True, alpha=0.5)
+        current_graph.showGrid(x=True, y=True, alpha=0.5)
+        voltage_graph.setAxisItems({'bottom': DateAxisItem(orientation='bottom')})
+        current_graph.setAxisItems({'bottom': DateAxisItem(orientation='bottom')})
+        voltage_graph.setLabel('left', 'Напруга', units='В')
+        current_graph.setLabel('left', 'Струм', units='А')
+        top_layout.addWidget(voltage_graph)
+        top_layout.addWidget(current_graph)
+
+        if phase_name == "Загальне":
             energy_graph.showGrid(x=True, y=True, alpha=0.5)
             energy_graph.setAxisItems({'bottom': DateAxisItem(orientation='bottom')})
             energy_graph.setLabel('left', 'Споживання', units='кВт·год')
             top_layout.addWidget(energy_graph)
+
+        # Синхронізація осей X
+        current_graph.setXLink(voltage_graph)  # Прив'язуємо до voltage_graph
+        energy_graph.setXLink(voltage_graph)  # Прив'язуємо до voltage_graph
 
         layout.addLayout(top_layout)
 
@@ -1043,19 +1162,33 @@ class DeviceDetailsWidget(QWidget):
             timestamps = []
             voltages = []
             currents = []
-            energies = []
 
             for report in self.report_data:
                 timestamps.append(report.timestamp)
                 if phase_name == "Загальне":
-                    energies.append(getattr(report, f'total_kWh'))
+                    voltages_for_general = []
+                    currents_for_general = []
+                    for i in range(len(self.phases) - 1):  # -1 щоб не включати "Загальне"
+                        voltages_for_general.append(getattr(report, f'line_voltage_{i + 1}'))
+                        currents_for_general.append(getattr(report, f'current_{i + 1}'))
+                    voltages.append(voltages_for_general)
+                    currents.append(currents_for_general)
                 else:
                     voltages.append(getattr(report, f'line_voltage_{self.phases.index(phase_name) + 1}'))
                     currents.append(getattr(report, f'current_{self.phases.index(phase_name) + 1}'))
             if phase_name != "Загальне":
                 self.update_voltage_graph(timestamps, voltages, phase_name)
                 self.update_current_graph(timestamps, currents, phase_name)
+
+                self.add_tooltips(self.phase_data[phase_name]["voltage_graph"], timestamps, voltages)
+                self.add_tooltips(self.phase_data[phase_name]["current_graph"], timestamps, currents)
             else:
+                transposed_voltages = list(zip(*voltages))
+                transposed_currents = list(zip(*currents))
+
+                self.update_voltage_graph(timestamps, transposed_voltages, phase_name)
+                self.update_current_graph(timestamps, transposed_currents, phase_name)
+
                 hourly_energy = []
                 hourly_timestamps = []
 
