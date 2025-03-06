@@ -578,7 +578,4 @@ class RegisterMap:
 
     @classmethod
     def get_columns(cls, device_name):
-        """
-        Повертає список усіх доступних параметрів для заданого пристрою.
-        """
         return list(cls.get_register_map(device_name).keys())

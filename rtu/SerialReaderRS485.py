@@ -67,9 +67,6 @@ class SerialReaderRS485:
         return self.client.connect()
 
     def group_registers(self):
-        """
-        Групує регістри для оптимізації читання.
-        """
         grouped = []
         sorted_registers = sorted(self.register_map.items(), key=lambda x: x[1]['register'])
         current_group = {'start': None, 'length': 0, 'items': []}
@@ -97,9 +94,6 @@ class SerialReaderRS485:
         return grouped
 
     async def read_all_properties(self):
-        """
-        Читає всі властивості пристрою на основі мапи регістрів.
-        """
         result = {}
         if self.connect():
             grouped_registers = self.group_registers()

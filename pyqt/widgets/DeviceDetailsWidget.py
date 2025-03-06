@@ -82,7 +82,6 @@ class DeviceDetailsWidget(QWidget):
         self.timer_update_all_tabs_graphs.start()
 
     def create_filter_buttons(self, layout):
-        """Створення фільтрів і кнопок для таблиці."""
         filter_widget = QWidget()
         filter_layout = QHBoxLayout(filter_widget)
 
@@ -1057,7 +1056,6 @@ class DeviceDetailsWidget(QWidget):
         AsyncioPySide6.runTask(run_export_to_excel())
 
     def create_phase_tab_sdm72d(self, phase_name):
-        """Створює вкладку для заданої фази."""
         tab = QWidget()
         layout = QVBoxLayout(tab)
         top_layout = QVBoxLayout()

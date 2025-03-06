@@ -28,7 +28,6 @@ exe = EXE(
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
-    upx=True,
     upx_exclude=[],
     runtime_tmpdir=None,
     console=False,
