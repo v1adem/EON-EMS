@@ -176,24 +176,28 @@ class DeviceDetailsWidget(QWidget):
         voltage_lcd = QLCDNumber()
         voltage_lcd.setStyleSheet("font-size: 18pt;")
         voltage_lcd.setSegmentStyle(QLCDNumber.SegmentStyle.Flat)
+        voltage_lcd.setDigitCount(10)
 
         current_label = QLabel("Струм (A)")
         current_label.setStyleSheet("font-size: 14pt; font-weight: bold;")
         current_lcd = QLCDNumber()
         current_lcd.setStyleSheet("font-size: 18pt;")
         current_lcd.setSegmentStyle(QLCDNumber.SegmentStyle.Flat)
+        current_lcd.setDigitCount(10)
 
         power_label = QLabel("Потужність (W)")
         power_label.setStyleSheet("font-size: 14pt; font-weight: bold;")
         power_lcd = QLCDNumber()
         power_lcd.setStyleSheet("font-size: 18pt;")
         power_lcd.setSegmentStyle(QLCDNumber.SegmentStyle.Flat)
+        power_lcd.setDigitCount(10)
 
         energy_label = QLabel("Спожито (kWh)")
         energy_label.setStyleSheet("font-size: 14pt; font-weight: bold;")
         energy_lcd = QLCDNumber()
         energy_lcd.setStyleSheet("font-size: 18pt;")
         energy_lcd.setSegmentStyle(QLCDNumber.SegmentStyle.Flat)
+        energy_lcd.setDigitCount(10)
 
         if phase_name != "Загальне":
             indicators_layout.addWidget(voltage_label, 0, 0)
@@ -380,13 +384,13 @@ class DeviceDetailsWidget(QWidget):
                 energy_lcd = phase["energy_lcd"]
 
                 if voltage_lcd and "voltage" in data:
-                    voltage_lcd.display(f"{data['voltage']}")
+                    voltage_lcd.display(f"{data['voltage']:.2f}")
                 if current_lcd and "current" in data:
-                    current_lcd.display(f"{data['current']}")
+                    current_lcd.display(f"{data['current']:.2f}")
                 if power_lcd and "power" in data:
-                    power_lcd.display(f"{data['power']}")
+                    power_lcd.display(f"{data['power']:.2f}")
                 if energy_lcd and "energy" in data:
-                    energy_lcd.display(f"{data['energy']}")
+                    energy_lcd.display(f"{data['energy']:.2f}")
 
             current_time = QTime.currentTime().toString("HH:mm:ss")  # Час
             current_time += "\n" + QDate.currentDate().toString("dd.MM.yyyy")  # Дата
