@@ -78,7 +78,7 @@ class DeviceDetailsWidget(QWidget):
 
         self.timer_update_all_tabs_graphs = QTimer(self)
         self.timer_update_all_tabs_graphs.timeout.connect(self.load_report_data)
-        self.timer_update_all_tabs_graphs.setInterval(((device.reading_interval - 60) * 1000) + 1000)
+        self.timer_update_all_tabs_graphs.setInterval((device.reading_interval * 1000) + 1000)
         self.timer_update_all_tabs_graphs.start()
 
     def create_filter_buttons(self, layout):
