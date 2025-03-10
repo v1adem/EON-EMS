@@ -10,7 +10,7 @@ class RegisterMap:
         "import_active_energy_1": {"register": 72, "type": "input", "format": "float", "units": "kWh"},
         "export_active_energy_1": {"register": 74, "type": "input", "format": "float", "units": "kWh"},
         "total_active_energy": {"register": 342, "type": "input", "format": "float", "units": "kWh"},
-        "total_reactive_energy": {"register": 344, "type": "input", "format": "float", "units": "kWh"},
+        "total_reactive_energy": {"register": 344, "type": "input", "format": "float", "units": "kVArh"},
     }
 
     SDM630 = {
@@ -578,7 +578,4 @@ class RegisterMap:
 
     @classmethod
     def get_columns(cls, device_name):
-        """
-        Повертає список усіх доступних параметрів для заданого пристрою.
-        """
         return list(cls.get_register_map(device_name).keys())

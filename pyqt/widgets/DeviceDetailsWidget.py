@@ -78,11 +78,10 @@ class DeviceDetailsWidget(QWidget):
 
         self.timer_update_all_tabs_graphs = QTimer(self)
         self.timer_update_all_tabs_graphs.timeout.connect(self.load_report_data)
-        self.timer_update_all_tabs_graphs.setInterval(((device.reading_interval - 60) * 1000) + 1000)
+        self.timer_update_all_tabs_graphs.setInterval((device.reading_interval * 1000) + 1000)
         self.timer_update_all_tabs_graphs.start()
 
     def create_filter_buttons(self, layout):
-        """Створення фільтрів і кнопок для таблиці."""
         filter_widget = QWidget()
         filter_layout = QHBoxLayout(filter_widget)
 
@@ -177,24 +176,28 @@ class DeviceDetailsWidget(QWidget):
         voltage_lcd = QLCDNumber()
         voltage_lcd.setStyleSheet("font-size: 18pt;")
         voltage_lcd.setSegmentStyle(QLCDNumber.SegmentStyle.Flat)
+        voltage_lcd.setDigitCount(10)
 
         current_label = QLabel("Струм (A)")
         current_label.setStyleSheet("font-size: 14pt; font-weight: bold;")
         current_lcd = QLCDNumber()
         current_lcd.setStyleSheet("font-size: 18pt;")
         current_lcd.setSegmentStyle(QLCDNumber.SegmentStyle.Flat)
+        current_lcd.setDigitCount(10)
 
         power_label = QLabel("Потужність (W)")
         power_label.setStyleSheet("font-size: 14pt; font-weight: bold;")
         power_lcd = QLCDNumber()
         power_lcd.setStyleSheet("font-size: 18pt;")
         power_lcd.setSegmentStyle(QLCDNumber.SegmentStyle.Flat)
+        power_lcd.setDigitCount(10)
 
         energy_label = QLabel("Спожито (kWh)")
         energy_label.setStyleSheet("font-size: 14pt; font-weight: bold;")
         energy_lcd = QLCDNumber()
         energy_lcd.setStyleSheet("font-size: 18pt;")
         energy_lcd.setSegmentStyle(QLCDNumber.SegmentStyle.Flat)
+        energy_lcd.setDigitCount(10)
 
         if phase_name != "Загальне":
             indicators_layout.addWidget(voltage_label, 0, 0)
@@ -381,13 +384,13 @@ class DeviceDetailsWidget(QWidget):
                 energy_lcd = phase["energy_lcd"]
 
                 if voltage_lcd and "voltage" in data:
-                    voltage_lcd.display(f"{data['voltage']}")
+                    voltage_lcd.display(f"{data['voltage']:.2f}")
                 if current_lcd and "current" in data:
-                    current_lcd.display(f"{data['current']}")
+                    current_lcd.display(f"{data['current']:.2f}")
                 if power_lcd and "power" in data:
-                    power_lcd.display(f"{data['power']}")
+                    power_lcd.display(f"{data['power']:.2f}")
                 if energy_lcd and "energy" in data:
-                    energy_lcd.display(f"{data['energy']}")
+                    energy_lcd.display(f"{data['energy']:.2f}")
 
             current_time = QTime.currentTime().toString("HH:mm:ss")  # Час
             current_time += "\n" + QDate.currentDate().toString("dd.MM.yyyy")  # Дата
@@ -738,7 +741,7 @@ class DeviceDetailsWidget(QWidget):
                 "import_active_energy_1": "Імпортована активна енергія kWh",
                 "export_active_energy_1": "Експортована активна енергія kWh",
                 "total_active_energy": "Загальна активна енергія kWh",
-                "total_reactive_energy": "Загальна реактивна енергія kWh",
+                "total_reactive_energy": "Загальна реактивна енергія kVArh",
                 "frequency_1": "Частота Hz",
                 "total_kWh_1": "Загально спожито kWh"
             }
@@ -1057,7 +1060,6 @@ class DeviceDetailsWidget(QWidget):
         AsyncioPySide6.runTask(run_export_to_excel())
 
     def create_phase_tab_sdm72d(self, phase_name):
-        """Створює вкладку для заданої фази."""
         tab = QWidget()
         layout = QVBoxLayout(tab)
         top_layout = QVBoxLayout()

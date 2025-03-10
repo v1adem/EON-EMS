@@ -1,7 +1,4 @@
 def resource_path(relative_path):
-    """
-    Отримує абсолютний шлях до ресурсу, враховуючи упаковку в .exe (PyInstaller).
-    """
     if hasattr(sys, '_MEIPASS'):
         return os.path.join(sys._MEIPASS, relative_path)
     return os.path.join(os.path.abspath("."), relative_path)
@@ -13,7 +10,6 @@ import json
 
 
 def get_config_path():
-    """Повертає шлях до файлу конфігурації conf.json у каталозі APPDATA/EON або ~/.config/EON."""
     appdata_dir = os.getenv('APPDATA') if sys.platform == 'win32' else os.path.expanduser('~/.config')
     app_dir = os.path.join(appdata_dir, 'EON')
     os.makedirs(app_dir, exist_ok=True)
@@ -24,7 +20,6 @@ DELETING_TIME = None
 
 
 def get_deleting_time():
-    """Зчитує значення часу видалення з конфігурації."""
     global DELETING_TIME
     config_path = get_config_path()
 
@@ -39,7 +34,6 @@ def get_deleting_time():
 
 
 def set_deleting_time(new_time):
-    """Оновлює значення часу видалення у конфігурації."""
     global DELETING_TIME
     DELETING_TIME = new_time
 
@@ -59,4 +53,3 @@ def set_deleting_time(new_time):
 
     except Exception as e:
         print(f"Помилка запису конфігурації: {e}")
-

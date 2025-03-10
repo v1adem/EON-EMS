@@ -1,6 +1,8 @@
 import asyncio
 import os
 import sys
+import tkinter
+from tkinter import messagebox
 
 from AsyncioPySide6 import AsyncioPySide6
 from PySide6.QtCore import QThreadPool
@@ -16,6 +18,19 @@ import config
 from pyqt.MainWindow import MainWindow
 from rtu.DataCollector import DataCollectorRunnable
 
+import psutil
+
+def is_already_running():
+    count = 0
+    for process in psutil.process_iter(['name']):
+        if process.info['name'] == 'EON_EMS.exe':
+            count += 1
+    return count > 1
+
+def show_warning_message():
+    root = tkinter.Tk()
+    root.withdraw()  # Ховаємо головне вікно tkinter
+    messagebox.showwarning("Попередження", "Додаток вже запущено! Перевірте трей")
 
 def get_darkModePalette(app=None):
     darkPalette = app.palette()
@@ -44,10 +59,6 @@ def get_darkModePalette(app=None):
 
 
 def get_database_path():
-    """
-    Визначає шлях до бази даних у каталозі APPDATA (Windows)
-    або відповідному каталозі для Linux/MacOS.
-    """
     appdata_dir = os.getenv('APPDATA') if sys.platform == 'win32' else os.path.expanduser('~/.config')
     app_dir = os.path.join(appdata_dir, 'EON')
 
@@ -90,6 +101,7 @@ class ThreadManager:
         for project_id in list(self.threads.keys()):
             self.remove_thread(project_id)
         print("All tasks stopped.")
+        self.pool.waitForDone()
 
 
 async def initialize_threads(main_window, thread_manager):
@@ -100,23 +112,12 @@ async def initialize_threads(main_window, thread_manager):
         thread_manager.add_thread(project, main_window)
 
 def stop_threads_synchronously(thread_manager):
-    """Зупиняємо всі потоки в головному потоці."""
     print("Stopping all threads...")
     thread_manager.stop_all_threads()
     print("All threads stopped.")
 
 def on_about_to_quit(loop, thread_manager):
-    """Обробник закриття програми."""
-    print("Application is about to quit...")
-
-    # Закриваємо всі потоки
     stop_threads_synchronously(thread_manager)
-    loop_is_running = False
-
-    # Перевірка на наявність активного циклу подій
-    if loop:
-        loop_is_running = loop.is_running()
-
     async def shutdown():
         try:
             print("Closing database connections...")
@@ -124,25 +125,22 @@ def on_about_to_quit(loop, thread_manager):
 
             print("Cancelling all asyncio tasks...")
             tasks = [task for task in asyncio.all_tasks() if task is not asyncio.current_task()]
-            for task in tasks:
-                task.cancel()
-                try:
-                    await task
-                except asyncio.CancelledError:
-                    pass
+            await asyncio.gather(*tasks, return_exceptions=True) # Очікуємо завершення всіх завдань
 
             print("All cleanup completed.")
         except Exception as e:
             print(f"Error during shutdown: {e}")
 
-    # Викликаємо завершальні дії
-    if loop_is_running:
+    if loop and loop.is_running(): # Перевірка активності циклу подій
         loop.call_soon_threadsafe(lambda: asyncio.run(shutdown()))
     else:
         asyncio.run(shutdown())
 
 if __name__ == "__main__":
-    # Configuring the application
+
+    if is_already_running():
+        show_warning_message()
+        sys.exit(1)
     config.get_deleting_time()
 
     db_path = os.path.join(get_database_path())
@@ -150,6 +148,7 @@ if __name__ == "__main__":
 
     app = QApplication(sys.argv)
     app.setWindowIcon(QIcon(config.resource_path("pyqt/icons/app-icon.ico")))
+    app.setStyle("Fusion")
     app.setPalette(get_darkModePalette(app))
     thread_manager = ThreadManager()
 
@@ -157,10 +156,8 @@ if __name__ == "__main__":
         main_window = MainWindow(thread_manager)
         main_window.show()
 
-        # ініціалізуємо всі потоки
         AsyncioPySide6.runTask(initialize_threads(main_window, thread_manager))
 
-        # Реєструємо обробник закриття
         app.aboutToQuit.connect(lambda: on_about_to_quit(loop, thread_manager))
 
         try:
