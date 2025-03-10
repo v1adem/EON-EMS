@@ -1,15 +1,18 @@
-from datetime import datetime
+import sys
+from datetime import datetime, timedelta
 
 import pyqtgraph as pg
 from PySide6.QtWidgets import QToolTip
 import xlsxwriter
 from AsyncioPySide6 import AsyncioPySide6
 from PySide6.QtCore import QTimer, QDate, Qt, QSortFilterProxyModel, QTime
-from PySide6.QtGui import QStandardItemModel, QFont, QStandardItem
+from PySide6.QtGui import QStandardItemModel, QFont, QStandardItem, QIcon
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QSplitter, QLabel, QDateEdit, QTableView, QTabWidget, QHBoxLayout, \
     QPushButton, QCheckBox, QGridLayout, QLCDNumber, QDialog, QMessageBox, QFileDialog
 
+from config import resource_path
 from models.Report import SDM630Report, SDM630ReportTmp, SDM120Report, SDM120ReportTmp, SDM72DReport, SDM72DReportTmp
+from pyqt.widgets.ConsoleWidget import ConsoleWidget
 from pyqt.widgets.DateAxisItem import DateAxisItem
 from register_maps.RegisterMaps import RegisterMap
 
@@ -77,8 +80,8 @@ class DeviceDetailsWidget(QWidget):
         self.load_report_data()
 
         self.timer_update_all_tabs_graphs = QTimer(self)
-        self.timer_update_all_tabs_graphs.timeout.connect(self.load_report_data)
-        self.timer_update_all_tabs_graphs.setInterval((device.reading_interval * 1000) + 1000)
+        self.timer_update_all_tabs_graphs.timeout.connect(self.auto_update)
+        self.timer_update_all_tabs_graphs.setInterval(device.reading_interval * 1000)
         self.timer_update_all_tabs_graphs.start()
 
     def create_filter_buttons(self, layout):
@@ -117,6 +120,12 @@ class DeviceDetailsWidget(QWidget):
         self.auto_update_checkbox.setChecked(True)
         button_layout.addWidget(self.auto_update_checkbox)
 
+        update_button = QPushButton("Оновити")
+        update_button.setIcon(QIcon(resource_path("pyqt/icons/refresh.png")))
+        update_button.setStyleSheet("font-size: 16px;")
+        update_button.clicked.connect(self.load_report_data)
+        button_layout.addWidget(update_button)
+
         export_button = QPushButton("Експорт в Excel")
         export_button.setStyleSheet("font-size: 16px;")
         export_button.setFixedHeight(36)
@@ -140,7 +149,7 @@ class DeviceDetailsWidget(QWidget):
         voltage_graph.setAxisItems({'bottom': DateAxisItem(orientation='bottom')})
         current_graph.setAxisItems({'bottom': DateAxisItem(orientation='bottom')})
         power_graph.setAxisItems({'bottom': DateAxisItem(orientation='bottom')})
-        voltage_graph.setLabel('left', 'Напруга', units='В')
+        voltage_graph.setLabel('left', 'Напруга', units='V')
         current_graph.setLabel('left', 'Струм', units='А')
         power_graph.setLabel('left', 'Потужність', units='W')
         top_layout.addWidget(voltage_graph)
@@ -161,15 +170,18 @@ class DeviceDetailsWidget(QWidget):
 
         bottom_left_layout = QGridLayout()
 
+        console_widget = ConsoleWidget()
+        bottom_left_layout.addWidget(console_widget, 0, 0, 2, 1)  # Розташування консолі ліворуч
+
         clock_title = QLabel("Поточний час")
         clock_title.setStyleSheet("font-size: 16pt; font-weight: bold;")
         clock_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        bottom_left_layout.addWidget(clock_title)
+        bottom_left_layout.addWidget(clock_title, 0, 1)
 
         clock_label = QLabel()
         clock_label.setStyleSheet("font-size: 16pt;")
         clock_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        bottom_left_layout.addWidget(clock_label)
+        bottom_left_layout.addWidget(clock_label, 1, 1)
 
         layout.addStretch()
 
@@ -229,9 +241,18 @@ class DeviceDetailsWidget(QWidget):
             "power_lcd": power_lcd,
             "energy_lcd": energy_lcd,
             "clock_label": clock_label,
+            "console_widget": console_widget,  # Додавання консолі в phase_data
         }
 
         self.tabs.addTab(tab, phase_name)
+
+        sys.stdout = console_widget  # Перенаправлення виводу на консоль
+        print(f"ІНФО: Консоль ініціалізовано - {datetime.now()}\n")
+
+    def auto_update(self):
+        if not self.auto_update_checkbox.isChecked():
+            return
+        self.load_report_data()
 
     def load_report_data(self):
         async def run_load_report_data():
@@ -261,6 +282,7 @@ class DeviceDetailsWidget(QWidget):
             self.report_table.setModel(proxy_model)
             self.report_table.setSortingEnabled(True)
             self.report_table.resizeColumnsToContents()
+            self.setup_table_click_handler(self.report_table)
 
             if self.device_model == "SDM72D":
                 self.update_graphs_sdm72d()
@@ -309,6 +331,18 @@ class DeviceDetailsWidget(QWidget):
                 model.setItem(row, col, QStandardItem(str(value) if value is not None else ""))
 
         return model
+
+    def setup_table_click_handler(self, table_view):
+        selection_model = table_view.selectionModel()
+        if selection_model is not None:
+            selection_model.selectionChanged.connect(self.on_table_row_selected)
+        else:
+            print("Помилка: Модель вибору не існує для table_view.")
+
+    def on_table_row_selected(self, selected):
+        if selected.indexes():
+            row_index = selected.indexes()[0].row()
+            self.center_graphs_on_table_row(row_index)
 
     def update_clock_indicators(self):
         async def run_update_clock_indicators():
@@ -497,7 +531,7 @@ class DeviceDetailsWidget(QWidget):
                 plot_item = graph_widget.plot(timestamps_numeric, phase_voltages, pen=pen,
                                               name=f"Напруга {self.phases[i]}")
 
-                scatter = pg.ScatterPlotItem(pen=None, brush=color, size=5)
+                scatter = pg.ScatterPlotItem(pen=None, brush=color, size=7)
                 scatter.setData(x=timestamps_numeric, y=phase_voltages)  # Оновлюємо scatter plot
                 scatter.sigClicked.connect(self.on_graph_point_clicked)
                 graph_widget.addItem(scatter)
@@ -514,7 +548,7 @@ class DeviceDetailsWidget(QWidget):
                                               name=f"Напруга {phase_name}")
                 setattr(self, plot_attr, plot_item)
 
-                scatter = pg.ScatterPlotItem(pen=None, brush='b', size=5)
+                scatter = pg.ScatterPlotItem(pen=None, brush='b', size=7)
                 scatter.setData(x=timestamps_numeric, y=voltages)
                 scatter.sigClicked.connect(self.on_graph_point_clicked)
                 graph_widget.addItem(scatter)
@@ -548,7 +582,7 @@ class DeviceDetailsWidget(QWidget):
                 plot_item = graph_widget.plot(timestamps_numeric, phase_currents, pen=pen,
                                               name=f"Струм {self.phases[i]}")
 
-                scatter = pg.ScatterPlotItem(pen=None, brush=color, size=5)
+                scatter = pg.ScatterPlotItem(pen=None, brush=color, size=7)
                 scatter.setData(x=timestamps_numeric, y=phase_currents)  # Оновлюємо scatter plot
                 scatter.sigClicked.connect(self.on_graph_point_clicked)
                 graph_widget.addItem(scatter)
@@ -565,7 +599,7 @@ class DeviceDetailsWidget(QWidget):
                                               name=f"Струм {phase_name}")
                 setattr(self, plot_attr, plot_item)
 
-                scatter = pg.ScatterPlotItem(pen=None, brush='r', size=5)
+                scatter = pg.ScatterPlotItem(pen=None, brush='r', size=7)
                 scatter.setData(x=timestamps_numeric, y=currents)
                 scatter.sigClicked.connect(self.on_graph_point_clicked)
                 graph_widget.addItem(scatter)
@@ -600,7 +634,7 @@ class DeviceDetailsWidget(QWidget):
                 plot_item = graph_widget.plot(timestamps_numeric, phase_powers, pen=pen,
                                               name=f"Потуж. {self.phases[i]}")
 
-                scatter = pg.ScatterPlotItem(pen=None, brush=color, size=5)
+                scatter = pg.ScatterPlotItem(pen=None, brush=color, size=7)
                 scatter.setData(x=timestamps_numeric, y=phase_powers)  # Оновлюємо scatter plot
                 scatter.sigClicked.connect(self.on_graph_point_clicked)
                 graph_widget.addItem(scatter)
@@ -767,6 +801,34 @@ class DeviceDetailsWidget(QWidget):
                 hourly_timestamps.append(current_hour_start)
 
             self.update_energy_graph(hourly_timestamps, hourly_energy, phase_name)
+
+    def center_graphs_on_table_row(self, row_index):
+        if not self.report_data:
+            return
+
+        # Перетворення індексу з проксі-моделі на індекс у вихідній моделі
+        source_index = self.report_table.model().mapToSource(self.report_table.model().index(row_index, 0))
+        source_row = source_index.row()
+
+        selected_report = self.report_data[source_row]
+        selected_timestamp = selected_report.timestamp
+
+        for phase_name in self.phases:
+            graph_widgets = [
+                self.phase_data[phase_name]["voltage_graph"],
+                self.phase_data[phase_name]["current_graph"],
+                self.phase_data[phase_name]["power_graph"],
+                self.phase_data[phase_name]["energy_graph"]
+            ]
+
+            for graph_widget in graph_widgets:
+                min_time = selected_timestamp - timedelta(hours=1)
+                max_time = selected_timestamp + timedelta(hours=1)
+
+                min_timestamp_numeric = min_time.timestamp()
+                max_timestamp_numeric = max_time.timestamp()
+
+                graph_widget.setXRange(min_timestamp_numeric, max_timestamp_numeric, padding=0)
 
     def set_light_theme(self):
         for phase_name, phase_data in self.phase_data.items():
@@ -1132,26 +1194,31 @@ class DeviceDetailsWidget(QWidget):
 
         voltage_graph = pg.PlotWidget()
         current_graph = pg.PlotWidget()
+        power_graph = pg.PlotWidget()
         energy_graph = pg.PlotWidget()
 
         voltage_graph.showGrid(x=True, y=True, alpha=0.5)
         current_graph.showGrid(x=True, y=True, alpha=0.5)
+        power_graph.showGrid(x=True, y=True, alpha=0.5)
         voltage_graph.setAxisItems({'bottom': DateAxisItem(orientation='bottom')})
         current_graph.setAxisItems({'bottom': DateAxisItem(orientation='bottom')})
-        voltage_graph.setLabel('left', 'Напруга', units='В')
+        power_graph.setAxisItems({'bottom': DateAxisItem(orientation='bottom')})
+        voltage_graph.setLabel('left', 'Напруга', units='V')
         current_graph.setLabel('left', 'Струм', units='А')
+        power_graph.setLabel('left', 'Потуж.', units='W')
         top_layout.addWidget(voltage_graph)
         top_layout.addWidget(current_graph)
+        top_layout.addWidget(power_graph)
 
         if phase_name == "Загальне":
             energy_graph.showGrid(x=True, y=True, alpha=0.5)
             energy_graph.setAxisItems({'bottom': DateAxisItem(orientation='bottom')})
-            energy_graph.setLabel('left', 'Споживання', units='кВт·год')
+            energy_graph.setLabel('left', 'Спожито', units='kWh')
             top_layout.addWidget(energy_graph)
 
-        # Синхронізація осей X
-        current_graph.setXLink(voltage_graph)  # Прив'язуємо до voltage_graph
-        energy_graph.setXLink(voltage_graph)  # Прив'язуємо до voltage_graph
+        current_graph.setXLink(voltage_graph)
+        energy_graph.setXLink(voltage_graph)
+        power_graph.setXLink(voltage_graph)
 
         layout.addLayout(top_layout)
 
@@ -1214,6 +1281,7 @@ class DeviceDetailsWidget(QWidget):
             "tab": tab,
             "voltage_graph": voltage_graph,
             "current_graph": current_graph,
+            "power_graph": power_graph,
             "energy_graph": energy_graph,
             "voltage_lcd": voltage_lcd,
             "current_lcd": current_lcd,
@@ -1229,32 +1297,41 @@ class DeviceDetailsWidget(QWidget):
             timestamps = []
             voltages = []
             currents = []
+            powers = []
 
             for report in self.report_data:
                 timestamps.append(report.timestamp)
                 if phase_name == "Загальне":
                     voltages_for_general = []
                     currents_for_general = []
+                    powers_for_general = []
                     for i in range(len(self.phases) - 1):  # -1 щоб не включати "Загальне"
                         voltages_for_general.append(getattr(report, f'line_voltage_{i + 1}'))
                         currents_for_general.append(getattr(report, f'current_{i + 1}'))
+                        powers_for_general.extend(getattr(report, f'power_{i + 1}'))
                     voltages.append(voltages_for_general)
                     currents.append(currents_for_general)
+                    powers.append(powers_for_general)
                 else:
                     voltages.append(getattr(report, f'line_voltage_{self.phases.index(phase_name) + 1}'))
                     currents.append(getattr(report, f'current_{self.phases.index(phase_name) + 1}'))
+                    powers.append(getattr(report, f'power_{self.phases.index(phase_name) + 1}'))
             if phase_name != "Загальне":
                 self.update_voltage_graph(timestamps, voltages, phase_name)
                 self.update_current_graph(timestamps, currents, phase_name)
+                self.update_power_graph(timestamps, powers, phase_name)
 
                 self.add_tooltips(self.phase_data[phase_name]["voltage_graph"], timestamps, voltages)
                 self.add_tooltips(self.phase_data[phase_name]["current_graph"], timestamps, currents)
+                self.add_tooltips(self.phase_data[phase_name]["power_graph"], timestamps, powers)
             else:
                 transposed_voltages = list(zip(*voltages))
                 transposed_currents = list(zip(*currents))
+                transposed_powers = list(zip(*powers))
 
                 self.update_voltage_graph(timestamps, transposed_voltages, phase_name)
                 self.update_current_graph(timestamps, transposed_currents, phase_name)
+                self.update_power_graph(timestamps, transposed_powers, phase_name)
 
                 hourly_energy = []
                 hourly_timestamps = []
