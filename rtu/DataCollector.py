@@ -28,10 +28,51 @@ async def get_data_from_device(device, project, main_window):
         return {}
 
 
+def is_voltage_out_of_range(new_data, device, phase):
+    voltage_key = f"line_voltage_{phase}"
+    voltage_value = new_data.get(voltage_key)
+
+    if voltage_key in new_data:
+        if voltage_value >= device.maxV:
+            print(f"ПОПЕРЕДЖЕННЯ: Напруга на фазі {phase} пристрою {device.name} ({device.model}) перевищує максимальний поріг ({device.maxV}V). \n"
+                  f"Поточне значення: {voltage_value}V. Перевищення: {voltage_value - device.maxV}V.\n")
+            return True
+        elif voltage_value <= device.minV:
+            print(f"ПОПЕРЕДЖЕННЯ: Напруга на фазі {phase} пристрою {device.name} ({device.model}) нижче мінімального порогу ({device.minV}V). \n"
+                  f"Поточне значення: {voltage_value}V. Нижче: {device.minV - voltage_value}V.\n")
+            return True
+    return False
+
+
+def is_current_over_limit(new_data, device, phase):
+    current_key = f"current_{phase}"
+    current_value = new_data.get(current_key)
+
+    if current_key in new_data:
+        if current_value >= device.maxA:
+            print(f"ПОПЕРЕДЖЕННЯ: Струм на фазі {phase} пристрою {device.name} ({device.model}) перевищує максимальний поріг ({device.maxA}A). \n"
+                  f"Поточне значення: {current_value}A. Перевищення: {current_value - device.maxA}A.\n")
+            return True
+    return False
+
+
+def is_power_over_limit(new_data, device, phase):
+    power_key = f"power_{phase}"
+    power_value = new_data.get(power_key)
+
+    if power_key in new_data:
+        if power_value >= device.maxW:
+            print(f"ПОПЕРЕДЖЕННЯ: Потужність на фазі {phase} пристрою {device.name} ({device.model}) перевищує максимальний поріг ({device.maxW}W). \n"
+                  f"Поточне значення: {power_value}W. Перевищення: {power_value - device.maxW}W.\n")
+            return True
+    return False
+
+
 class DataCollectorRunnable(QRunnable):
     def __init__(self, project, main_window):
         super().__init__()
         self.project = project
+        self.phases = []
         self.main_window = main_window
         self.stop_collecting = False
 
@@ -49,9 +90,9 @@ class DataCollectorRunnable(QRunnable):
                 main_db_model, tmp_db_model = self.get_db_model(device)
 
                 last_report = await main_db_model.filter(device=device).last()
-                new_data = asyncio.shield(get_data_from_device(device, self.project, self.main_window))
+                new_data = await get_data_from_device(device, self.project, self.main_window)
 
-                #new_data = get_test_data(device.model, last_report)
+                # new_data = get_test_data(device.model, last_report)
 
                 if self.stop_collecting:  # Перевірка
                     return
@@ -69,22 +110,34 @@ class DataCollectorRunnable(QRunnable):
                     tmp_report = tmp_db_model(**tmp_report_data)
                     await tmp_report.save()
 
-                if last_report:
-                    device_reading_interval = device.reading_interval
-                    last_report_time = last_report.timestamp.replace(tzinfo=None)
-                    calculated_time = last_report_time + timedelta(seconds=device_reading_interval)
-                    current_time = datetime.now().replace(tzinfo=None)
+                should_record_immediately = False
+                for phase in self.phases:
+                    if (
+                            is_voltage_out_of_range(new_data, device, phase) or
+                            is_current_over_limit(new_data, device, phase) or
+                            is_power_over_limit(new_data, device, phase)
+                    ):
+                        should_record_immediately = True
+                        break
 
-                    if device.reading_type == 2:
-                        reading_time = device.reading_time
-                        start_of_day = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+                if not should_record_immediately:
+                    if last_report:
+                        device_reading_interval = device.reading_interval
+                        last_report_time = last_report.timestamp.replace(tzinfo=None)
+                        calculated_time = last_report_time + timedelta(seconds=device_reading_interval)
+                        current_time = datetime.now().replace(tzinfo=None)
 
-                        if current_time < (
-                                start_of_day + timedelta(minutes=reading_time)) or last_report_time >= start_of_day:
+                        if device.reading_type == 2:
+                            reading_time = device.reading_time
+                            start_of_day = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+
+                            if current_time < (
+                                    start_of_day + timedelta(
+                                minutes=reading_time)) or last_report_time >= start_of_day:
+                                continue
+
+                        if calculated_time > current_time:
                             continue
-
-                    if calculated_time > current_time:
-                        continue
 
                 report_data = {
                     "device_id": device.id,
@@ -93,6 +146,8 @@ class DataCollectorRunnable(QRunnable):
 
                 new_report = main_db_model(**report_data)
                 await new_report.save()
+
+                print(f"ІНФО: Звіт збережено - {device.name}, {device.model} {datetime.now()}\n")
 
                 deleting_time = get_deleting_time()
                 if deleting_time > 0:
@@ -155,10 +210,13 @@ class DataCollectorRunnable(QRunnable):
 
     def get_db_model(self, device):
         if device.model == "SDM120":
+            self.phases = ['1']
             return SDM120Report, SDM120ReportTmp
         elif device.model == "SDM630":
+            self.phases = ['1', '2', '3']
             return SDM630Report, SDM630ReportTmp
         elif device.model == "SDM72D":
+            self.phases = ['1', '2', '3']
             return SDM72DReport, SDM72DReportTmp
         else:
             QMessageBox.warning(
