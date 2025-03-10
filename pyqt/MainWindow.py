@@ -1,5 +1,3 @@
-import asyncio
-
 from PySide6 import QtCore
 from PySide6.QtGui import QAction, QIcon
 from PySide6.QtWidgets import QMainWindow, QWidget, QStackedWidget, QVBoxLayout, QDialog, QSystemTrayIcon, QMenu
@@ -18,7 +16,7 @@ class MainWindow(QMainWindow):
         super().__init__()
 
         self.initTrayIcon()
-        self.is_exit = False  # Додаємо прапорець для відстеження виходу
+        self.is_exit = False
 
         self.thread_manager = thread_manager
 
@@ -59,6 +57,8 @@ class MainWindow(QMainWindow):
 
         self.stacked_widget.setCurrentIndex(0)
 
+        self.showMaximized()
+
     def initTrayIcon(self):
         self.tray_icon = QSystemTrayIcon(self)
         self.tray_icon.setIcon(QIcon(resource_path("pyqt/icons/app-icon.png")))
@@ -71,12 +71,12 @@ class MainWindow(QMainWindow):
         self.tray_icon.setContextMenu(tray_menu)
         self.tray_icon.show()
 
-        self.tray_icon.activated.connect(self.tray_icon_clicked)  # Додаємо обробник кліків
+        self.tray_icon.activated.connect(self.tray_icon_clicked)
 
-    def tray_icon_clicked(self, reason):  # Обробник кліків
-        if reason == QSystemTrayIcon.ActivationReason.Trigger:  # Перевіряємо тип кліку
-            self.showNormal()  # Відновлюємо вікно
-            self.raise_()  # Піднімаємо вікно на передній план
+    def tray_icon_clicked(self, reason):
+        if reason == QSystemTrayIcon.ActivationReason.Trigger:
+            self.showMaximized()
+            self.raise_()
 
     def open_settings_dialog(self):
         """Відкриває діалогове вікно для зміни часу видалення."""
@@ -125,14 +125,15 @@ class MainWindow(QMainWindow):
 
             self.stacked_widget.setCurrentIndex(0)
 
-    def exit_app(self): # Додаємо метод для виходу з програми
+    def exit_app(self):
+        self.showMaximized()
+        self.raise_()
         self.is_exit = True
         self.close()
 
     def closeEvent(self, event):
-        if self.is_exit: # Перевіряємо прапорець
-            asyncio.get_event_loop().stop()
-            super().closeEvent(event) # Викликаємо базовий closeEvent
+        if self.is_exit:
+            super().closeEvent(event)
         else:
             self.hide()
             event.ignore()
