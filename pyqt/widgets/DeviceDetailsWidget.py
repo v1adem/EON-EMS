@@ -737,7 +737,7 @@ class DeviceDetailsWidget(QWidget):
                 "import_active_energy_1": "Імпортована активна енергія kWh",
                 "export_active_energy_1": "Експортована активна енергія kWh",
                 "total_active_energy": "Загальна активна енергія kWh",
-                "total_reactive_energy": "Загальна реактивна енергія kWh",
+                "total_reactive_energy": "Загальна реактивна енергія kVArh",
                 "frequency_1": "Частота Hz",
                 "total_kWh_1": "Загально спожито kWh"
             }
