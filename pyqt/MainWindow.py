@@ -126,8 +126,6 @@ class MainWindow(QMainWindow):
             self.stacked_widget.setCurrentIndex(0)
 
     def exit_app(self):
-        self.showMaximized()
-        self.raise_()
         self.is_exit = True
         self.close()
 

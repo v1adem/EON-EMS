@@ -17,30 +17,20 @@ from tortoise import Tortoise
 import config
 from pyqt.MainWindow import MainWindow
 from rtu.DataCollector import DataCollectorRunnable
-import tempfile
 
+import psutil
 
 def is_already_running():
-    lock_file_path = os.path.join(tempfile.gettempdir(), "eon.lock")
-    print(lock_file_path)
-    try:
-        lock_file = open(lock_file_path, "x")
-        lock_file.close()
-        return False
-    except FileExistsError:
-        return True
+    count = 0
+    for process in psutil.process_iter(['name']):
+        if process.info['name'] == 'EON_EMS.exe':
+            count += 1
+    return count > 1
 
 def show_warning_message():
     root = tkinter.Tk()
     root.withdraw()  # Ховаємо головне вікно tkinter
     messagebox.showwarning("Попередження", "Додаток вже запущено! Перевірте трей")
-
-def cleanup_lock_file():
-    lock_file_path = os.path.join(tempfile.gettempdir(), "eon.lock")
-    try:
-        os.remove(lock_file_path)
-    except FileNotFoundError:
-        pass
 
 def get_darkModePalette(app=None):
     darkPalette = app.palette()
@@ -127,10 +117,7 @@ def stop_threads_synchronously(thread_manager):
     print("All threads stopped.")
 
 def on_about_to_quit(loop, thread_manager):
-    print("Application is about to quit...")
-    cleanup_lock_file()
     stop_threads_synchronously(thread_manager)
-
     async def shutdown():
         try:
             print("Closing database connections...")
