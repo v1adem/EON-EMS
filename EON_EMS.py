@@ -111,6 +111,7 @@ class ThreadManager:
         for project_id in list(self.threads.keys()):
             self.remove_thread(project_id)
         print("All tasks stopped.")
+        self.pool.waitForDone()
 
 
 async def initialize_threads(main_window, thread_manager):
@@ -129,10 +130,6 @@ def on_about_to_quit(loop, thread_manager):
     print("Application is about to quit...")
     cleanup_lock_file()
     stop_threads_synchronously(thread_manager)
-    loop_is_running = False
-
-    if loop:
-        loop_is_running = loop.is_running()
 
     async def shutdown():
         try:
@@ -141,18 +138,13 @@ def on_about_to_quit(loop, thread_manager):
 
             print("Cancelling all asyncio tasks...")
             tasks = [task for task in asyncio.all_tasks() if task is not asyncio.current_task()]
-            for task in tasks:
-                task.cancel()
-                try:
-                    await task
-                except asyncio.CancelledError:
-                    pass
+            await asyncio.gather(*tasks, return_exceptions=True) # Очікуємо завершення всіх завдань
 
             print("All cleanup completed.")
         except Exception as e:
             print(f"Error during shutdown: {e}")
 
-    if loop_is_running:
+    if loop and loop.is_running(): # Перевірка активності циклу подій
         loop.call_soon_threadsafe(lambda: asyncio.run(shutdown()))
     else:
         asyncio.run(shutdown())

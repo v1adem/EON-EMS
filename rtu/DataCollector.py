@@ -14,13 +14,18 @@ from rtu.SerialReaderRS485 import SerialReaderRS485
 
 async def get_data_from_device(device, project, main_window):
     try:
-        print(f"{device.name} - Reading started")
         client = SerialReaderRS485(device.name, device.model, project.port, device.device_address, project.baudrate,
                                    project.bytesize, project.parity, project.stopbits, main_window)
+        if main_window.thread_manager.threads.get(project.id).stop_collecting:
+            return {}
         return await client.read_all_properties()
+    except asyncio.CancelledError:
+        print(f"{device.name} - Task cancelled")
+        return {}
     except Exception as e:
         QMessageBox.warning(main_window, "Помилка зчитування", f"{device.name} - {e}",
                             QMessageBox.StandardButton.Ok, QMessageBox.StandardButton.Cancel)
+        return {}
 
 
 class DataCollectorRunnable(QRunnable):
@@ -37,32 +42,30 @@ class DataCollectorRunnable(QRunnable):
         while not self.stop_collecting:
             devices = await Device.filter(project=self.project).all()
             for device in devices:
+                if self.stop_collecting:  # Перевірка
+                    return
                 if not device.reading_status:
                     continue
                 main_db_model, tmp_db_model = self.get_db_model(device)
 
                 last_report = await main_db_model.filter(device=device).last()
-                print(f"Читається девайс: {device.name} Моделі: {device.model} / З проєкту {self.project.name}")
-                new_data = await get_data_from_device(device, self.project, self.main_window)
+                new_data = asyncio.shield(get_data_from_device(device, self.project, self.main_window))
 
                 #new_data = get_test_data(device.model, last_report)
-                print(f"Нові дані: {new_data}")
 
+                if self.stop_collecting:  # Перевірка
+                    return
                 if new_data == {}:
                     continue
 
                 tmp_report_data = self.get_tmp_data(device, new_data)
 
-                # Перевірка на існування tmp звіту для даного девайсу
                 existing_tmp_report = await tmp_db_model.filter(device_id=device.id).first()
-
                 if existing_tmp_report:
-                    # Оновлюємо існуючий запис
                     for key, value in tmp_report_data.items():
                         setattr(existing_tmp_report, key, value)
                     await existing_tmp_report.save()
                 else:
-                    # Створюємо новий запис
                     tmp_report = tmp_db_model(**tmp_report_data)
                     await tmp_report.save()
 
@@ -91,18 +94,14 @@ class DataCollectorRunnable(QRunnable):
                 new_report = main_db_model(**report_data)
                 await new_report.save()
 
-                # Отримуємо дату, до якої потрібно зберігати звіти
                 deleting_time = get_deleting_time()
                 if deleting_time > 0:
                     delete_before_date = datetime.now().replace(tzinfo=None) - timedelta(days=deleting_time)
-
-                    # Отримуємо найстаріший звіт
                     first_report = await main_db_model.filter(device=device).first()
-
-                    # Перевіряємо, чи він був створений раніше, ніж delete_before_date, і видаляємо його
                     if first_report and first_report.timestamp.replace(tzinfo=None) < delete_before_date:
                         await first_report.delete()
-
+            if self.stop_collecting:
+                return
             await asyncio.sleep(1)
 
     def get_tmp_data(self, device, new_data):
