@@ -11,7 +11,7 @@ class Device(Model):
     device_address = fields.IntField()
 
     reading_type = fields.IntField(default=1)  # 1 for interval, 2 for time
-    reading_interval = fields.IntField(default=3600)  # Seconds
+    reading_interval = fields.IntField(default=1800)  # Seconds
     reading_time = fields.IntField(default=0)  # Minutes
 
     reading_status = fields.BooleanField(default=False)  # True = needs reading
