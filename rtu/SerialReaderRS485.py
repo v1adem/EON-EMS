@@ -136,7 +136,10 @@ class SerialReaderRS485:
     async def update_device_status(self):
         device = await Device.filter(name=self.device_custom_name).first()
         if device:
-            device.reading_status = False
+            device.actual_status = False
+            wait_time = datetime.now().timestamp() + 300
+            wait_time = datetime.fromtimestamp(wait_time)
+            device.wait_time = wait_time
             await device.save()
 
         msg = "Пристрій не підключено" if self.error_flag else "Немає відповіді від пристрою"

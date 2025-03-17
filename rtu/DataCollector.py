@@ -1,6 +1,7 @@
 import asyncio
 from datetime import datetime, timedelta
 
+import pytz
 from AsyncioPySide6 import AsyncioPySide6
 from PySide6.QtCore import QRunnable
 from PySide6.QtWidgets import QMessageBox
@@ -83,15 +84,21 @@ class DataCollectorRunnable(QRunnable):
         while not self.stop_collecting:
             devices = await Device.filter(project=self.project).all()
             for device in devices:
-                if self.stop_collecting:  # Перевірка
+                if self.stop_collecting:
+                    print(f"{device.name} - Stopped")
                     return
                 if not device.reading_status:
                     continue
+                local_tz = pytz.timezone('Europe/Kyiv')
+                now_local = datetime.now(local_tz)
+                if device.wait_time > now_local:
+                    print(f"{device.name} - Waiting...")
+                    continue
                 main_db_model, tmp_db_model = self.get_db_model(device)
-
+                
                 last_report = await main_db_model.filter(device=device).last()
                 new_data = await get_data_from_device(device, self.project, self.main_window)
-
+                
                 # new_data = get_test_data(device.model, last_report)
 
                 if self.stop_collecting:  # Перевірка
@@ -146,6 +153,9 @@ class DataCollectorRunnable(QRunnable):
 
                 new_report = main_db_model(**report_data)
                 await new_report.save()
+                if device.actual_status is False:
+                    device.actual_status = True
+                    await device.save()
 
                 print(f"ІНФО: Звіт збережено - {device.name}, {device.model} {datetime.now()}\n")
 
