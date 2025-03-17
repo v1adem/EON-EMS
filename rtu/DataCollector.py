@@ -35,12 +35,14 @@ def is_voltage_out_of_range(new_data, device, phase):
 
     if voltage_key in new_data:
         if voltage_value >= device.maxV:
-            print(f"ПОПЕРЕДЖЕННЯ: Напруга на фазі {phase} пристрою {device.name} ({device.model}) перевищує максимальний поріг ({device.maxV}V). \n"
-                  f"Поточне значення: {voltage_value}V. Перевищення: {voltage_value - device.maxV}V.\n")
+            print(f"ПОПЕРЕДЖЕННЯ: Напруга на фазі {phase} пристрою {device.name} ({device.model}) перевищує максимальний поріг ({device.maxV}V). \n" +
+                  f"Поточне значення: {voltage_value}V. Перевищення: {voltage_value - device.maxA}A.\n" +
+                  f"{datetime.now().strftime('%D - %H:%M')}")
             return True
         elif voltage_value <= device.minV:
-            print(f"ПОПЕРЕДЖЕННЯ: Напруга на фазі {phase} пристрою {device.name} ({device.model}) нижче мінімального порогу ({device.minV}V). \n"
-                  f"Поточне значення: {voltage_value}V. Нижче: {device.minV - voltage_value}V.\n")
+            print(f"ПОПЕРЕДЖЕННЯ: Напруга на фазі {phase} пристрою {device.name} ({device.model}) нижче мінімального порогу ({device.minV}V). \n" +
+                  f"Поточне значення: {voltage_value}V. Нижче: {device.minV - voltage_value}V.\n" +
+                  f"{datetime.now().strftime('%D - %H:%M')}")
             return True
     return False
 
@@ -51,8 +53,9 @@ def is_current_over_limit(new_data, device, phase):
 
     if current_key in new_data:
         if current_value >= device.maxA:
-            print(f"ПОПЕРЕДЖЕННЯ: Струм на фазі {phase} пристрою {device.name} ({device.model}) перевищує максимальний поріг ({device.maxA}A). \n"
-                  f"Поточне значення: {current_value}A. Перевищення: {current_value - device.maxA}A.\n")
+            print(f"ПОПЕРЕДЖЕННЯ: Струм на фазі {phase} пристрою {device.name} ({device.model}) перевищує максимальний поріг ({device.maxA}A). \n" +
+                  f"Поточне значення: {current_value}A. Перевищення: {current_value - device.maxA}A.\n" +
+                  f"{datetime.now().strftime('%D - %H:%M')}")
             return True
     return False
 
@@ -63,8 +66,9 @@ def is_power_over_limit(new_data, device, phase):
 
     if power_key in new_data:
         if power_value >= device.maxW:
-            print(f"ПОПЕРЕДЖЕННЯ: Потужність на фазі {phase} пристрою {device.name} ({device.model}) перевищує максимальний поріг ({device.maxW}W). \n"
-                  f"Поточне значення: {power_value}W. Перевищення: {power_value - device.maxW}W.\n")
+            print(f"ПОПЕРЕДЖЕННЯ: Потужність на фазі {phase} пристрою {device.name} ({device.model}) перевищує максимальний поріг ({device.maxW}W). \n" +
+                  f"Поточне значення: {power_value}W. Перевищення: {power_value - device.maxW}W.\n" +
+                  f"{datetime.now().strftime('%D - %H:%M')}")
             return True
     return False
 
@@ -84,15 +88,14 @@ class DataCollectorRunnable(QRunnable):
         while not self.stop_collecting:
             devices = await Device.filter(project=self.project).all()
             for device in devices:
+                print(f"Зчитування даних з {device.name} - {device.model}")
                 if self.stop_collecting:
-                    print(f"{device.name} - Stopped")
                     return
                 if not device.reading_status:
                     continue
                 local_tz = pytz.timezone('Europe/Kyiv')
                 now_local = datetime.now(local_tz)
-                if device.wait_time > now_local:
-                    print(f"{device.name} - Waiting...")
+                if device.wait_time < now_local:
                     continue
                 main_db_model, tmp_db_model = self.get_db_model(device)
                 
@@ -153,11 +156,12 @@ class DataCollectorRunnable(QRunnable):
 
                 new_report = main_db_model(**report_data)
                 await new_report.save()
+
                 if device.actual_status is False:
                     device.actual_status = True
-                    await device.save()
+                    await device.save(force_update=True)
 
-                print(f"ІНФО: Звіт збережено - {device.name}, {device.model} {datetime.now()}\n")
+                print(f"ІНФО: Звіт збережено - {device.name}, {device.model} {datetime.now().strftime('%D.%M.%Y - %H:%M')}")
 
                 deleting_time = get_deleting_time()
                 if deleting_time > 0:

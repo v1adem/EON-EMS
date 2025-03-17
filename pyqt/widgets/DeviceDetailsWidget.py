@@ -247,7 +247,7 @@ class DeviceDetailsWidget(QWidget):
         self.tabs.addTab(tab, phase_name)
 
         sys.stdout = console_widget  # Перенаправлення виводу на консоль
-        print(f"ІНФО: Консоль ініціалізовано - {datetime.now()}\n")
+        print(f"ІНФО: Консоль ініціалізовано - {datetime.now().strftime('%D - %H:%M')}")
 
     def auto_update(self):
         if not self.auto_update_checkbox.isChecked():

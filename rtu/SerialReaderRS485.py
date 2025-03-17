@@ -1,6 +1,7 @@
 from datetime import datetime
 from logging import error
 
+import pytz
 from PySide6.QtWidgets import QMessageBox
 from pymodbus.client import ModbusSerialClient
 from pymodbus.constants import Endian
@@ -138,9 +139,10 @@ class SerialReaderRS485:
         if device:
             device.actual_status = False
             wait_time = datetime.now().timestamp() + 300
-            wait_time = datetime.fromtimestamp(wait_time)
-            device.wait_time = wait_time
-            await device.save()
+            wait_time_dt_naive = datetime.fromtimestamp(wait_time)
+            kyiv_tz = pytz.timezone('Europe/Kyiv')
+            device.wait_time = kyiv_tz.localize(wait_time_dt_naive)
+            await device.save(update_fields=['actual_status', 'wait_time'])
 
         msg = "Пристрій не підключено" if self.error_flag else "Немає відповіді від пристрою"
         QMessageBox.warning(
