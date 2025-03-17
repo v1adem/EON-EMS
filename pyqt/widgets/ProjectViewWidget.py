@@ -18,10 +18,19 @@ class ProjectViewWidget(QWidget):
         self.isAdmin = main_window.isAdmin
 
         layout = QVBoxLayout(self)
+        top_layout = QHBoxLayout(self)
 
         self.label = QLabel(f"Деталі проєкту: {project.name}")
         self.label.setStyleSheet("font-size: 18px;")
-        layout.addWidget(self.label)
+        top_layout.addWidget(self.label)
+
+        refresh_button = QPushButton()
+        refresh_button.setIcon(QIcon(resource_path("pyqt/icons/refresh.png")))
+        refresh_button.setFixedSize(36, 36)
+        refresh_button.clicked.connect(self.load_devices)
+        top_layout.addWidget(refresh_button)
+
+        layout.addLayout(top_layout)
 
         self.devices_list = QListView(self)
         layout.addWidget(self.devices_list)
@@ -63,6 +72,31 @@ class ProjectViewWidget(QWidget):
                 name_label = QLabel(device.name)
                 name_label.setStyleSheet("font-size: 18px;")
                 item_layout.addWidget(name_label)
+
+                def set_status_label():
+                    if device.actual_status and device.reading_status:
+                        actual_status_label.setText("Підключено")
+                        actual_status_label.setStyleSheet("font-size: 18px; color: #00aa00;")
+                        time_label.setText("")
+                    elif device.reading_status is False:
+                        actual_status_label.setText("Вимкнено")
+                        time_label.setText("")
+                        actual_status_label.setStyleSheet("font-size: 18px; color: #aa0000;")
+                    else:
+                        actual_status_label.setText(f"Відключено.")
+                        time_label.setText(f"Наступна спроба - {device.wait_time.strftime('%H:%M')}")
+                        actual_status_label.setStyleSheet("font-size: 18px; color: #aa0000;")
+
+                actual_status_label = QLabel()
+                time_label = QLabel()
+                time_label.setStyleSheet("font-size: 18px;")
+                set_status_label()
+                actual_status_label.setSizePolicy(QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Preferred)
+                actual_status_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+                time_label.setSizePolicy(QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Preferred)
+                time_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+                item_layout.addWidget(actual_status_label)
+                item_layout.addWidget(time_label)
 
                 toggle_status_button = QPushButton("Увімкнути" if not device.get_reading_status() else "Вимкнути")
                 toggle_status_button.setFixedSize(100, 36)

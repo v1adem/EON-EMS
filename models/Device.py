@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from tortoise import fields
 from tortoise.models import Model
 
@@ -15,6 +17,8 @@ class Device(Model):
     reading_time = fields.IntField(default=0)  # Minutes
 
     reading_status = fields.BooleanField(default=False)  # True = needs reading
+    actual_status = fields.BooleanField(default=False)  # True = connected
+    wait_time = fields.DatetimeField(default=lambda: datetime.now())
 
     class Meta:
         table = "devices"
