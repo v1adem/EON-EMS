@@ -25,7 +25,7 @@ def is_already_running():
     for process in psutil.process_iter(['name']):
         if process.info['name'] == 'EON_EMS.exe':
             count += 1
-    return count > 1
+    return count > 2
 
 def show_warning_message():
     root = tkinter.Tk()

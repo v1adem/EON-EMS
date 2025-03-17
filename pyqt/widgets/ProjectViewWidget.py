@@ -229,7 +229,7 @@ class ProjectViewWidget(QWidget):
             form_layout.addRow("", reading_type_time)
 
             reading_interval_input = QSpinBox(dialog)
-            reading_interval_input.setRange(1, 1440)
+            reading_interval_input.setRange(2, 59)
             reading_interval_input.setValue(device.reading_interval // 60)  # В хвилинах
             if device.reading_type == 2:
                 reading_interval_input.setDisabled(True)
@@ -245,6 +245,27 @@ class ProjectViewWidget(QWidget):
             reading_type_interval.toggled.connect(
                 lambda: reading_interval_input.setEnabled(reading_type_interval.isChecked()))
             reading_type_time.toggled.connect(lambda: reading_time_input.setEnabled(reading_type_time.isChecked()))
+
+            # Додавання полів для налаштування граничних значень
+            minV_input = QSpinBox(dialog)
+            minV_input.setRange(1, 99999)
+            minV_input.setValue(device.minV)
+            form_layout.addRow("Мінімальна напруга (V):", minV_input)
+
+            maxV_input = QSpinBox(dialog)
+            maxV_input.setRange(1, 99999)
+            maxV_input.setValue(device.maxV)
+            form_layout.addRow("Максимальна напруга (V):", maxV_input)
+
+            maxA_input = QSpinBox(dialog)
+            maxA_input.setRange(1, 99999)
+            maxA_input.setValue(device.maxA)
+            form_layout.addRow("Максимальний струм (A):", maxA_input)
+
+            maxW_input = QSpinBox(dialog)
+            maxW_input.setRange(1, 99999)  # Потужність у межах 10-10000W
+            maxW_input.setValue(device.maxW)
+            form_layout.addRow("Максимальна потужність (W):", maxW_input)
 
             buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel,
                                        dialog)
@@ -272,6 +293,13 @@ class ProjectViewWidget(QWidget):
                     new_reading_interval = device.reading_interval
                     new_reading_time = device.reading_time
 
+                # Отримання нових граничних значень
+                new_minV = minV_input.value()
+                new_maxV = maxV_input.value()
+                new_maxA = maxA_input.value()
+                new_maxW = maxW_input.value()
+
+                # Оновлення параметрів пристрою
                 device.name = new_name
                 device.manufacturer = new_manufacturer
                 device.model = new_model
@@ -280,8 +308,14 @@ class ProjectViewWidget(QWidget):
                 device.reading_interval = new_reading_interval
                 device.reading_time = new_reading_time
 
+                device.minV = new_minV
+                device.maxV = new_maxV
+                device.maxA = new_maxA
+                device.maxW = new_maxW
+
                 await device.save(force_update=True)
                 self.load_devices()
+
         AsyncioPySide6.runTask(run_save_changes())
 
     def delete_device(self, device):
