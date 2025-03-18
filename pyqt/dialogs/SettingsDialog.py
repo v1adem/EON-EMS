@@ -1,5 +1,7 @@
 from PySide6.QtWidgets import QDialog, QLabel, QSpinBox, QPushButton, QVBoxLayout, QFormLayout
+
 from config import get_deleting_time, set_deleting_time
+
 
 class SettingsDialog(QDialog):
     def __init__(self, parent=None):

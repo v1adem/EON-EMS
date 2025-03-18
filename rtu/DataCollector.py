@@ -9,7 +9,6 @@ from PySide6.QtWidgets import QMessageBox
 from config import get_deleting_time
 from models.Device import Device
 from models.Report import SDM120Report, SDM120ReportTmp, SDM630Report, SDM72DReport, SDM630ReportTmp, SDM72DReportTmp
-from rtu.DataCollectorTestingTools import get_test_data
 from rtu.SerialReaderRS485 import SerialReaderRS485
 
 

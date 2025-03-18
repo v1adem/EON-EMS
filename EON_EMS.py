@@ -4,6 +4,7 @@ import sys
 import tkinter
 from tkinter import messagebox
 
+import psutil
 from AsyncioPySide6 import AsyncioPySide6
 from PySide6.QtCore import QThreadPool
 from PySide6.QtCore import Qt  # Named colors.
@@ -11,14 +12,12 @@ from PySide6.QtGui import QPalette, QColor, QIcon
 from PySide6.QtWidgets import (
     QApplication,
 )
-
 from tortoise import Tortoise
 
 import config
 from pyqt.MainWindow import MainWindow
 from rtu.DataCollector import DataCollectorRunnable
 
-import psutil
 
 def is_already_running():
     count = 0

@@ -2,11 +2,11 @@ import sys
 from datetime import datetime, timedelta
 
 import pyqtgraph as pg
-from PySide6.QtWidgets import QToolTip
 import xlsxwriter
 from AsyncioPySide6 import AsyncioPySide6
 from PySide6.QtCore import QTimer, QDate, Qt, QSortFilterProxyModel, QTime
 from PySide6.QtGui import QStandardItemModel, QFont, QStandardItem, QIcon
+from PySide6.QtWidgets import QToolTip
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QSplitter, QLabel, QDateEdit, QTableView, QTabWidget, QHBoxLayout, \
     QPushButton, QCheckBox, QGridLayout, QLCDNumber, QDialog, QMessageBox, QFileDialog
 

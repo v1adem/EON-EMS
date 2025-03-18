@@ -4,9 +4,9 @@ def resource_path(relative_path):
     return os.path.join(os.path.abspath("."), relative_path)
 
 
+import json
 import os
 import sys
-import json
 
 
 def get_config_path():

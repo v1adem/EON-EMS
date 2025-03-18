@@ -1,5 +1,6 @@
-from PySide6.QtWidgets import QPlainTextEdit
 from PySide6.QtCore import Qt
+from PySide6.QtWidgets import QPlainTextEdit
+
 
 class ConsoleWidget(QPlainTextEdit):
     def __init__(self, parent=None):
