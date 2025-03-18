@@ -5,7 +5,7 @@ from PySide6.QtWidgets import QWidget, QVBoxLayout, QLabel, QListView, QPushButt
     QFormLayout, QLineEdit, QComboBox, QSpinBox, QDialogButtonBox, QRadioButton, QTimeEdit, QSpacerItem, QSizePolicy
 from tortoise.exceptions import DoesNotExist
 
-from config import resource_path
+from tools.config import resource_path, get_timezone
 from models.Device import Device
 from models.Report import SDM120Report, SDM120ReportTmp, SDM630Report, SDM630ReportTmp, SDM72DReport, SDM72DReportTmp
 
@@ -84,7 +84,8 @@ class ProjectViewWidget(QWidget):
                         actual_status_label.setStyleSheet("font-size: 18px; color: #aa0000;")
                     else:
                         actual_status_label.setText(f"Відключено.")
-                        time_label.setText(f"Наступна спроба - {device.wait_time.strftime('%H:%M')}")
+                        local_tz = get_timezone()
+                        time_label.setText(f"Наступна спроба - {device.wait_time.astimezone(local_tz).strftime('%H:%M')}")
                         actual_status_label.setStyleSheet("font-size: 18px; color: #aa0000;")
 
                 actual_status_label = QLabel()

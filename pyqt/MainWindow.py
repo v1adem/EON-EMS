@@ -1,10 +1,14 @@
+import logging
+logger = logging.getLogger(__name__)
+
 from PySide6 import QtCore
 from PySide6.QtGui import QAction, QIcon
 from PySide6.QtWidgets import QMainWindow, QWidget, QStackedWidget, QVBoxLayout, QDialog, QSystemTrayIcon, QMenu
 
-from config import resource_path
+from tools.config import resource_path
 from pyqt.dialogs.LanguageDialog import LanguageDialog
-from pyqt.dialogs.SettingsDialog import SettingsDialog
+from pyqt.dialogs.DeletingTimeDialog import DeletingTimeDialog
+from pyqt.dialogs.TimezoneDialog import TimezoneDialog
 from pyqt.widgets.DeviceDetailsWidget import DeviceDetailsWidget
 from pyqt.widgets.ProjectViewWidget import ProjectViewWidget
 from pyqt.widgets.ProjectsWidget import ProjectsWidget
@@ -38,12 +42,15 @@ class MainWindow(QMainWindow):
         self.toolbar.setMovable(False)
         self.toolbar.setIconSize(QtCore.QSize(60, 30))
 
-        # Додаємо вкладку "Налаштування" в тулбар
         # settings_icon = QIcon(resource_path("pyqt/icons/settings.png"))
         settings_menu = self.menu_bar.addMenu("Налаштування")
         settings_action = QAction("Час видалення", self) #(settings_icon, "Час видалення", self)
-        settings_action.triggered.connect(self.open_settings_dialog)
+        settings_action.triggered.connect(self.open_deleting_time_dialog)
         settings_menu.addAction(settings_action)
+
+        settings_action_timezone = QAction("Часовий пояс", self)
+        settings_action_timezone.triggered.connect(self.open_timezone_dialog)
+        settings_menu.addAction(settings_action_timezone)
 
         self.central_widget = QWidget(self)
         self.setCentralWidget(self.central_widget)
@@ -78,9 +85,12 @@ class MainWindow(QMainWindow):
             self.showMaximized()
             self.raise_()
 
-    def open_settings_dialog(self):
-        """Відкриває діалогове вікно для зміни часу видалення."""
-        dialog = SettingsDialog(self)
+    def open_deleting_time_dialog(self):
+        dialog = DeletingTimeDialog(self)
+        dialog.exec()
+
+    def open_timezone_dialog(self):
+        dialog = TimezoneDialog(self)
         dialog.exec()
 
     def change_language(self):
@@ -115,7 +125,6 @@ class MainWindow(QMainWindow):
             self.stacked_widget.setCurrentIndex(current_index - 1)
 
         if current_index == 1:
-            print("Перехід на екран реєстрації/логіну. Очищення даних...")
             self.isAdmin = False
 
             self.stacked_widget.removeWidget(self.registration_widget)

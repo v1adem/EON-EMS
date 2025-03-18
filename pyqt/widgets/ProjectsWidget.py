@@ -6,7 +6,7 @@ from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QListVi
 from pymodbus.client import ModbusSerialClient
 from tortoise.exceptions import DoesNotExist
 
-from config import resource_path
+from tools.config import resource_path
 from models.Device import Device
 from models.Project import Project
 from models.Report import SDM120Report, SDM120ReportTmp, SDM630Report, SDM630ReportTmp, SDM72DReport, SDM72DReportTmp
