@@ -1,5 +1,9 @@
-from datetime import datetime
-from logging import error
+from datetime import datetime, timezone, timedelta
+import logging
+
+from tools.config import get_timezone
+
+logger = logging.getLogger(__name__)
 
 import pytz
 from PySide6.QtWidgets import QMessageBox
@@ -81,11 +85,9 @@ class SerialReaderRS485:
                 current_group['length'] = length
                 current_group['items'].append((name, length))
             elif start == current_group['start'] + current_group['length']:
-                # Якщо регістр слідує за попереднім, додаємо до групи
                 current_group['length'] += length
                 current_group['items'].append((name, length))
             else:
-                # Завершуємо поточну групу і починаємо нову
                 grouped.append(current_group)
                 current_group = {'start': start, 'length': length, 'items': [(name, length)]}
 
@@ -106,8 +108,8 @@ class SerialReaderRS485:
                                                                 slave=self.device_address)
 
                     if response.isError():
-                        error(f"{datetime.now().strftime('%d/%m/%Y %H:%M:%S')} | No response from {start_address}")
                         self.error_text = f"{datetime.now().strftime('%d/%m/%Y %H:%M:%S')} | No response from {start_address}"
+                        logger.error(self.error_text)
                         self.no_response_error_flag = True
                         continue
 
@@ -120,13 +122,13 @@ class SerialReaderRS485:
                         idx += length
 
             except Exception as e:
-                error(f"{datetime.now().strftime('%d/%m/%Y %H:%M:%S')} | {e}")
                 self.error_text = f"{datetime.now().strftime('%d/%m/%Y %H:%M:%S')} | {e}"
+                logger.error(self.error_text)
                 self.error_flag = True
             finally:
                 self.client.close()
         else:
-            self.error_text = "No connection on port"
+            self.error_text = f"No connection on port - {self.port}"
             self.error_flag = True
 
         if self.error_flag or self.no_response_error_flag:
@@ -138,13 +140,16 @@ class SerialReaderRS485:
         device = await Device.filter(name=self.device_custom_name).first()
         if device:
             device.actual_status = False
-            wait_time = datetime.now().timestamp() + 300
-            wait_time_dt_naive = datetime.fromtimestamp(wait_time)
-            kyiv_tz = pytz.timezone('Europe/Kyiv')
-            device.wait_time = kyiv_tz.localize(wait_time_dt_naive)
+            tz = get_timezone()
+            now_utc = datetime.utcnow().replace(tzinfo=pytz.utc)
+            wait_time_local = now_utc + timedelta(seconds=300)
+
+            device.wait_time = wait_time_local.astimezone(tz)
+
+            logger.warning(f'{device.wait_time} | {device.actual_status}')
             await device.save(update_fields=['actual_status', 'wait_time'])
 
-        msg = "Пристрій не підключено" if self.error_flag else "Немає відповіді від пристрою"
+        msg = "Device is not connected" if self.error_flag else "There is no response from the device"
         QMessageBox.warning(
             self.main_window,
             f"{datetime.now().strftime('%d/%m/%Y %H:%M:%S')}",
