@@ -1,136 +1,40 @@
+import logging
+logger = logging.getLogger(__name__)
+
 import asyncio
 import os
 import sys
-import tkinter
-from tkinter import messagebox
 
-import psutil
 from AsyncioPySide6 import AsyncioPySide6
-from PySide6.QtCore import QThreadPool
-from PySide6.QtCore import Qt  # Named colors.
-from PySide6.QtGui import QPalette, QColor, QIcon
+from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import (
     QApplication,
 )
 from tortoise import Tortoise
 
-import config
+from tools import config
 from pyqt.MainWindow import MainWindow
-from rtu.DataCollector import DataCollectorRunnable
+from tools.ThreadManager import stop_threads_synchronously, ThreadManager, initialize_threads
+from tools.start_tools import is_already_running, show_warning_message, get_database_path, init_database, \
+    get_darkModePalette
 
-
-def is_already_running():
-    count = 0
-    for process in psutil.process_iter(['name']):
-        if process.info['name'] == 'EON_EMS.exe':
-            count += 1
-    return count > 2
-
-def show_warning_message():
-    root = tkinter.Tk()
-    root.withdraw()  # Ховаємо головне вікно tkinter
-    messagebox.showwarning("Попередження", "Додаток вже запущено! Перевірте трей")
-
-def get_darkModePalette(app=None):
-    darkPalette = app.palette()
-    darkPalette.setColor(QPalette.Window, QColor(53, 53, 53))
-    darkPalette.setColor(QPalette.WindowText, Qt.white)
-    darkPalette.setColor(QPalette.Disabled, QPalette.WindowText, QColor(127, 127, 127))
-    darkPalette.setColor(QPalette.Base, QColor(42, 42, 42))
-    darkPalette.setColor(QPalette.AlternateBase, QColor(66, 66, 66))
-    darkPalette.setColor(QPalette.ToolTipBase, QColor(53, 53, 53))
-    darkPalette.setColor(QPalette.ToolTipText, Qt.white)
-    darkPalette.setColor(QPalette.Text, Qt.white)
-    darkPalette.setColor(QPalette.Disabled, QPalette.Text, QColor(127, 127, 127))
-    darkPalette.setColor(QPalette.Dark, QColor(35, 35, 35))
-    darkPalette.setColor(QPalette.Shadow, QColor(20, 20, 20))
-    darkPalette.setColor(QPalette.Button, QColor(53, 53, 53))
-    darkPalette.setColor(QPalette.ButtonText, Qt.white)
-    darkPalette.setColor(QPalette.Disabled, QPalette.ButtonText, QColor(127, 127, 127))
-    darkPalette.setColor(QPalette.BrightText, Qt.red)
-    darkPalette.setColor(QPalette.Link, QColor(42, 130, 218))
-    darkPalette.setColor(QPalette.Highlight, QColor(42, 130, 218))
-    darkPalette.setColor(QPalette.Disabled, QPalette.Highlight, QColor(80, 80, 80))
-    darkPalette.setColor(QPalette.HighlightedText, Qt.white)
-    darkPalette.setColor(QPalette.Disabled, QPalette.HighlightedText, QColor(127, 127, 127), )
-
-    return darkPalette
-
-
-def get_database_path():
-    appdata_dir = os.getenv('APPDATA') if sys.platform == 'win32' else os.path.expanduser('~/.config')
-    app_dir = os.path.join(appdata_dir, 'EON')
-
-    os.makedirs(app_dir, exist_ok=True)
-
-    return os.path.join(app_dir, 'eon.db')
-
-
-async def init_database(db_path):
-    await Tortoise.init(
-        db_url=f"sqlite:///{db_path}",
-        modules={"models": ["models.Admin", "models.Project", "models.Device", "models.Report"]},
-    )
-    await Tortoise.generate_schemas(safe=True)
-
-class ThreadManager:
-    def __init__(self):
-        self.threads = {}
-        self.pool = QThreadPool()  # Використовуємо пул потоків
-
-    def add_thread(self, project, main_window):
-        if project.id in self.threads:
-            print(f"Thread for project {project.id} already exists.")
-            return
-
-        task = DataCollectorRunnable(project, main_window)
-        self.pool.start(task)
-        self.threads[project.id] = task
-
-    def remove_thread(self, project_id):
-        task = self.threads.get(project_id)
-        if task:
-            task.stop_collecting = True  # Встановлюємо прапорець для зупинки збору
-            del self.threads[project_id]
-            print(f"Task for project {project_id} stopped and removed.")
-        else:
-            print(f"No task found for project {project_id}.")
-
-    def stop_all_threads(self):
-        for project_id in list(self.threads.keys()):
-            self.remove_thread(project_id)
-        print("All tasks stopped.")
-        self.pool.waitForDone()
-
-
-async def initialize_threads(main_window, thread_manager):
-    from models.Project import Project
-
-    projects = await Project.all()
-    for project in projects:
-        thread_manager.add_thread(project, main_window)
-
-def stop_threads_synchronously(thread_manager):
-    print("Stopping all threads...")
-    thread_manager.stop_all_threads()
-    print("All threads stopped.")
 
 def on_about_to_quit(loop, thread_manager):
     stop_threads_synchronously(thread_manager)
     async def shutdown():
         try:
-            print("Closing database connections...")
+            logger.info("Closing database connections...")
             await Tortoise.close_connections()
 
-            print("Cancelling all asyncio tasks...")
+            logger.info("Cancelling all asyncio tasks...")
             tasks = [task for task in asyncio.all_tasks() if task is not asyncio.current_task()]
-            await asyncio.gather(*tasks, return_exceptions=True) # Очікуємо завершення всіх завдань
+            await asyncio.gather(*tasks, return_exceptions=True)
 
-            print("All cleanup completed.")
+            logger.info("All cleanup completed.")
         except Exception as e:
-            print(f"Error during shutdown: {e}")
+            logger.error(f"Error during shutdown: {e}")
 
-    if loop and loop.is_running(): # Перевірка активності циклу подій
+    if loop and loop.is_running():
         loop.call_soon_threadsafe(lambda: asyncio.run(shutdown()))
     else:
         asyncio.run(shutdown())
@@ -140,8 +44,11 @@ if __name__ == "__main__":
     if is_already_running():
         show_warning_message()
         sys.exit(1)
-    config.get_deleting_time()
 
+    config.init_config()
+    config.init_logger()
+
+    logger.info('Starting EON EMS')
     db_path = os.path.join(get_database_path())
     asyncio.run(init_database(db_path))
 
@@ -162,4 +69,4 @@ if __name__ == "__main__":
         try:
             sys.exit(app.exec())
         except Exception as e:
-            print(f"Error during shutdown: {e}")
+            logger.error(f"Error during shutdown: {e}")
