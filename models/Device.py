@@ -1,8 +1,16 @@
 from datetime import datetime
 
+import pytz
 from tortoise import fields
 from tortoise.models import Model
 
+from tools.config import get_timezone
+
+
+def default_wait_time():
+    tz = get_timezone()
+    now_utc = datetime.utcnow().replace(tzinfo=pytz.utc)
+    return now_utc.astimezone(tz)
 
 class Device(Model):
     id = fields.IntField(pk=True)
@@ -23,7 +31,7 @@ class Device(Model):
 
     reading_status = fields.BooleanField(default=False)  # True = needs reading
     actual_status = fields.BooleanField(default=False)  # True = connected
-    wait_time = fields.DatetimeField(default=lambda: datetime.now())
+    wait_time = fields.DatetimeField(default=default_wait_time)
 
     class Meta:
         table = "devices"
