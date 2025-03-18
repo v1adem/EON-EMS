@@ -1,5 +1,8 @@
 import asyncio
 
+import logging
+logger = logging.getLogger(__name__)
+
 from AsyncioPySide6 import AsyncioPySide6
 from PySide6.QtGui import Qt
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton
@@ -29,6 +32,7 @@ class RegistrationLoginForm(QWidget):
         self.username_input = QLineEdit(self)
         form_layout.addWidget(self.username_label)
         form_layout.addWidget(self.username_input)
+        self.username_input.setFocus()
 
         self.password_label = QLabel("Пароль:", self)
         self.password_input = QLineEdit(self)
@@ -47,8 +51,10 @@ class RegistrationLoginForm(QWidget):
         form_layout.addWidget(self.register_button)
         form_layout.addWidget(self.guest_button)
 
-        AsyncioPySide6.runTask(self.check_if_first_run())
+        self.username_input.returnPressed.connect(self.password_input.setFocus)
+        self.password_input.returnPressed.connect(self.attempt_submit)
 
+        AsyncioPySide6.runTask(self.check_if_first_run())
 
         form_widget = QWidget()
         form_widget.setLayout(form_layout)
@@ -70,7 +76,7 @@ class RegistrationLoginForm(QWidget):
             else:
                 self.show_registration_form()
         except Exception as e:
-            print(f"Error checking if first run: {e}")
+            logger.error(f"Error checking if first run: {e}")
 
     def show_registration_form(self):
         self.status_label.setText("Будь ласка, зареєструйтеся")
@@ -114,6 +120,12 @@ class RegistrationLoginForm(QWidget):
         AsyncioPySide6.runTask(run_login())
 
     def guest_login(self):
-        self.main_window.isAdmin = False
-        self.status_label.setText("Вхід як гість успішний")
         self.main_window.open_projects_list()
+
+    def attempt_submit(self):
+        if self.register_button.isVisible():
+            self.register_button.click()
+        elif self.login_button.isVisible():
+            self.login_button.click()
+        elif self.guest_button.isVisible():
+            self.guest_button.click()
