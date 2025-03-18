@@ -1,12 +1,13 @@
 import asyncio
 from datetime import datetime, timedelta
+import logging
+logger = logging.getLogger(__name__)
 
-import pytz
 from AsyncioPySide6 import AsyncioPySide6
 from PySide6.QtCore import QRunnable
 from PySide6.QtWidgets import QMessageBox
 
-from config import get_deleting_time
+from tools.config import get_deleting_time, get_timezone
 from models.Device import Device
 from models.Report import SDM120Report, SDM120ReportTmp, SDM630Report, SDM72DReport, SDM630ReportTmp, SDM72DReportTmp
 from rtu.SerialReaderRS485 import SerialReaderRS485
@@ -20,10 +21,11 @@ async def get_data_from_device(device, project, main_window):
             return {}
         return await client.read_all_properties()
     except asyncio.CancelledError:
-        print(f"{device.name} - Task cancelled")
+        logger.warning(f"{device.name} - Task cancelled")
         return {}
     except Exception as e:
-        QMessageBox.warning(main_window, "Помилка зчитування", f"{device.name} - {e}",
+        logger.warning(f"{device.name} - Task failed: {e}")
+        QMessageBox.warning(main_window, "Reading Error", f"{device.name} - {e}",
                             QMessageBox.StandardButton.Ok, QMessageBox.StandardButton.Cancel)
         return {}
 
@@ -34,14 +36,12 @@ def is_voltage_out_of_range(new_data, device, phase):
 
     if voltage_key in new_data:
         if voltage_value >= device.maxV:
-            print(f"ПОПЕРЕДЖЕННЯ: Напруга на фазі {phase} пристрою {device.name} ({device.model}) перевищує максимальний поріг ({device.maxV}V). \n" +
-                  f"Поточне значення: {voltage_value}V. Перевищення: {voltage_value - device.maxA}A.\n" +
-                  f"{datetime.now().strftime('%D - %H:%M')}")
+            logger.warning(f"Voltage of {phase} phase in {device.name} ({device.model}) is above ({device.maxV}V). \n" +
+                  f"Current value: {voltage_value}V. Extra: {voltage_value - device.maxV}V.")
             return True
         elif voltage_value <= device.minV:
-            print(f"ПОПЕРЕДЖЕННЯ: Напруга на фазі {phase} пристрою {device.name} ({device.model}) нижче мінімального порогу ({device.minV}V). \n" +
-                  f"Поточне значення: {voltage_value}V. Нижче: {device.minV - voltage_value}V.\n" +
-                  f"{datetime.now().strftime('%D - %H:%M')}")
+            print(f"Voltage of {phase} phase in {device.name} ({device.model}) is less than ({device.minV}V). \n" +
+                  f"Current value: {voltage_value}V. Lack: {device.minV - voltage_value}V.")
             return True
     return False
 
@@ -52,9 +52,8 @@ def is_current_over_limit(new_data, device, phase):
 
     if current_key in new_data:
         if current_value >= device.maxA:
-            print(f"ПОПЕРЕДЖЕННЯ: Струм на фазі {phase} пристрою {device.name} ({device.model}) перевищує максимальний поріг ({device.maxA}A). \n" +
-                  f"Поточне значення: {current_value}A. Перевищення: {current_value - device.maxA}A.\n" +
-                  f"{datetime.now().strftime('%D - %H:%M')}")
+            logger.warning(f"Current of {phase} phase in {device.name} ({device.model}) is above ({device.maxA}A). \n" +
+                  f"Current value: {current_value}A. Extra: {current_value - device.maxA}A.")
             return True
     return False
 
@@ -65,9 +64,8 @@ def is_power_over_limit(new_data, device, phase):
 
     if power_key in new_data:
         if power_value >= device.maxW:
-            print(f"ПОПЕРЕДЖЕННЯ: Потужність на фазі {phase} пристрою {device.name} ({device.model}) перевищує максимальний поріг ({device.maxW}W). \n" +
-                  f"Поточне значення: {power_value}W. Перевищення: {power_value - device.maxW}W.\n" +
-                  f"{datetime.now().strftime('%D - %H:%M')}")
+            logger.warning(f"Power of {phase} phase in {device.name} ({device.model}) is above ({device.maxW}W). \n" +
+                  f"Current value: {power_value}W. Extra: {power_value - device.maxW}W.")
             return True
     return False
 
@@ -87,14 +85,14 @@ class DataCollectorRunnable(QRunnable):
         while not self.stop_collecting:
             devices = await Device.filter(project=self.project).all()
             for device in devices:
-                print(f"Зчитування даних з {device.name} - {device.model}")
                 if self.stop_collecting:
                     return
                 if not device.reading_status:
                     continue
-                local_tz = pytz.timezone('Europe/Kyiv')
+                local_tz = get_timezone()
                 now_local = datetime.now(local_tz)
-                if device.wait_time < now_local:
+                if device.wait_time > now_local:
+                    logger.warning(f"WAIT | NOW {now_local} TO {device.wait_time}")
                     continue
                 main_db_model, tmp_db_model = self.get_db_model(device)
                 
@@ -157,10 +155,11 @@ class DataCollectorRunnable(QRunnable):
                 await new_report.save()
 
                 if device.actual_status is False:
+                    logger.info(f"Device {device.name} - {device.model} - is now online")
                     device.actual_status = True
                     await device.save(force_update=True)
 
-                print(f"ІНФО: Звіт збережено - {device.name}, {device.model} {datetime.now().strftime('%D.%M.%Y - %H:%M')}")
+                logger.info(f"Report is saved - {device.name}, {device.model}")
 
                 deleting_time = get_deleting_time()
                 if deleting_time > 0:
@@ -233,5 +232,5 @@ class DataCollectorRunnable(QRunnable):
             return SDM72DReport, SDM72DReportTmp
         else:
             QMessageBox.warning(
-                self.main_window, f"{device.name}", f"{device.model} - Невідома модель", QMessageBox.StandardButton.Ok,
+                self.main_window, f"{device.name}", f"{device.model} - Unknown model", QMessageBox.StandardButton.Ok,
                 QMessageBox.StandardButton.Cancel)

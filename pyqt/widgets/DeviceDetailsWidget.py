@@ -1,5 +1,7 @@
 import sys
 from datetime import datetime, timedelta
+import logging
+logger = logging.getLogger(__name__)
 
 import pyqtgraph as pg
 import xlsxwriter
@@ -10,7 +12,7 @@ from PySide6.QtWidgets import QToolTip
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QSplitter, QLabel, QDateEdit, QTableView, QTabWidget, QHBoxLayout, \
     QPushButton, QCheckBox, QGridLayout, QLCDNumber, QDialog, QMessageBox, QFileDialog
 
-from config import resource_path
+from tools.config import resource_path
 from models.Report import SDM630Report, SDM630ReportTmp, SDM120Report, SDM120ReportTmp, SDM72DReport, SDM72DReportTmp
 from pyqt.widgets.ConsoleWidget import ConsoleWidget
 from pyqt.widgets.DateAxisItem import DateAxisItem
@@ -247,7 +249,7 @@ class DeviceDetailsWidget(QWidget):
         self.tabs.addTab(tab, phase_name)
 
         sys.stdout = console_widget  # Перенаправлення виводу на консоль
-        print(f"ІНФО: Консоль ініціалізовано - {datetime.now().strftime('%D - %H:%M')}")
+        logger.info("Console initialized")
 
     def auto_update(self):
         if not self.auto_update_checkbox.isChecked():
@@ -336,8 +338,6 @@ class DeviceDetailsWidget(QWidget):
         selection_model = table_view.selectionModel()
         if selection_model is not None:
             selection_model.selectionChanged.connect(self.on_table_row_selected)
-        else:
-            print("Помилка: Модель вибору не існує для table_view.")
 
     def on_table_row_selected(self, selected):
         if selected.indexes():
@@ -445,11 +445,10 @@ class DeviceDetailsWidget(QWidget):
             pos = evt
             if graph_widget.sceneBoundingRect().contains(pos):
                 mouse_point = graph_widget.plotItem.vb.mapSceneToView(pos)
-                x = mouse_point.x()  # Координата X миші (float)
-                y = mouse_point.y()  # Координата Y миші (float)
+                x = mouse_point.x()
+                y = mouse_point.y()
 
                 if points:
-                    # Перетворюємо координату x (час) для точок ГРАФІКА в timestamp (float) для порівняння
                     points_with_timestamps = [(p[0].timestamp() if isinstance(p[0], datetime) else p[0], p[1]) for p in
                                               points]
 
@@ -481,7 +480,6 @@ class DeviceDetailsWidget(QWidget):
                 break
 
         if timestamp_column_index == -1:
-            print("Не знайдено стовпець з часовими мітками.")
             return
 
         closest_row = -1
@@ -495,7 +493,7 @@ class DeviceDetailsWidget(QWidget):
                 table_datetime = datetime.strptime(table_timestamp_str, "%Y-%m-%d %H:%M:%S")
                 table_timestamp = table_datetime.timestamp()
             except ValueError:
-                print(f"Помилка перетворення часу в рядку {row}: {table_timestamp_str}")
+                logger.error(f"Time convert error in row - {row}: {table_timestamp_str}")
                 continue
 
             time_diff = abs(table_timestamp - x_value)
@@ -508,7 +506,7 @@ class DeviceDetailsWidget(QWidget):
             self.report_table.scrollTo(model.index(closest_row, 0))
             self.report_table.setSelectionBehavior(QTableView.SelectionBehavior.SelectRows)
         else:
-            print("Не знайдено відповідний рядок у таблиці.")
+            logger.error("Row is not found")
 
     def update_voltage_graph(self, timestamps, voltages, phase_name):
         timestamps_numeric = [ts.timestamp() for ts in timestamps]
@@ -603,30 +601,29 @@ class DeviceDetailsWidget(QWidget):
                 scatter.setData(x=timestamps_numeric, y=currents)
                 scatter.sigClicked.connect(self.on_graph_point_clicked)
                 graph_widget.addItem(scatter)
-                setattr(self, scatter_attr, scatter)  # Зберігаємо scatter plot
+                setattr(self, scatter_attr, scatter)
 
             else:
-                # Оновлюємо існуючі plot item та scatter plot
                 plot_item = getattr(self, plot_attr)
                 plot_item.setData(timestamps_numeric, currents)
 
-                scatter = getattr(self, scatter_attr)  # Отримуємо scatter plot
-                scatter.setData(x=timestamps_numeric, y=currents)  # Оновлюємо scatter plot
+                scatter = getattr(self, scatter_attr)
+                scatter.setData(x=timestamps_numeric, y=currents)
 
     def update_power_graph(self, timestamps, powers, phase_name):
         timestamps_numeric = [ts.timestamp() for ts in timestamps]
         graph_widget = self.phase_data[phase_name]["power_graph"]
 
         if phase_name == "Загальне":
-            graph_widget.clear()  # Очищаємо перед перемалюванням
+            graph_widget.clear()
             legend = pg.LegendItem(offset=(70, 10), pen=pg.mkPen(None), brush=pg.mkBrush('w'))
 
             view_box = graph_widget.getViewBox()
-            legend.setParentItem(view_box)  # Робимо ViewBox батьківським елементом для легенди
+            legend.setParentItem(view_box)
             legend.anchor(itemPos=(1, 0), parentPos=(1, 0), offset=(-10, 10))
             green_shades = [(0, 153, 0), (51, 204, 0), (102, 255, 0)]
 
-            for i in range(len(powers)):  # num_phases замінено на len(powers)
+            for i in range(len(powers)):
                 color = green_shades[i % len(green_shades)]
                 pen = pg.mkPen(color=color, width=2)
                 phase_powers = powers[i]
@@ -635,7 +632,7 @@ class DeviceDetailsWidget(QWidget):
                                               name=f"Потуж. {self.phases[i]}")
 
                 scatter = pg.ScatterPlotItem(pen=None, brush=color, size=7)
-                scatter.setData(x=timestamps_numeric, y=phase_powers)  # Оновлюємо scatter plot
+                scatter.setData(x=timestamps_numeric, y=phase_powers)
                 scatter.sigClicked.connect(self.on_graph_point_clicked)
                 graph_widget.addItem(scatter)
                 legend.addItem(plot_item, f"{self.phases[i]}")
@@ -643,10 +640,9 @@ class DeviceDetailsWidget(QWidget):
 
         else:  # Single phase
             plot_attr = f"power_plot_item_{phase_name}"
-            scatter_attr = f"power_scatter_item_{phase_name}"  # Атрибут для scatter plot
+            scatter_attr = f"power_scatter_item_{phase_name}"
 
             if not hasattr(self, plot_attr):
-                # Створюємо plot item та scatter plot
                 plot_item = graph_widget.plot(timestamps_numeric, powers, pen=pg.mkPen(color=(0, 255, 0), width=2),
                                               name=f"Потуж. {phase_name}")
                 setattr(self, plot_attr, plot_item)
@@ -655,21 +651,19 @@ class DeviceDetailsWidget(QWidget):
                 scatter.setData(x=timestamps_numeric, y=powers)
                 scatter.sigClicked.connect(self.on_graph_point_clicked)
                 graph_widget.addItem(scatter)
-                setattr(self, scatter_attr, scatter)  # Зберігаємо scatter plot
+                setattr(self, scatter_attr, scatter)
 
             else:
-                # Оновлюємо існуючі plot item та scatter plot
                 plot_item = getattr(self, plot_attr)
                 plot_item.setData(timestamps_numeric, powers)
 
-                scatter = getattr(self, scatter_attr)  # Отримуємо scatter plot
-                scatter.setData(x=timestamps_numeric, y=powers)  # Оновлюємо scatter plot
+                scatter = getattr(self, scatter_attr)
+                scatter.setData(x=timestamps_numeric, y=powers)
 
     def update_energy_graph(self, hourly_timestamps, hourly_energy, phase_name):
         if not hourly_timestamps or not hourly_energy:
             return
 
-        # Перетворення timestamp в числовий формат
         hourly_timestamps_numeric = [ts.timestamp() for ts in hourly_timestamps]
         valid_data = [
             (ts, energy) for ts, energy in zip(hourly_timestamps_numeric, hourly_energy)
@@ -682,22 +676,19 @@ class DeviceDetailsWidget(QWidget):
         bar_attr = f"energy_bar_items_{phase_name}"
         graph_widget = self.phase_data[phase_name]["energy_graph"]
 
-        # Очищення графіка перед оновленням
-        # graph_widget.clear()
+        graph_widget.clear()
 
-        # Ініціалізація списку стовпчиків
         energy_bar_items = []
 
-        # Додавання стовпчиків
         for i, (ts, energy) in enumerate(valid_data):
             current_time = datetime.fromtimestamp(ts)
             hour_start = current_time.replace(minute=0, second=0, microsecond=0).timestamp()
             hour_end = hour_start + 3600
 
-            if i == 0:  # Перший стовпчик
+            if i == 0:
                 first_report_timestamp = self.report_data[0].timestamp.timestamp()
                 start_time = first_report_timestamp
-                end_time = hour_end  # Кінець - кінець години
+                end_time = hour_end
             else:
                 start_time = hour_start
                 end_time = hour_end
@@ -711,12 +702,11 @@ class DeviceDetailsWidget(QWidget):
             energy_bar_items.append(bar_item)
             graph_widget.addItem(bar_item)
 
-        # Налаштування діапазону осей (оновлюємо при кожному оновленні графіка)
         y_max = max(energy for _, energy in valid_data)
         graph_widget.setYRange(0, y_max, padding=0.1)
 
         x_min = min(ts for ts, _ in valid_data)
-        x_max = max(hour_end for ts, _ in valid_data)  # Максимум по кінцю години
+        x_max = max(hour_end for ts, _ in valid_data)
         graph_widget.setXRange(x_min, x_max, padding=0.1)
 
         setattr(self, bar_attr, energy_bar_items)
@@ -806,7 +796,6 @@ class DeviceDetailsWidget(QWidget):
         if not self.report_data:
             return
 
-        # Перетворення індексу з проксі-моделі на індекс у вихідній моделі
         source_index = self.report_table.model().mapToSource(self.report_table.model().index(row_index, 0))
         source_row = source_index.row()
 
@@ -1082,12 +1071,11 @@ class DeviceDetailsWidget(QWidget):
             else:
                 return
 
-            # Виконуємо асинхронний запит для отримання даних
             report_data = await report_model.filter(
                 device_id=self.device.id,
-                timestamp__gte=start_datetime,  # `__gte` означає ">="
-                timestamp__lte=end_datetime  # `__lte` означає "<="
-            ).order_by("timestamp").all()  # Сортування за `timestamp`
+                timestamp__gte=start_datetime,
+                timestamp__lte=end_datetime
+            ).order_by("timestamp").all()
 
             if not report_data:
                 QMessageBox.warning(self, "Експорт", "Дані за вибраний період відсутні.")
@@ -1105,7 +1093,6 @@ class DeviceDetailsWidget(QWidget):
             try:
                 workbook = xlsxwriter.Workbook(file_path)
 
-                # Визначення фаз та загальних колонок
                 phases = {1: [], 2: [], 3: [], 'general': []}
                 for column in self.column_labels_for_excel.keys():
                     if column == "timestamp":
@@ -1119,7 +1106,6 @@ class DeviceDetailsWidget(QWidget):
                     else:
                         phases['general'].append(column)
 
-                # Функція для запису даних у лист
                 def write_sheet(worksheet, data, columns):
                     worksheet.write(0, 0, self.column_labels["timestamp"])
                     for col_idx, column in enumerate(columns, start=1):
@@ -1133,7 +1119,6 @@ class DeviceDetailsWidget(QWidget):
 
                     worksheet.set_column(0, len(columns), 20)
 
-                # Створення листів для кожної фази
                 for phase, columns in phases.items():
                     if phase == 'general':
                         sheet_name = "Загальне"
