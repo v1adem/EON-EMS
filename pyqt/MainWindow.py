@@ -139,8 +139,5 @@ class MainWindow(QMainWindow):
         self.close()
 
     def closeEvent(self, event):
-        if self.is_exit:
-            super().closeEvent(event)
-        else:
-            self.hide()
-            event.ignore()
+        super().closeEvent(event)
+
