@@ -81,10 +81,13 @@ class ProjectsWidget(QWidget):
                 name_label.setStyleSheet("font-size: 18px;")
                 item_layout.addWidget(name_label)
 
+                import pyudev
+
                 def get_serial_ports():
-                    print("try to")
-                    ports = glob.glob("/dev/ttyUSB*") + glob.glob("/dev/ttyACM*")
-                    print("ports:", ports)
+                    context = pyudev.Context()
+                    ports = []
+                    for device in context.list_devices(subsystem='tty', DEVTYPE='serial'):
+                        ports.append(device.device_node)
                     return ports
 
                 ports = get_serial_ports()
