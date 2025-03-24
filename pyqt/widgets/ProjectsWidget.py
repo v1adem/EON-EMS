@@ -1,3 +1,5 @@
+import subprocess
+
 from AsyncioPySide6 import AsyncioPySide6
 from PySide6.QtCore import Qt, QSize
 from PySide6.QtGui import QStandardItemModel, QIcon, QStandardItem
@@ -11,6 +13,7 @@ from models.Device import Device
 from models.Project import Project
 from models.Report import SDM120Report, SDM120ReportTmp, SDM630Report, SDM630ReportTmp, SDM72Report, SDM72ReportTmp
 
+import serial.tools.list_ports
 
 class ProjectsWidget(QWidget):
     def __init__(self, main_window):
@@ -78,10 +81,11 @@ class ProjectsWidget(QWidget):
                 name_label.setStyleSheet("font-size: 18px;")
                 item_layout.addWidget(name_label)
 
+                ports = [port.device for port in serial.tools.list_ports.comports()]
+                print(ports)
                 port_combo = QComboBox()
-                port_combo.addItems([str(i) for i in range(1, 256)])
-                port_combo.setCurrentText(str(project.port))
-                port_combo.setFixedWidth(60)
+                port_combo.addItems(ports)
+                port_combo.setCurrentText(project.port)
                 port_combo.setStyleSheet("font-size: 18px;")
                 port_combo.currentIndexChanged.connect(
                     lambda _, p=project, combo=port_combo:
@@ -228,9 +232,16 @@ class ProjectsWidget(QWidget):
 
             if platform.system() == "Windows":
                 os.system("start devmgmt.msc")
+            elif platform.system() == "Linux":
+                lsusb_output = subprocess.check_output(["lsusb"]).decode("utf-8")
+                dmesg_output = subprocess.check_output(["dmesg"]).decode("utf-8")
+                info = f"lsusb:\n{lsusb_output}\n\ndmesg:\n{dmesg_output}"
+                QMessageBox.information(
+                    self, "Інформація про пристрої", info
+                )
             else:
                 QMessageBox.information(
-                    self, "Недоступно", "Функція доступна лише на Windows."
+                    self, "Недоступно", "Функція не підтримується на цій платформі."
                 )
 
         open_settings_button = QPushButton("Подивитися налаштування порту")
