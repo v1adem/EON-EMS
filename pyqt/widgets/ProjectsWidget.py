@@ -13,7 +13,7 @@ from models.Device import Device
 from models.Project import Project
 from models.Report import SDM120Report, SDM120ReportTmp, SDM630Report, SDM630ReportTmp, SDM72Report, SDM72ReportTmp
 
-import serial.tools.list_ports
+import glob
 
 class ProjectsWidget(QWidget):
     def __init__(self, main_window):
@@ -80,8 +80,6 @@ class ProjectsWidget(QWidget):
                 name_label = QLabel(project.name)
                 name_label.setStyleSheet("font-size: 18px;")
                 item_layout.addWidget(name_label)
-
-                import glob
 
                 def get_serial_ports():
                     ports = glob.glob("/dev/ttyUSB*") + glob.glob("/dev/ttyACM*")
