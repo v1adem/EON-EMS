@@ -1,9 +1,10 @@
 import os
 import sys
-import tkinter
-from tkinter import messagebox
 
 import logging
+
+from PySide6.QtWidgets import QMessageBox
+
 logger = logging.getLogger(__name__)
 
 import psutil
@@ -21,9 +22,11 @@ def is_already_running():
 
 
 def show_warning_message():
-    root = tkinter.Tk()
-    root.withdraw()
-    messagebox.showwarning("Попередження", "Додаток вже запущено! Перевірте трей")
+    msg = QMessageBox()
+    msg.setIcon(QMessageBox.Warning)
+    msg.setText("Додаток вже запущено!")
+    msg.setWindowTitle("Попередження")
+    msg.exec()
 
 
 def get_darkModePalette(app=None):

@@ -9,7 +9,7 @@ from PySide6.QtWidgets import QMessageBox
 
 from tools.config import get_deleting_time, get_timezone
 from models.Device import Device
-from models.Report import SDM120Report, SDM120ReportTmp, SDM630Report, SDM72DReport, SDM630ReportTmp, SDM72DReportTmp
+from models.Report import SDM120Report, SDM120ReportTmp, SDM630Report, SDM72Report, SDM630ReportTmp, SDM72ReportTmp
 from rtu.SerialReaderRS485 import SerialReaderRS485
 
 
@@ -200,7 +200,7 @@ class DataCollectorRunnable(QRunnable):
                 "total_kWh": new_data.get("total_kWh"),
             }
             return tmp_report_data
-        elif device.model == "SDM72D":
+        elif device.model == "SDM72":
             tmp_report_data = {
                 "device_id": device.id,
                 "line_voltage_1": new_data.get("line_voltage_1"),
@@ -227,9 +227,9 @@ class DataCollectorRunnable(QRunnable):
         elif device.model == "SDM630":
             self.phases = ['1', '2', '3']
             return SDM630Report, SDM630ReportTmp
-        elif device.model == "SDM72D":
+        elif device.model == "SDM72":
             self.phases = ['1', '2', '3']
-            return SDM72DReport, SDM72DReportTmp
+            return SDM72Report, SDM72ReportTmp
         else:
             QMessageBox.warning(
                 self.main_window, f"{device.name}", f"{device.model} - Unknown model", QMessageBox.StandardButton.Ok,

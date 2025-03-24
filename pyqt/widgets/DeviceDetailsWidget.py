@@ -13,7 +13,7 @@ from PySide6.QtWidgets import QWidget, QVBoxLayout, QSplitter, QLabel, QDateEdit
     QPushButton, QCheckBox, QGridLayout, QLCDNumber, QDialog, QMessageBox, QFileDialog
 
 from tools.config import resource_path
-from models.Report import SDM630Report, SDM630ReportTmp, SDM120Report, SDM120ReportTmp, SDM72DReport, SDM72DReportTmp
+from models.Report import SDM630Report, SDM630ReportTmp, SDM120Report, SDM120ReportTmp, SDM72Report, SDM72ReportTmp
 from pyqt.widgets.ConsoleWidget import ConsoleWidget
 from pyqt.widgets.DateAxisItem import DateAxisItem
 from register_maps.RegisterMaps import RegisterMap
@@ -63,12 +63,12 @@ class DeviceDetailsWidget(QWidget):
         self.phases = []
         if self.device_model == "SDM120":
             self.phases = ["Фаза 1"]
-        elif self.device_model == "SDM630" or self.device_model == "SDM72D":
+        elif self.device_model == "SDM630" or self.device_model == "SDM72":
             self.phases = ["Фаза 1", "Фаза 2", "Фаза 3", "Загальне"]
 
         for phase_name in self.phases:
-            if self.device_model == "SDM72D":
-                self.create_phase_tab_sdm72d(phase_name)
+            if self.device_model == "SDM72":
+                self.create_phase_tab_sdm72(phase_name)
             else:
                 self.create_phase_tab(phase_name)
 
@@ -265,8 +265,8 @@ class DeviceDetailsWidget(QWidget):
                 report_model = SDM120Report
             elif self.device_model == "SDM630":
                 report_model = SDM630Report
-            elif self.device_model == "SDM72D":
-                report_model = SDM72DReport
+            elif self.device_model == "SDM72":
+                report_model = SDM72Report
             else:
                 return
 
@@ -287,7 +287,7 @@ class DeviceDetailsWidget(QWidget):
             self.setup_table_click_handler(self.report_table)
 
             if self.device_model == "SDM72D":
-                self.update_graphs_sdm72d()
+                self.update_graphs_sdm72()
             else:
                 self.update_graphs()
 
@@ -356,8 +356,8 @@ class DeviceDetailsWidget(QWidget):
                 report_model = SDM120ReportTmp
             elif self.device_model == "SDM630":
                 report_model = SDM630ReportTmp
-            elif self.device_model == "SDM72D":
-                report_model = SDM72DReportTmp
+            elif self.device_model == "SDM72":
+                report_model = SDM72ReportTmp
             else:
                 return
 
@@ -368,7 +368,7 @@ class DeviceDetailsWidget(QWidget):
             if not last_report:
                 return
 
-            if self.device_model == "SDM72D":
+            if self.device_model == "SDM72":
                 phases = {
                     "Фаза 1": {
                         "voltage": getattr(last_report, 'line_voltage_1', 0),
@@ -983,7 +983,7 @@ class DeviceDetailsWidget(QWidget):
                 "total_kVArh_2": "Загальна реактивна енергія (кВАр·год) (Фаза 2)",
                 "total_kVArh_3": "Загальна реактивна енергія (кВАр·год) (Фаза 3)",
             }
-        elif self.device_model == "SDM72D":
+        elif self.device_model == "SDM72":
             self.column_labels = {
                 "timestamp": "Час",
                 "line_voltage_1": "Лінійна напруга\n(Фаза 1)\n",
@@ -1066,8 +1066,8 @@ class DeviceDetailsWidget(QWidget):
                 report_model = SDM120Report
             elif self.device_model == "SDM630":
                 report_model = SDM630Report
-            elif self.device_model == "SDM72D":
-                report_model = SDM72DReport
+            elif self.device_model == "SDM72":
+                report_model = SDM72Report
             else:
                 return
 
@@ -1171,7 +1171,7 @@ class DeviceDetailsWidget(QWidget):
 
         AsyncioPySide6.runTask(run_export_to_excel())
 
-    def create_phase_tab_sdm72d(self, phase_name):
+    def create_phase_tab_sdm72(self, phase_name):
         tab = QWidget()
         layout = QVBoxLayout(tab)
         top_layout = QVBoxLayout()
@@ -1277,7 +1277,7 @@ class DeviceDetailsWidget(QWidget):
 
         self.tabs.addTab(tab, phase_name)
 
-    def update_graphs_sdm72d(self):
+    def update_graphs_sdm72(self):
         for phase_name in self.phases:
             timestamps = []
             voltages = []

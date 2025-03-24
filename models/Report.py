@@ -144,7 +144,7 @@ class SDM630ReportTmp(Model):
     class Meta:
         table = "sdm630_reports_tmp"
 
-class SDM72DReport(Model):
+class SDM72Report(Model):
     id = fields.IntField(pk=True)
     device = fields.ForeignKeyField('models.Device', related_name='sdm72d_reports')
     timestamp = fields.DatetimeField(default=lambda: datetime.now())
@@ -185,7 +185,7 @@ class SDM72DReport(Model):
     class Meta:
         table = "sdm72d_reports"
 
-class SDM72DReportTmp(Model):
+class SDM72ReportTmp(Model):
     id = fields.IntField(pk=True)
     device = fields.ForeignKeyField('models.Device', related_name='sdm72d_reports_tmp')
     timestamp = fields.DatetimeField(default=lambda: datetime.now())

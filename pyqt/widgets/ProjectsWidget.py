@@ -9,7 +9,7 @@ from tortoise.exceptions import DoesNotExist
 from tools.config import resource_path
 from models.Device import Device
 from models.Project import Project
-from models.Report import SDM120Report, SDM120ReportTmp, SDM630Report, SDM630ReportTmp, SDM72DReport, SDM72DReportTmp
+from models.Report import SDM120Report, SDM120ReportTmp, SDM630Report, SDM630ReportTmp, SDM72Report, SDM72ReportTmp
 
 
 class ProjectsWidget(QWidget):
@@ -192,9 +192,9 @@ class ProjectsWidget(QWidget):
                         elif device.model == "SDM630":
                             await SDM630Report.filter(device_id=device.id).delete()
                             await SDM630ReportTmp.filter(device_id=device.id).delete()
-                        elif device.model == "SDM72D":
-                            await SDM72DReport.filter(device_id=device.id).delete()
-                            await SDM72DReportTmp.filter(device_id=device.id).delete()
+                        elif device.model == "SDM72":
+                            await SDM72Report.filter(device_id=device.id).delete()
+                            await SDM72ReportTmp.filter(device_id=device.id).delete()
 
                         await device.delete()
 

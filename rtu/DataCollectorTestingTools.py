@@ -97,7 +97,7 @@ def get_test_data(device_model, last_data):
             "total_kVArh_3": 1,
 
         }
-    elif device_model == "SDM72D":
+    elif device_model == "SDM72":
         if last_data is None:
             last_kwh = 0.0
         else:

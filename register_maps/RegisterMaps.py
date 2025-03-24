@@ -364,7 +364,7 @@ class RegisterMap:
         }
     }
 
-    SDM72D = {
+    SDM72 = {
         "line_voltage_1": {
             "register": 0,
             "type": "input",
@@ -562,7 +562,7 @@ class RegisterMap:
     MAPS = {
         "SDM120": SDM120,
         "SDM630": SDM630,
-        "SDM72D": SDM72D
+        "SDM72": SDM72
     }
 
     @classmethod
