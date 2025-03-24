@@ -81,7 +81,13 @@ class ProjectsWidget(QWidget):
                 name_label.setStyleSheet("font-size: 18px;")
                 item_layout.addWidget(name_label)
 
-                ports = [port.device for port in serial.tools.list_ports.comports()]
+                import glob
+
+                def get_serial_ports():
+                    ports = glob.glob("/dev/ttyUSB*") + glob.glob("/dev/ttyACM*")
+                    return ports
+
+                ports = get_serial_ports()
                 print(ports)
                 port_combo = QComboBox()
                 port_combo.addItems(ports)
