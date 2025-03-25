@@ -88,8 +88,9 @@ class ProjectsWidget(QWidget):
                     return ports
 
                 ports = get_serial_ports()
+                print(ports)
                 port_combo = QComboBox()
-                port_combo.addItems(ports)
+                #port_combo.addItems(ports)
                 #port_combo.setCurrentText(project.port)
                 port_combo.setStyleSheet("font-size: 18px;")
                 port_combo.currentIndexChanged.connect(
