@@ -8,6 +8,8 @@ from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QListVi
 from pymodbus.client import ModbusSerialClient
 from tortoise.exceptions import DoesNotExist
 
+import pyudev
+
 from tools.config import resource_path
 from models.Device import Device
 from models.Project import Project
@@ -79,8 +81,6 @@ class ProjectsWidget(QWidget):
                 name_label.setStyleSheet("font-size: 18px;")
                 item_layout.addWidget(name_label)
 
-                import pyudev
-
                 def get_serial_ports():
                     context = pyudev.Context()
                     ports = []
@@ -91,6 +91,7 @@ class ProjectsWidget(QWidget):
 
 
                 ports = get_serial_ports()
+                print(ports)
                 ports.append('Nothing')
                 port_combo = QComboBox()
                 port_combo.addItems(ports)
