@@ -146,7 +146,7 @@ class ProjectsWidget(QWidget):
 
     def change_project_port(self, project, new_port):
         async def run_change_port():
-            project.port = int(new_port)
+            project.port = new_port
             await project.save(force_update=True)
 
             self.load_projects()
@@ -229,8 +229,8 @@ class ProjectsWidget(QWidget):
         # Інформаційний блок
         info_label = QLabel(
             "Усі параметри проєкту мають збігатися з налаштуваннями на пристроях і з налаштуваннями "
-            "серійного порту Вашого ПК до якого підключений перетворювач."
-            "\nНЕ ВИКОРИСТОВУЙТЕ СИСТЕМНІ ПОРТИ (Зазвичай COM3 та COM4), це може призвести до помилок"
+            "серійного порту Вашого ПК до якого підключений перетворювач 'CH340 Adapter.'"
+            "\nЗазвичай Ваш перетворювач налаштований на порт dev/tty/USB0 або USB1"
         )
         info_label.setWordWrap(True)
         layout.addWidget(info_label)
