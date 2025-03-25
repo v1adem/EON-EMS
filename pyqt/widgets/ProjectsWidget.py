@@ -79,6 +79,27 @@ class ProjectsWidget(QWidget):
                 name_label.setStyleSheet("font-size: 18px;")
                 item_layout.addWidget(name_label)
 
+                import pyudev
+
+                def get_serial_ports():
+                    context = pyudev.Context()
+                    ports = []
+                    for device in context.list_devices(subsystem='tty', DEVTYPE='serial'):
+                        ports.append(device.device_node)
+                        print(ports)
+                    return ports
+
+
+                ports = get_serial_ports()
+                port_combo = QComboBox()
+                port_combo.addItems(ports)
+                #port_combo.setCurrentText(project.port)
+                port_combo.setStyleSheet("font-size: 18px;")
+                port_combo.currentIndexChanged.connect(
+                    lambda _, p=project, combo=port_combo:
+                    self.change_project_port(p, combo.currentText())
+                )
+
                 connection_label = QLabel()
                 self.update_connection_status(project, connection_label)
                 connection_label.setSizePolicy(QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Preferred)
@@ -96,7 +117,7 @@ class ProjectsWidget(QWidget):
                 delete_button.clicked.connect(lambda _, p=project: self.delete_project(p))
 
                 if self.isAdmin:
-                    #item_layout.addWidget(port_combo)
+                    item_layout.addWidget(port_combo)
                     item_layout.addWidget(edit_button)
                     item_layout.addWidget(delete_button)
 
