@@ -91,11 +91,10 @@ class ProjectsWidget(QWidget):
 
 
                 ports = get_serial_ports()
-                print(ports)
-                ports.append('Nothing')
+                ports.append('-Nothing-')
                 port_combo = QComboBox()
                 port_combo.addItems(ports)
-                #port_combo.setCurrentText(project.port)
+                port_combo.setCurrentText(project.port)
                 port_combo.setStyleSheet("font-size: 18px;")
                 port_combo.currentIndexChanged.connect(
                     lambda _, p=project, combo=port_combo:
@@ -156,7 +155,7 @@ class ProjectsWidget(QWidget):
 
     def is_connected(self, project):
         client = ModbusSerialClient(
-            port=f"COM{project.port}",
+            port=f"{project.port}",
             baudrate=project.baudrate,
             parity=project.parity,
             stopbits=project.stopbits,
@@ -244,8 +243,7 @@ class ProjectsWidget(QWidget):
                 os.system("start devmgmt.msc")
             elif platform.system() == "Linux":
                 lsusb_output = subprocess.check_output(["lsusb"]).decode("utf-8")
-                dmesg_output = subprocess.check_output(["dmesg"]).decode("utf-8")
-                info = f"lsusb:\n{lsusb_output}\n\ndmesg:\n{dmesg_output}"
+                info = f"lsusb:\n{lsusb_output}\n"
                 QMessageBox.information(
                     self, "Інформація про пристрої", info
                 )
