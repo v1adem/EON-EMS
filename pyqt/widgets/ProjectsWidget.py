@@ -1,3 +1,5 @@
+import subprocess
+
 from AsyncioPySide6 import AsyncioPySide6
 from PySide6.QtCore import Qt, QSize
 from PySide6.QtGui import QStandardItemModel, QIcon, QStandardItem
@@ -10,8 +12,6 @@ from tools.config import resource_path
 from models.Device import Device
 from models.Project import Project
 from models.Report import SDM120Report, SDM120ReportTmp, SDM630Report, SDM630ReportTmp, SDM72Report, SDM72ReportTmp
-
-# import pyudev
 
 class ProjectsWidget(QWidget):
     def __init__(self, main_window):
@@ -79,17 +79,20 @@ class ProjectsWidget(QWidget):
                 name_label.setStyleSheet("font-size: 18px;")
                 item_layout.addWidget(name_label)
 
-                #def get_serial_ports():
-                #    context = pyudev.Context()
-                #    ports = []
-                #    for device in context.list_devices():
-                #        if device.subsystem == 'tty':
-                #            ports.append(device.device_node)
-                #    return ports
+                import pyudev
 
-                #ports = get_serial_ports()
+                def get_serial_ports():
+                    context = pyudev.Context()
+                    ports = []
+                    for device in context.list_devices(subsystem='tty', DEVTYPE='serial'):
+                        ports.append(device.device_node)
+                        print(ports)
+                    return ports
+
+
+                ports = get_serial_ports()
                 port_combo = QComboBox()
-                #port_combo.addItems(ports)
+                port_combo.addItems(ports)
                 #port_combo.setCurrentText(project.port)
                 port_combo.setStyleSheet("font-size: 18px;")
                 port_combo.currentIndexChanged.connect(
@@ -238,7 +241,12 @@ class ProjectsWidget(QWidget):
             if platform.system() == "Windows":
                 os.system("start devmgmt.msc")
             elif platform.system() == "Linux":
-                print('a')
+                lsusb_output = subprocess.check_output(["lsusb"]).decode("utf-8")
+                dmesg_output = subprocess.check_output(["dmesg"]).decode("utf-8")
+                info = f"lsusb:\n{lsusb_output}\n\ndmesg:\n{dmesg_output}"
+                QMessageBox.information(
+                    self, "Інформація про пристрої", info
+                )
             else:
                 QMessageBox.information(
                     self, "Недоступно", "Функція не підтримується на цій платформі."
