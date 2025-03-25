@@ -84,9 +84,9 @@ class ProjectsWidget(QWidget):
                 def get_serial_ports():
                     context = pyudev.Context()
                     ports = []
-                    for device in context.list_devices(subsystem='tty', DEVTYPE='serial'):
-                        ports.append(device.device_node)
-                        print(ports)
+                    for device in context.list_devices():
+                        if device.subsystem == 'tty':
+                            ports.append(device.device_node)
                     return ports
 
 
