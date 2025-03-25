@@ -63,6 +63,8 @@ class SerialReaderRS485:
         self.device_address = device_address
         self.register_map = RegisterMap.get_register_map(device_name)
 
+        print("Port: " + str(self.port))
+
         self.client = ModbusSerialClient(
             port=f"{port}", baudrate=baudrate, parity=parity,
             stopbits=stopbits, bytesize=bytesize, timeout=0.5, retries=1
@@ -99,6 +101,7 @@ class SerialReaderRS485:
     async def read_all_properties(self):
         result = {}
         if self.connect():
+            print("Connected")
             grouped_registers = self.group_registers()
             try:
                 for group in grouped_registers:
@@ -106,6 +109,7 @@ class SerialReaderRS485:
                     total_length = group['length']
                     response = self.client.read_input_registers(start_address, count=total_length,
                                                                 slave=self.device_address)
+                    print(response)
 
                     if response.isError():
                         self.error_text = f"{datetime.now().strftime('%d/%m/%Y %H:%M:%S')} | No response from {start_address}"

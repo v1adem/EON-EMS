@@ -92,7 +92,6 @@ class DataCollectorRunnable(QRunnable):
                 local_tz = get_timezone()
                 now_local = datetime.now(local_tz)
                 if device.wait_time > now_local:
-                    logger.warning(f"WAIT | NOW {now_local} TO {device.wait_time}")
                     continue
                 main_db_model, tmp_db_model = self.get_db_model(device)
                 
