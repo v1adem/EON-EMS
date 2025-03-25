@@ -6,7 +6,7 @@ class Project(Model):
     id = fields.IntField(pk=True)
     name = fields.CharField(max_length=255, unique=True)
     description = fields.TextField(null=True)
-    port = fields.IntField(null=True)
+    port = fields.CharField(null=False, max_length=255, default='-Nothing-')
     baudrate = fields.IntField(default=9600)
     bytesize = fields.IntField(default=8)
     stopbits = fields.IntField(default=1)
