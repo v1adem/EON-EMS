@@ -107,9 +107,10 @@ class SerialReaderRS485:
                 for group in grouped_registers:
                     start_address = group['start']
                     total_length = group['length']
+                    print("Start address: " + str(start_address) + " Total length: " + str(total_length) + "Device address: " + str(self.device_address))
                     response = self.client.read_input_registers(start_address, count=total_length,
                                                                 slave=self.device_address)
-                    print(response)
+                    print("Response " + response)
 
                     if response.isError():
                         self.error_text = f"{datetime.now().strftime('%d/%m/%Y %H:%M:%S')} | No response from {start_address}"
