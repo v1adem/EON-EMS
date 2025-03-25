@@ -13,8 +13,6 @@ from models.Device import Device
 from models.Project import Project
 from models.Report import SDM120Report, SDM120ReportTmp, SDM630Report, SDM630ReportTmp, SDM72Report, SDM72ReportTmp
 
-import glob
-
 class ProjectsWidget(QWidget):
     def __init__(self, main_window):
         super().__init__(main_window)
@@ -88,7 +86,9 @@ class ProjectsWidget(QWidget):
                     ports = []
                     for device in context.list_devices(subsystem='tty', DEVTYPE='serial'):
                         ports.append(device.device_node)
+                        print(ports)
                     return ports
+
 
                 ports = get_serial_ports()
                 port_combo = QComboBox()
