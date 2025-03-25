@@ -79,24 +79,23 @@ class ProjectsWidget(QWidget):
                 name_label.setStyleSheet("font-size: 18px;")
                 item_layout.addWidget(name_label)
 
-                def get_serial_ports():
-                    context = pyudev.Context()
-                    ports = []
-                    for device in context.list_devices():
-                        if device.subsystem == 'tty':
-                            ports.append(device.device_node)
-                    return ports
+                #def get_serial_ports():
+                #    context = pyudev.Context()
+                #    ports = []
+                #    for device in context.list_devices():
+                #        if device.subsystem == 'tty':
+                #            ports.append(device.device_node)
+                #    return ports
 
                 #ports = get_serial_ports()
-                #port_combo = QComboBox()
+                port_combo = QComboBox()
                 #port_combo.addItems(ports)
-                print("Items added")
                 #port_combo.setCurrentText(project.port)
-                #port_combo.setStyleSheet("font-size: 18px;")
-                #port_combo.currentIndexChanged.connect(
-                #    lambda _, p=project, combo=port_combo:
-                #    self.change_project_port(p, combo.currentText())
-                #)
+                port_combo.setStyleSheet("font-size: 18px;")
+                port_combo.currentIndexChanged.connect(
+                    lambda _, p=project, combo=port_combo:
+                    self.change_project_port(p, combo.currentText())
+                )
 
                 connection_label = QLabel()
                 self.update_connection_status(project, connection_label)
