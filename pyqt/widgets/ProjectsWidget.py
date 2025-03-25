@@ -84,7 +84,7 @@ class ProjectsWidget(QWidget):
                     ports = []
                     print(context)
                     print(ports)
-                    for device in context.list_devices(subsystem='tty', DEVTYPE='serial'):
+                    for device in context.list_devices():
                         ports.append(device.device_node)
                         print(ports)
                     return ports
