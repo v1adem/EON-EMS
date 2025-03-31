@@ -1,5 +1,7 @@
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta
 import logging
+
+from pymodbus.exceptions import ModbusIOException
 
 from tools.config import get_timezone
 
@@ -107,13 +109,11 @@ class SerialReaderRS485:
                 for group in grouped_registers:
                     start_address = group['start']
                     total_length = group['length']
-                    print("Start address: " + str(start_address) + " Total length: " + str(total_length) + "Device address: " + str(self.device_address))
                     response = self.client.read_input_registers(start_address, count=total_length,
                                                                 slave=self.device_address)
-                    print("Response " + response)
 
                     if response.isError():
-                        self.error_text = f"{datetime.now().strftime('%d/%m/%Y %H:%M:%S')} | No response from {start_address}"
+                        self.error_text = f"No response from {start_address}"
                         logger.error(self.error_text)
                         self.no_response_error_flag = True
                         continue
@@ -126,8 +126,12 @@ class SerialReaderRS485:
                         result[name] = decode_data(data, spec)
                         idx += length
 
+            except ModbusIOException as e:
+                self.error_text = f"{datetime.now().strftime('%d/%m/%Y %H:%M:%S')} | Modbus IO Error: {e}"
+                logger.error(self.error_text)
+                self.error_flag = True
             except Exception as e:
-                self.error_text = f"{datetime.now().strftime('%d/%m/%Y %H:%M:%S')} | {e}"
+                self.error_text = f"{datetime.now().strftime('%d/%m/%Y %H:%M:%S')} | An unexpected error occurred: {str(e)}"
                 logger.error(self.error_text)
                 self.error_flag = True
             finally:
@@ -162,4 +166,3 @@ class SerialReaderRS485:
             QMessageBox.StandardButton.Ok,
             QMessageBox.StandardButton.Cancel
         )
-
