@@ -1,3 +1,10 @@
+from datetime import datetime
+
+import logging
+logger = logging.getLogger(__name__)
+
+
+import pytz
 from AsyncioPySide6 import AsyncioPySide6
 from PySide6.QtCore import Qt, QSize, QTime
 from PySide6.QtGui import QStandardItemModel, QStandardItem, QIcon
@@ -8,8 +15,6 @@ from tortoise.exceptions import DoesNotExist
 from tools.config import resource_path, get_timezone
 from models.Device import Device
 from models.Report import SDM120Report, SDM120ReportTmp, SDM630Report, SDM630ReportTmp, SDM72Report, SDM72ReportTmp
-from datetime import datetime
-import pytz
 
 
 class ProjectViewWidget(QWidget):
@@ -108,13 +113,9 @@ class ProjectViewWidget(QWidget):
                         self.toggle_device_status(d, btn)))
 
                 force_try_button = QPushButton("Примусова спроба")
-                force_try_button.setFixedSize(120, 36)  # Трохи більший розмір для тексту
+                force_try_button.setFixedSize(120, 36)
                 force_try_button.clicked.connect(
                     lambda _, d=device: AsyncioPySide6.runTask(self.force_device_try(d)))
-
-                # Відображення кнопки "Примусова спроба" лише коли пристрій очікує
-                if not device.actual_status and device.reading_status:
-                    item_layout.addWidget(force_try_button)
 
                 edit_button = QPushButton()
                 edit_button.setIcon(QIcon(resource_path("pyqt/icons/edit.png")))
@@ -124,17 +125,22 @@ class ProjectViewWidget(QWidget):
                 delete_button = QPushButton()
                 delete_button.setIcon(QIcon(resource_path("pyqt/icons/delete.png")))
                 delete_button.setFixedSize(36, 36)
-                delete_button.clicked.connect(lambda _, d=device: self.delete_device(d))
+                delete_button.clicked.connect(lambda _, d=device: self.delete_device(d))\
+
+                if not device.actual_status and device.reading_status:
+                    item_layout.addWidget(force_try_button)
 
                 if self.isAdmin:
                     item_layout.addWidget(toggle_status_button)
+                    if not device.actual_status and device.reading_status:
+                        pass
                     item_layout.addWidget(edit_button)
                     item_layout.addWidget(delete_button)
 
                     spacer = QSpacerItem(5, 0, QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Minimum)
                     item_layout.addSpacerItem(spacer)
 
-                item_layout.setContentsMargins(0, 0, 0, 0, 0, 0)
+                item_layout.setContentsMargins(0, 0, 0, 0)
 
                 self.devices_list.setIndexWidget(item.index(), item_widget)
 
@@ -145,7 +151,6 @@ class ProjectViewWidget(QWidget):
             device.toggle_reading_status()
             await device.save()
             button.setText("Увімкнути" if not device.get_reading_status() else "Вимкнути")
-            self.load_devices()  # Оновлення списку для відображення кнопки "Примусова спроба"
         except Exception as e:
             QMessageBox.critical(self, "Помилка", f"Не вдалося змінити статус пристрою: {e}",
                                  QMessageBox.StandardButton.Ok, QMessageBox.StandardButton.Cancel)
@@ -154,13 +159,12 @@ class ProjectViewWidget(QWidget):
         try:
             tz = get_timezone()
             now_utc = datetime.utcnow().replace(tzinfo=pytz.utc)
-            now_local = now_utc.astimezone(tz)
-            device.wait_time = now_local
+
+            device.wait_time = now_utc.astimezone(tz)
             await device.save(update_fields=['wait_time'])
-            self.load_devices()  # Оновлення списку для видалення кнопки "Примусова спроба"
+            self.load_devices()
         except Exception as e:
-            QMessageBox.critical(self, "Помилка", f"Не вдалося оновити час очікування пристрою: {e}",
-                                 QMessageBox.StandardButton.Ok, QMessageBox.StandardButton.Cancel)
+            logger.error(e)
 
     def add_new_device(self):
         self.new_device = None
