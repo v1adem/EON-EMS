@@ -113,7 +113,7 @@ class ProjectViewWidget(QWidget):
                         self.toggle_device_status(d, btn)))
 
                 force_try_button = QPushButton("Примусова спроба")
-                force_try_button.setFixedSize(120, 36)
+                force_try_button.setFixedSize(150, 36)
                 force_try_button.clicked.connect(
                     lambda _, d=device: AsyncioPySide6.runTask(self.force_device_try(d)))
 
