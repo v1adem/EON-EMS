@@ -21,7 +21,7 @@ def decode_data(data, property_specifications):
     decoded_data = 0
 
     if property_specifications["format"] == "float":
-        decoded_data = decode_32bit_float(data)
+        decoded_data = decode_16bit_float(data)
     elif property_specifications["format"] == "U_WORD":
         decoded_data = data[0]
     elif property_specifications["format"] == "UD_WORD":
@@ -46,6 +46,10 @@ def decode_32bit_signed(data):
     return BinaryPayloadDecoder.fromRegisters(data, byteorder=Endian.BIG,
                                               wordorder=Endian.BIG).decode_32bit_int()
 
+def decode_16bit_float(data):
+    decoded_data = BinaryPayloadDecoder.fromRegisters(data, byteorder=Endian.BIG,
+                                                      wordorder=Endian.BIG).decode_16bit_float()
+    return decoded_data
 
 def decode_32bit_float(data):
     decoded_data = BinaryPayloadDecoder.fromRegisters(data, byteorder=Endian.BIG,
