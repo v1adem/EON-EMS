@@ -1,6 +1,9 @@
 import asyncio
 from datetime import datetime, timedelta
 import logging
+
+from models.Project import Project
+
 logger = logging.getLogger(__name__)
 
 from AsyncioPySide6 import AsyncioPySide6
@@ -74,6 +77,7 @@ class DataCollectorRunnable(QRunnable):
     def __init__(self, project, main_window):
         super().__init__()
         self.project = project
+        self.port = self.project.port
         self.phases = []
         self.main_window = main_window
         self.stop_collecting = False
@@ -83,6 +87,7 @@ class DataCollectorRunnable(QRunnable):
 
     async def collect_data(self):
         while not self.stop_collecting:
+            self.project = await Project.filter(id=self.project.id).first()
             devices = await Device.filter(project=self.project).all()
             for device in devices:
                 if self.stop_collecting:
@@ -92,7 +97,6 @@ class DataCollectorRunnable(QRunnable):
                 local_tz = get_timezone()
                 now_local = datetime.now(local_tz)
                 if device.wait_time > now_local:
-                    logger.warning(f"WAIT | NOW {now_local} TO {device.wait_time}")
                     continue
                 main_db_model, tmp_db_model = self.get_db_model(device)
                 
@@ -158,8 +162,6 @@ class DataCollectorRunnable(QRunnable):
                     logger.info(f"Device {device.name} - {device.model} - is now online")
                     device.actual_status = True
                     await device.save(force_update=True)
-
-                logger.info(f"Report is saved - {device.name}, {device.model}")
 
                 deleting_time = get_deleting_time()
                 if deleting_time > 0:
