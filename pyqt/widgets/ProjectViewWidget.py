@@ -1,3 +1,9 @@
+from datetime import datetime
+
+import logging
+logger = logging.getLogger(__name__)
+
+import pytz
 from AsyncioPySide6 import AsyncioPySide6
 from PySide6.QtCore import Qt, QSize, QTime
 from PySide6.QtGui import QStandardItemModel, QStandardItem, QIcon
@@ -105,6 +111,10 @@ class ProjectViewWidget(QWidget):
                     lambda _, d=device, btn=toggle_status_button: AsyncioPySide6.runTask(
                         self.toggle_device_status(d, btn)))
 
+                force_try_button = QPushButton("Примусова спроба")
+                force_try_button.setFixedSize(150, 36)
+                force_try_button.clicked.connect(
+                    lambda _, d=device: AsyncioPySide6.runTask(self.force_device_try(d)))
 
                 edit_button = QPushButton()
                 edit_button.setIcon(QIcon(resource_path("pyqt/icons/edit.png")))
@@ -116,8 +126,13 @@ class ProjectViewWidget(QWidget):
                 delete_button.setFixedSize(36, 36)
                 delete_button.clicked.connect(lambda _, d=device: self.delete_device(d))
 
+                if not device.actual_status and device.reading_status:
+                    item_layout.addWidget(force_try_button)
+
                 if self.isAdmin:
                     item_layout.addWidget(toggle_status_button)
+                    if not device.actual_status and device.reading_status:
+                        pass
                     item_layout.addWidget(edit_button)
                     item_layout.addWidget(delete_button)
 
@@ -138,6 +153,18 @@ class ProjectViewWidget(QWidget):
         except Exception as e:
             QMessageBox.critical(self, "Помилка", f"Не вдалося змінити статус пристрою: {e}",
                                  QMessageBox.StandardButton.Ok, QMessageBox.StandardButton.Cancel)
+            logger.error(e)
+
+    async def force_device_try(self, device):
+        try:
+            tz = get_timezone()
+            now_utc = datetime.utcnow().replace(tzinfo=pytz.utc)
+
+            device.wait_time = now_utc.astimezone(tz)
+            await device.save(update_fields=['wait_time'])
+            self.load_devices()
+        except Exception as e:
+            logger.error(e)
 
     def add_new_device(self):
         self.new_device = None
