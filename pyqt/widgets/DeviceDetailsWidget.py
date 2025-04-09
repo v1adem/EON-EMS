@@ -286,7 +286,7 @@ class DeviceDetailsWidget(QWidget):
             self.report_table.resizeColumnsToContents()
             self.setup_table_click_handler(self.report_table)
 
-            if self.device_model == "SDM72D":
+            if self.device_model == "SDM72":
                 self.update_graphs_sdm72()
             else:
                 self.update_graphs()
@@ -1228,24 +1228,28 @@ class DeviceDetailsWidget(QWidget):
         voltage_lcd = QLCDNumber()
         voltage_lcd.setStyleSheet("font-size: 18pt;")
         voltage_lcd.setSegmentStyle(QLCDNumber.SegmentStyle.Flat)
+        voltage_lcd.setDigitCount(10)
 
         current_label = QLabel("Струм (A)")
         current_label.setStyleSheet("font-size: 14pt; font-weight: bold;")
         current_lcd = QLCDNumber()
         current_lcd.setStyleSheet("font-size: 18pt;")
         current_lcd.setSegmentStyle(QLCDNumber.SegmentStyle.Flat)
+        current_lcd.setDigitCount(10)
 
         power_label = QLabel("Потужність (W)")
         power_label.setStyleSheet("font-size: 14pt; font-weight: bold;")
         power_lcd = QLCDNumber()
         power_lcd.setStyleSheet("font-size: 18pt;")
         power_lcd.setSegmentStyle(QLCDNumber.SegmentStyle.Flat)
+        power_lcd.setDigitCount(10)
 
         energy_label = QLabel("Спожито (kWh)")
         energy_label.setStyleSheet("font-size: 14pt; font-weight: bold;")
         energy_lcd = QLCDNumber()
         energy_lcd.setStyleSheet("font-size: 18pt;")
         energy_lcd.setSegmentStyle(QLCDNumber.SegmentStyle.Flat)
+        energy_lcd.setDigitCount(10)
 
         if phase_name != "Загальне":
             indicators_layout.addWidget(voltage_label, 0, 0)
@@ -1279,6 +1283,7 @@ class DeviceDetailsWidget(QWidget):
 
     def update_graphs_sdm72(self):
         for phase_name in self.phases:
+            print(phase_name)
             timestamps = []
             voltages = []
             currents = []
@@ -1297,6 +1302,7 @@ class DeviceDetailsWidget(QWidget):
                     voltages.append(voltages_for_general)
                     currents.append(currents_for_general)
                     powers.append(powers_for_general)
+                    print(voltages)
                 else:
                     voltages.append(getattr(report, f'line_voltage_{self.phases.index(phase_name) + 1}'))
                     currents.append(getattr(report, f'current_{self.phases.index(phase_name) + 1}'))
