@@ -4,6 +4,8 @@ import logging
 
 import xlsxwriter
 
+from register_maps.RegisterMaps import RegisterMap
+
 logger = logging.getLogger(__name__)
 
 import pytz
@@ -465,27 +467,13 @@ class ProjectViewWidget(QWidget):
                     worksheet = workbook.add_worksheet(device.name)
                     worksheet.write(0, 0, "Дата/Час")
 
-                    column_labels = {
-                        "line_voltage_1": "Напруга L1 (В)",
-                        "line_voltage_2": "Напруга L2 (В)",
-                        "line_voltage_3": "Напруга L3 (В)",
-                        "current_1": "Струм L1 (А)",
-                        "current_2": "Струм L2 (А)",
-                        "current_3": "Струм L3 (А)",
-                        "power_1": "Потужність L1 (Вт)",
-                        "power_2": "Потужність L2 (Вт)",
-                        "power_3": "Потужність L3 (Вт)",
-                        "frequency": "Частота (Гц)",
-                        "power_factor_1": "Коефіцієнт потужності L1",
-                        "power_factor_2": "Коефіцієнт потужності L2",
-                        "power_factor_3": "Коефіцієнт потужності L3",
-                        "total_power": "Повна потужність (Вт)",
-                        "total_energy": "Повна енергія (кВт*год)",
-                    }
+                    register_map = RegisterMap.get_register_map(device.model)
+                    column_labels = RegisterMap.get_columns_with_units(register_map)
 
                     columns = list(column_labels.keys())
                     for col_idx, column in enumerate(columns, start=1):
-                        worksheet.write(0, col_idx, column_labels[column])
+                        header_text = f"{column} ({column_labels[column]})" if column_labels[column] else column
+                        worksheet.write(0, col_idx, header_text)
 
                     for row_idx, entry in enumerate(report_data, start=1):
                         worksheet.write(row_idx, 0, entry.timestamp.strftime('%Y-%m-%d %H:%M:%S'))
