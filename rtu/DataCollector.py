@@ -3,6 +3,7 @@ from datetime import datetime, timedelta
 import logging
 
 from models.Project import Project
+from rtu.DataCollectorTestingTools import get_test_data
 
 logger = logging.getLogger(__name__)
 
@@ -43,6 +44,8 @@ def is_voltage_out_of_range(new_data, device, phase):
                   f"Current value: {voltage_value}V. Extra: {voltage_value - device.maxV}V.")
             return True
         elif voltage_value <= device.minV:
+            if voltage_value == 0:
+                return False
             print(f"Voltage of {phase} phase in {device.name} ({device.model}) is less than ({device.minV}V). \n" +
                   f"Current value: {voltage_value}V. Lack: {device.minV - voltage_value}V.")
             return True
@@ -101,9 +104,9 @@ class DataCollectorRunnable(QRunnable):
                 main_db_model, tmp_db_model = self.get_db_model(device)
                 
                 last_report = await main_db_model.filter(device=device).last()
-                new_data = await get_data_from_device(device, self.project, self.main_window)
+                # new_data = await get_data_from_device(device, self.project, self.main_window)
                 
-                # new_data = get_test_data(device.model, last_report)
+                new_data = get_test_data(device.model, last_report)
 
                 if self.stop_collecting:  # Перевірка
                     return
