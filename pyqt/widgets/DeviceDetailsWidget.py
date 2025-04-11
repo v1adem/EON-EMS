@@ -1283,7 +1283,6 @@ class DeviceDetailsWidget(QWidget):
 
     def update_graphs_sdm72(self):
         for phase_name in self.phases:
-            print(phase_name)
             timestamps = []
             voltages = []
             currents = []

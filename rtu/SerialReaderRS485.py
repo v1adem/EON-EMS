@@ -108,7 +108,7 @@ class SerialReaderRS485:
                                                                 slave=self.device_address)
 
                     if response.isError():
-                        self.error_text = f"{datetime.now().strftime('%d/%m/%Y %H:%M:%S')} | No response from {start_address}"
+                        self.error_text = f"No response from {start_address}"
                         logger.error(self.error_text)
                         self.no_response_error_flag = True
                         continue
@@ -122,7 +122,7 @@ class SerialReaderRS485:
                         idx += length
 
             except Exception as e:
-                self.error_text = f"{datetime.now().strftime('%d/%m/%Y %H:%M:%S')} | {e}"
+                self.error_text = f"{e}"
                 logger.error(self.error_text)
                 self.error_flag = True
             finally:
