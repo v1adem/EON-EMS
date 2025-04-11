@@ -1,14 +1,18 @@
 from datetime import datetime
 
 import logging
+
+import xlsxwriter
+
 logger = logging.getLogger(__name__)
 
 import pytz
 from AsyncioPySide6 import AsyncioPySide6
-from PySide6.QtCore import Qt, QSize, QTime
+from PySide6.QtCore import Qt, QSize, QTime, QDate
 from PySide6.QtGui import QStandardItemModel, QStandardItem, QIcon
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QLabel, QListView, QPushButton, QHBoxLayout, QMessageBox, QDialog, \
-    QFormLayout, QLineEdit, QComboBox, QSpinBox, QDialogButtonBox, QRadioButton, QTimeEdit, QSpacerItem, QSizePolicy
+    QFormLayout, QLineEdit, QComboBox, QSpinBox, QDialogButtonBox, QRadioButton, QTimeEdit, QSpacerItem, QSizePolicy, \
+    QFileDialog, QDateEdit
 from tortoise.exceptions import DoesNotExist
 
 from tools.config import resource_path, get_timezone
@@ -29,6 +33,12 @@ class ProjectViewWidget(QWidget):
         self.label = QLabel(f"Деталі проєкту: {project.name}")
         self.label.setStyleSheet("font-size: 18px;")
         top_layout.addWidget(self.label)
+
+        export_button = QPushButton("Експорт в Excel")
+        export_button.setFixedSize(360, 36)
+        export_button.setStyleSheet("font-size: 16px;")
+        export_button.clicked.connect(self.open_project_export_dialog)
+        top_layout.addWidget(export_button)
 
         refresh_button = QPushButton()
         refresh_button.setIcon(QIcon(resource_path("pyqt/icons/refresh.png")))
@@ -381,3 +391,115 @@ class ProjectViewWidget(QWidget):
                 print("Пристрій не знайдено.")
 
         AsyncioPySide6.runTask(run_open_device_details())
+
+    def open_project_export_dialog(self):
+        self.dialog = QDialog(self)
+        self.dialog.setWindowTitle("Експорт проєкту в Excel")
+        self.dialog.setFixedSize(400, 150)
+
+        layout = QVBoxLayout(self.dialog)
+
+        date_range_layout = QHBoxLayout()
+        start_label = QLabel("Початок:")
+        self.start_export_date = QDateEdit(QDate.currentDate().addYears(-1))
+        self.start_export_date.setCalendarPopup(True)
+        end_label = QLabel("Кінець:")
+        self.end_export_date = QDateEdit(QDate.currentDate())
+        self.end_export_date.setCalendarPopup(True)
+        date_range_layout.addWidget(start_label)
+        date_range_layout.addWidget(self.start_export_date)
+        date_range_layout.addWidget(end_label)
+        date_range_layout.addWidget(self.end_export_date)
+
+        layout.addLayout(date_range_layout)
+
+        save_button = QPushButton("Зберегти в Excel")
+        save_button.clicked.connect(self.export_project_to_excel)
+        layout.addWidget(save_button)
+
+        self.dialog.setLayout(layout)
+        self.dialog.exec()
+
+    def export_project_to_excel(self):
+        start_datetime = self.start_export_date.dateTime().toPython()
+        end_datetime_for_name = self.end_export_date.dateTime().toPython()
+        end_datetime = self.end_export_date.dateTime().addDays(1).toPython()
+
+        async def run_export_to_excel():
+            devices = await Device.filter(project_id=self.project.id).all()
+            if not devices:
+                QMessageBox.warning(self, "Експорт", "У проєкті немає пристроїв для експорту.")
+                return
+
+            file_path, _ = QFileDialog.getSaveFileName(
+                self,
+                "Зберегти файл",
+                f"{self.project.name}_{start_datetime.date()}_{end_datetime_for_name.date()}.xlsx",
+                "Excel Files (*.xlsx)")
+
+            if not file_path:
+                return
+
+            try:
+                workbook = xlsxwriter.Workbook(file_path)
+
+                for device in devices:
+                    if device.model == "SDM120":
+                        report_model = SDM120Report
+                    elif device.model == "SDM630":
+                        report_model = SDM630Report
+                    elif device.model == "SDM72":
+                        report_model = SDM72Report
+                    else:
+                        continue
+
+                    report_data = await report_model.filter(
+                        device_id=device.id,
+                        timestamp__gte=start_datetime,
+                        timestamp__lte=end_datetime
+                    ).order_by("timestamp").all()
+
+                    if not report_data:
+                        continue
+
+                    worksheet = workbook.add_worksheet(device.name)
+                    worksheet.write(0, 0, "Дата/Час")
+
+                    column_labels = {
+                        "line_voltage_1": "Напруга L1 (В)",
+                        "line_voltage_2": "Напруга L2 (В)",
+                        "line_voltage_3": "Напруга L3 (В)",
+                        "current_1": "Струм L1 (А)",
+                        "current_2": "Струм L2 (А)",
+                        "current_3": "Струм L3 (А)",
+                        "power_1": "Потужність L1 (Вт)",
+                        "power_2": "Потужність L2 (Вт)",
+                        "power_3": "Потужність L3 (Вт)",
+                        "frequency": "Частота (Гц)",
+                        "power_factor_1": "Коефіцієнт потужності L1",
+                        "power_factor_2": "Коефіцієнт потужності L2",
+                        "power_factor_3": "Коефіцієнт потужності L3",
+                        "total_power": "Повна потужність (Вт)",
+                        "total_energy": "Повна енергія (кВт*год)",
+                    }
+
+                    columns = list(column_labels.keys())
+                    for col_idx, column in enumerate(columns, start=1):
+                        worksheet.write(0, col_idx, column_labels[column])
+
+                    for row_idx, entry in enumerate(report_data, start=1):
+                        worksheet.write(row_idx, 0, entry.timestamp.strftime('%Y-%m-%d %H:%M:%S'))
+                        for col_idx, column in enumerate(columns, start=1):
+                            value = getattr(entry, column, None)
+                            worksheet.write(row_idx, col_idx, value)
+
+                    worksheet.set_column(0, len(columns), 20)
+
+                workbook.close()
+                QMessageBox.information(self, "Експорт", "Експорт даних в Excel пройшов успішно.")
+                self.dialog.accept()
+
+            except Exception as e:
+                QMessageBox.warning(self, "Помилка", f"Сталася помилка при експорті даних: {e}")
+
+        AsyncioPySide6.runTask(run_export_to_excel())
