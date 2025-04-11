@@ -104,9 +104,9 @@ class DataCollectorRunnable(QRunnable):
                 main_db_model, tmp_db_model = self.get_db_model(device)
                 
                 last_report = await main_db_model.filter(device=device).last()
-                # new_data = await get_data_from_device(device, self.project, self.main_window)
+                new_data = await get_data_from_device(device, self.project, self.main_window)
                 
-                new_data = get_test_data(device.model, last_report)
+                # new_data = get_test_data(device.model, last_report)
 
                 if self.stop_collecting:  # Перевірка
                     return
