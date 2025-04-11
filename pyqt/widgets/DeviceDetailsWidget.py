@@ -1294,14 +1294,13 @@ class DeviceDetailsWidget(QWidget):
                     voltages_for_general = []
                     currents_for_general = []
                     powers_for_general = []
-                    for i in range(len(self.phases) - 1):  # -1 щоб не включати "Загальне"
+                    for i in range(len(self.phases) - 1):
                         voltages_for_general.append(getattr(report, f'line_voltage_{i + 1}'))
                         currents_for_general.append(getattr(report, f'current_{i + 1}'))
-                        powers_for_general.extend(getattr(report, f'power_{i + 1}'))
+                        powers_for_general.append(getattr(report, f'power_{i + 1}'))
                     voltages.append(voltages_for_general)
                     currents.append(currents_for_general)
                     powers.append(powers_for_general)
-                    print(voltages)
                 else:
                     voltages.append(getattr(report, f'line_voltage_{self.phases.index(phase_name) + 1}'))
                     currents.append(getattr(report, f'current_{self.phases.index(phase_name) + 1}'))
@@ -1318,7 +1317,6 @@ class DeviceDetailsWidget(QWidget):
                 transposed_voltages = list(zip(*voltages))
                 transposed_currents = list(zip(*currents))
                 transposed_powers = list(zip(*powers))
-
                 self.update_voltage_graph(timestamps, transposed_voltages, phase_name)
                 self.update_current_graph(timestamps, transposed_currents, phase_name)
                 self.update_power_graph(timestamps, transposed_powers, phase_name)
