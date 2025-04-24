@@ -70,6 +70,7 @@ class ProjectsWidget(QWidget):
 
         async def run_load_projects():
             self.projects = await Project.all()
+            print(self.projects)
             for index, project in enumerate(self.projects, start=1):
                 item = QStandardItem()
                 item.setData(project.name, Qt.ItemDataRole.UserRole)
@@ -96,10 +97,10 @@ class ProjectsWidget(QWidget):
                     for device in context.list_devices():
                         if device.subsystem == 'tty':
                             ports.append(device.device_node)
+                            print(device.device_node)
                     return ports
 
-
-                ports = [] #get_serial_ports()
+                ports = get_serial_ports()
                 ports.append('-Nothing-')
                 port_combo = QComboBox()
                 port_combo.addItems(ports)
