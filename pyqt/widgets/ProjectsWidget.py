@@ -109,29 +109,21 @@ class ProjectsWidget(QWidget):
                     self.change_project_port(p, combo.currentText())
                 )
 
-                print(1)
-
                 connection_label = QLabel()
                 self.update_connection_status(project, connection_label)
                 connection_label.setSizePolicy(QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Preferred)
                 connection_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
                 item_layout.addWidget(connection_label)
 
-                print(2)
-
                 edit_button = QPushButton()
                 edit_button.setIcon(QIcon(resource_path("pyqt/icons/edit.png")))
                 edit_button.setFixedSize(36, 36)
                 edit_button.clicked.connect(lambda _, p=project: self.edit_project(p))
 
-                print(3)
-
                 delete_button = QPushButton()
                 delete_button.setIcon(QIcon(resource_path("pyqt/icons/delete.png")))
                 delete_button.setFixedSize(36, 36)
                 delete_button.clicked.connect(lambda _, p=project: self.delete_project(p))
-
-                print(4)
 
                 if self.isAdmin:
                     item_layout.addWidget(port_combo)
@@ -145,12 +137,9 @@ class ProjectsWidget(QWidget):
                     port_label.setStyleSheet("font-size: 18px; border: 0px solid #cccccc; margin: 0px;")
                     item_layout.addWidget(port_label)
 
-                print(5)
-
                 item_layout.setContentsMargins(0, 0, 0, 0)
 
                 self.projects_list.setIndexWidget(item.index(), item_widget)
-                print(6)
         AsyncioPySide6.runTask(run_load_projects())
 
     def update_connection_status(self, project, label):
@@ -173,7 +162,8 @@ class ProjectsWidget(QWidget):
         AsyncioPySide6.runTask(run_change_port())
 
     def is_connected(self, project):
-        print("Try to connect")
+        if project.port == "-Nothing-":
+            return False
         client = ModbusSerialClient(
             port=project.port,
             baudrate=project.baudrate,
@@ -182,10 +172,8 @@ class ProjectsWidget(QWidget):
             bytesize=project.bytesize,
         )
         if client.connect():
-            print("Connected")
             client.close()
             return True
-        print("Did not connect")
         return False
 
     def add_new_project(self):
