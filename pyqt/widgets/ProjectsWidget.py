@@ -102,7 +102,7 @@ class ProjectsWidget(QWidget):
                 ports.append('-Nothing-')
                 port_combo = QComboBox()
                 port_combo.addItems(ports)
-                #port_combo.setCurrentText(project.port)
+                port_combo.setCurrentText(project.port)
                 port_combo.setStyleSheet("font-size: 18px;")
                 port_combo.currentIndexChanged.connect(
                     lambda _, p=project, combo=port_combo:
@@ -162,8 +162,8 @@ class ProjectsWidget(QWidget):
         AsyncioPySide6.runTask(run_change_port())
 
     def is_connected(self, project):
-        if project.port == "-Nothing-":
-            return False
+        #if project.port == "-Nothing-":
+        return False
         client = ModbusSerialClient(
             port=project.port,
             baudrate=project.baudrate,
