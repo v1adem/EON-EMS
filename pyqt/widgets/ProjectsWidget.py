@@ -70,6 +70,7 @@ class ProjectsWidget(QWidget):
 
         async def run_load_projects():
             self.projects = await Project.all()
+            print(self.projects)
             for index, project in enumerate(self.projects, start=1):
                 item = QStandardItem()
                 item.setData(project.name, Qt.ItemDataRole.UserRole)
@@ -163,7 +164,7 @@ class ProjectsWidget(QWidget):
 
     def is_connected(self, project):
         print(project)
-        if project.port == '-Nothing-':
+        if project.port == '-Nothing-' or project.port == 1:
             return False
         client = ModbusSerialClient(
             port=project.port,
