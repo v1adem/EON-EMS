@@ -179,6 +179,7 @@ class ProjectsWidget(QWidget):
             else:
                 return False
         except Exception as e:
+            print(e)
             return False
         finally:
             if client.socket is not None:
