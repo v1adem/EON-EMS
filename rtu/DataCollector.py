@@ -113,6 +113,11 @@ class DataCollectorRunnable(QRunnable):
                 if new_data == {}:
                     continue
 
+                if device.actual_status is False:
+                    logger.info(f"Device {device.name} - {device.model} - is now online")
+                    device.actual_status = True
+                    await device.save(force_update=True)
+
                 tmp_report_data = self.get_tmp_data(device, new_data)
 
                 existing_tmp_report = await tmp_db_model.filter(device_id=device.id).first()
@@ -160,11 +165,6 @@ class DataCollectorRunnable(QRunnable):
 
                 new_report = main_db_model(**report_data)
                 await new_report.save()
-
-                if device.actual_status is False:
-                    logger.info(f"Device {device.name} - {device.model} - is now online")
-                    device.actual_status = True
-                    await device.save(force_update=True)
 
                 deleting_time = get_deleting_time()
                 if deleting_time > 0:

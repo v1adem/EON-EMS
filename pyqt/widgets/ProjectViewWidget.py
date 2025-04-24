@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import logging
 
@@ -171,8 +171,9 @@ class ProjectViewWidget(QWidget):
         try:
             tz = get_timezone()
             now_utc = datetime.utcnow().replace(tzinfo=pytz.utc)
+            wait_time_local = now_utc - timedelta(seconds=600)
 
-            device.wait_time = now_utc.astimezone(tz)
+            device.wait_time = wait_time_local.astimezone(tz)
             await device.save(update_fields=['wait_time'])
             self.load_devices()
         except Exception as e:
