@@ -94,7 +94,7 @@ class ProjectsWidget(QWidget):
                     context = pyudev.Context()
                     ports = []
                     for device in context.list_devices():
-                        if device.subsystem == 'ttyUSB':
+                        if device.subsystem == 'tty':
                             ports.append(device.device_node)
                     return ports
 
@@ -162,8 +162,9 @@ class ProjectsWidget(QWidget):
         AsyncioPySide6.runTask(run_change_port())
 
     def is_connected(self, project):
-        #if project.port == "-Nothing-":
-        return False
+        print(project)
+        if project.port == '-Nothing-':
+            return False
         client = ModbusSerialClient(
             port=project.port,
             baudrate=project.baudrate,
