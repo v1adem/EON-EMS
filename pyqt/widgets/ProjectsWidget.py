@@ -99,7 +99,7 @@ class ProjectsWidget(QWidget):
                     return ports
 
 
-                ports = get_serial_ports()
+                ports = [] #get_serial_ports()
                 ports.append('-Nothing-')
                 port_combo = QComboBox()
                 port_combo.addItems(ports)
