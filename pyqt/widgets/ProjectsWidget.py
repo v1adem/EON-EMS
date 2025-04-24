@@ -173,8 +173,9 @@ class ProjectsWidget(QWidget):
         AsyncioPySide6.runTask(run_change_port())
 
     def is_connected(self, project):
+        print("Try to connect")
         client = ModbusSerialClient(
-            port=f"{project.port}",
+            port=project.port,
             baudrate=project.baudrate,
             parity=project.parity,
             stopbits=project.stopbits,
