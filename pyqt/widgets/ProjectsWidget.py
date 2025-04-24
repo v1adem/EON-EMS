@@ -182,8 +182,10 @@ class ProjectsWidget(QWidget):
             bytesize=project.bytesize,
         )
         if client.connect():
+            print("Connected")
             client.close()
             return True
+        print("Did not connect")
         return False
 
     def add_new_project(self):
