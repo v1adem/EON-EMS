@@ -165,7 +165,7 @@ class ProjectsWidget(QWidget):
         if project.port == '-Nothing-':
             return False
         client = ModbusSerialClient(
-            port=project.port,
+            port=f"{project.port}",
             baudrate=project.baudrate,
             parity=project.parity,
             stopbits=project.stopbits,
