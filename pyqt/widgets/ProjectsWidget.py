@@ -95,7 +95,7 @@ class ProjectsWidget(QWidget):
                     context = pyudev.Context()
                     ports = []
                     for device in context.list_devices():
-                        if device.subsystem == 'tty':
+                        if device.subsystem == 'ttyUSB':
                             ports.append(device.device_node)
                     return ports
 
