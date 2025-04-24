@@ -70,7 +70,6 @@ class ProjectsWidget(QWidget):
 
         async def run_load_projects():
             self.projects = await Project.all()
-            print(self.projects)
             for index, project in enumerate(self.projects, start=1):
                 item = QStandardItem()
                 item.setData(project.name, Qt.ItemDataRole.UserRole)
@@ -95,9 +94,8 @@ class ProjectsWidget(QWidget):
                     context = pyudev.Context()
                     ports = []
                     for device in context.list_devices():
-                        if device.subsystem == 'tty':
+                        if device.subsystem == 'ttyUSB':
                             ports.append(device.device_node)
-                            print(device.device_node)
                     return ports
 
                 ports = get_serial_ports()
@@ -111,21 +109,29 @@ class ProjectsWidget(QWidget):
                     self.change_project_port(p, combo.currentText())
                 )
 
+                print(1)
+
                 connection_label = QLabel()
                 self.update_connection_status(project, connection_label)
                 connection_label.setSizePolicy(QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Preferred)
                 connection_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
                 item_layout.addWidget(connection_label)
 
+                print(2)
+
                 edit_button = QPushButton()
                 edit_button.setIcon(QIcon(resource_path("pyqt/icons/edit.png")))
                 edit_button.setFixedSize(36, 36)
                 edit_button.clicked.connect(lambda _, p=project: self.edit_project(p))
 
+                print(3)
+
                 delete_button = QPushButton()
                 delete_button.setIcon(QIcon(resource_path("pyqt/icons/delete.png")))
                 delete_button.setFixedSize(36, 36)
                 delete_button.clicked.connect(lambda _, p=project: self.delete_project(p))
+
+                print(4)
 
                 if self.isAdmin:
                     item_layout.addWidget(port_combo)
@@ -139,9 +145,12 @@ class ProjectsWidget(QWidget):
                     port_label.setStyleSheet("font-size: 18px; border: 0px solid #cccccc; margin: 0px;")
                     item_layout.addWidget(port_label)
 
+                print(5)
+
                 item_layout.setContentsMargins(0, 0, 0, 0)
 
                 self.projects_list.setIndexWidget(item.index(), item_widget)
+                print(6)
         AsyncioPySide6.runTask(run_load_projects())
 
     def update_connection_status(self, project, label):
