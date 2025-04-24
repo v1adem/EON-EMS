@@ -69,7 +69,7 @@ class ProjectsWidget(QWidget):
         self.projects_model.clear()
 
         async def run_load_projects():
-            print(self.projects)
+            self.projects = await Project.all()
             for index, project in enumerate(self.projects, start=1):
                 item = QStandardItem()
                 item.setData(project.name, Qt.ItemDataRole.UserRole)
@@ -102,7 +102,7 @@ class ProjectsWidget(QWidget):
                 ports.append('-Nothing-')
                 port_combo = QComboBox()
                 port_combo.addItems(ports)
-                #port_combo.setCurrentText(project.port)
+                port_combo.setCurrentText(project.port)
                 port_combo.setStyleSheet("font-size: 18px;")
                 port_combo.currentIndexChanged.connect(
                     lambda _, p=project, combo=port_combo:
@@ -162,7 +162,6 @@ class ProjectsWidget(QWidget):
         AsyncioPySide6.runTask(run_change_port())
 
     def is_connected(self, project):
-        print(project)
         if project.port == '-Nothing-':
             return False
         client = ModbusSerialClient(
@@ -189,7 +188,6 @@ class ProjectsWidget(QWidget):
                     return
 
                 self.new_project = Project(name=project_name)
-                print(self.new_project) ###########
                 await self.new_project.save()
 
                 self.thread_manager.add_thread(self.new_project, self.main_window)
