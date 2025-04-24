@@ -69,7 +69,6 @@ class ProjectsWidget(QWidget):
         self.projects_model.clear()
 
         async def run_load_projects():
-            self.projects = await Project.all()
             print(self.projects)
             for index, project in enumerate(self.projects, start=1):
                 item = QStandardItem()
@@ -164,7 +163,7 @@ class ProjectsWidget(QWidget):
 
     def is_connected(self, project):
         print(project)
-        if project.port == '-Nothing-' or project.port == 1:
+        if project.port == '-Nothing-':
             return False
         client = ModbusSerialClient(
             port=project.port,
@@ -189,7 +188,7 @@ class ProjectsWidget(QWidget):
                     QMessageBox.warning(self, "Помилка", "Проєкт з такою назвою вже існує.")
                     return
 
-                self.new_project = Project(name=project_name, port=1)
+                self.new_project = Project(name=project_name)
                 await self.new_project.save()
 
                 self.thread_manager.add_thread(self.new_project, self.main_window)
