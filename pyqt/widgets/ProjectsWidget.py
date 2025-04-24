@@ -13,6 +13,7 @@ from tortoise.exceptions import DoesNotExist
 import pyudev
 
 from register_maps.RegisterMaps import RegisterMap
+from rtu.DataCollector import logger
 from tools.config import resource_path
 from models.Device import Device
 from models.Project import Project
@@ -171,10 +172,17 @@ class ProjectsWidget(QWidget):
             stopbits=project.stopbits,
             bytesize=project.bytesize,
         )
-        if client.connect():
-            client.close()
-            return True
-        return False
+        try:
+            if client.connect():
+                client.close()
+                return True
+            else:
+                return False
+        except Exception as e:
+            return False
+        finally:
+            if client.socket is not None:
+                client.close()
 
     def add_new_project(self):
         self.new_project = None
