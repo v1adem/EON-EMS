@@ -113,13 +113,11 @@ class SerialReaderRS485:
                     total_length = group['length']
                     response = self.client.read_input_registers(start_address, count=total_length,
                                                                 slave=self.device_address)
-
-
                     if response.isError():
                         self.error_text = f"No response from {start_address} : {response}"
                         logger.error(self.error_text)
                         self.no_response_error_flag = True
-                        continue
+                        return result
 
                     registers = response.registers
                     idx = 0
