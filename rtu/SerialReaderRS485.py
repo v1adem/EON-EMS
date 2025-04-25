@@ -69,8 +69,6 @@ class SerialReaderRS485:
         self.device_address = device_address
         self.register_map = RegisterMap.get_register_map(device_name)
 
-        print("Port: " + str(self.port))
-
         self.client = ModbusSerialClient(
             port=self.port, baudrate=baudrate, parity=parity,
             stopbits=stopbits, bytesize=bytesize, timeout=1, retries=3

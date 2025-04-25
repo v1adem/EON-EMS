@@ -286,7 +286,7 @@ class DeviceDetailsWidget(QWidget):
             self.report_table.resizeColumnsToContents()
             self.setup_table_click_handler(self.report_table)
 
-            if self.device_model == "SDM72D":
+            if self.device_model == "SDM72":
                 self.update_graphs_sdm72()
             else:
                 self.update_graphs()
@@ -1228,24 +1228,28 @@ class DeviceDetailsWidget(QWidget):
         voltage_lcd = QLCDNumber()
         voltage_lcd.setStyleSheet("font-size: 18pt;")
         voltage_lcd.setSegmentStyle(QLCDNumber.SegmentStyle.Flat)
+        voltage_lcd.setDigitCount(10)
 
         current_label = QLabel("Струм (A)")
         current_label.setStyleSheet("font-size: 14pt; font-weight: bold;")
         current_lcd = QLCDNumber()
         current_lcd.setStyleSheet("font-size: 18pt;")
         current_lcd.setSegmentStyle(QLCDNumber.SegmentStyle.Flat)
+        current_lcd.setDigitCount(10)
 
         power_label = QLabel("Потужність (W)")
         power_label.setStyleSheet("font-size: 14pt; font-weight: bold;")
         power_lcd = QLCDNumber()
         power_lcd.setStyleSheet("font-size: 18pt;")
         power_lcd.setSegmentStyle(QLCDNumber.SegmentStyle.Flat)
+        power_lcd.setDigitCount(10)
 
         energy_label = QLabel("Спожито (kWh)")
         energy_label.setStyleSheet("font-size: 14pt; font-weight: bold;")
         energy_lcd = QLCDNumber()
         energy_lcd.setStyleSheet("font-size: 18pt;")
         energy_lcd.setSegmentStyle(QLCDNumber.SegmentStyle.Flat)
+        energy_lcd.setDigitCount(10)
 
         if phase_name != "Загальне":
             indicators_layout.addWidget(voltage_label, 0, 0)
@@ -1290,10 +1294,10 @@ class DeviceDetailsWidget(QWidget):
                     voltages_for_general = []
                     currents_for_general = []
                     powers_for_general = []
-                    for i in range(len(self.phases) - 1):  # -1 щоб не включати "Загальне"
+                    for i in range(len(self.phases) - 1):
                         voltages_for_general.append(getattr(report, f'line_voltage_{i + 1}'))
                         currents_for_general.append(getattr(report, f'current_{i + 1}'))
-                        powers_for_general.extend(getattr(report, f'power_{i + 1}'))
+                        powers_for_general.append(getattr(report, f'power_{i + 1}'))
                     voltages.append(voltages_for_general)
                     currents.append(currents_for_general)
                     powers.append(powers_for_general)
@@ -1313,7 +1317,6 @@ class DeviceDetailsWidget(QWidget):
                 transposed_voltages = list(zip(*voltages))
                 transposed_currents = list(zip(*currents))
                 transposed_powers = list(zip(*powers))
-
                 self.update_voltage_graph(timestamps, transposed_voltages, phase_name)
                 self.update_current_graph(timestamps, transposed_currents, phase_name)
                 self.update_power_graph(timestamps, transposed_powers, phase_name)
