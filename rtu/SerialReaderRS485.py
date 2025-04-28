@@ -146,7 +146,6 @@ class SerialReaderRS485:
 
             device.wait_time = wait_time_local.astimezone(tz)
 
-            logger.warning(f'{device.wait_time} | {device.actual_status}')
             await device.save(update_fields=['actual_status', 'wait_time'])
 
         msg = "Device is not connected" if self.error_flag else "There is no response from the device"
