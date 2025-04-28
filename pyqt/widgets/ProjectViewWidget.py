@@ -1,3 +1,4 @@
+import os
 from datetime import datetime, timedelta
 
 import logging
@@ -524,22 +525,60 @@ class ProjectViewWidget(QWidget):
             self.hide_loading_indicator()
 
     def show_loading_indicator(self):
-        movie = QMovie(resource_path("pyqt/animations/loading.gif"))
+        self.setEnabled(False)
+        loading_path = resource_path("pyqt/animations/loading.gif")
+        print(f"[DEBUG - show_loading_indicator] Шлях до анімації: {loading_path}")
+        if not os.path.exists(loading_path):
+            print(f"[DEBUG - show_loading_indicator] ПОМИЛКА: Файл не знайдено за шляхом: {loading_path}")
+            return
+
+        movie = QMovie(loading_path)
+        print(f"[DEBUG - show_loading_indicator] QMovie створено: {movie}")
+        if not movie.isValid():
+            error_string = movie.errorString()
+            print(f"[DEBUG - show_loading_indicator] ПОМИЛКА: Не вдалося завантажити GIF. Помилка: {error_string}")
+            return
+
         self.loading_indicator.setMovie(movie)
+        print(f"[DEBUG - show_loading_indicator] Встановлено QMovie для loading_indicator.")
         movie.start()
+        print(f"[DEBUG - show_loading_indicator] Анімацію запущено. Стан: {movie.state()}")
+        if movie.loopCount() != -1:
+            print(f"[DEBUG - show_loading_indicator] Кількість циклів анімації: {movie.loopCount()}")
+        else:
+            print(f"[DEBUG - show_loading_indicator] Анімація зациклена.")
+
         self.loading_indicator.raise_()
+        movie_size = movie.frameRect().size()
         self.loading_indicator.setGeometry(
-            self.width() // 2 - movie.frameRect().width() // 2,
-            self.height() // 2 - movie.frameRect().height() // 2,
-            movie.frameRect().width(),
-            movie.frameRect().height()
+            self.width() // 2 - movie_size.width() // 2,
+            self.height() // 2 - movie_size.height() // 2,
+            movie_size.width(),
+            movie_size.height()
         )
+        print(
+            f"[DEBUG - show_loading_indicator] Геометрію loading_indicator встановлено: {self.loading_indicator.geometry()}")
         self.loading_indicator.show()
-        self.setEnabled(False)  # Вимкнути взаємодію
+        print(
+            f"[DEBUG - show_loading_indicator] loading_indicator показано. Видимість: {self.loading_indicator.isVisible()}")
 
     def hide_loading_indicator(self):
-        movie = self.loading_indicator.movie()
-        if movie and movie.state() == QMovie.MovieState.Running:
-            movie.stop()
-        self.loading_indicator.hide()
         self.setEnabled(True)
+        movie = self.loading_indicator.movie()
+        print(f"[DEBUG - hide_loading_indicator] Отримано QMovie: {movie}")
+        if movie:
+            print(f"[DEBUG - hide_loading_indicator] Стан анімації перед зупинкою: {movie.state()}")
+            if movie.state() == QMovie.MovieState.Running:
+                movie.stop()
+                print(f"[DEBUG - hide_loading_indicator] Анімацію зупинено. Стан після зупинки: {movie.state()}")
+            else:
+                print(f"[DEBUG - hide_loading_indicator] Анімація не була запущена.")
+        else:
+            print(f"[DEBUG - hide_loading_indicator] QMovie не існує.")
+
+        print(
+            f"[DEBUG - hide_loading_indicator] Видимість loading_indicator перед прихованням: {self.loading_indicator.isVisible()}")
+        self.loading_indicator.hide()
+        print(
+            f"[DEBUG - hide_loading_indicator] loading_indicator приховано. Видимість: {self.loading_indicator.isVisible()}")
+
