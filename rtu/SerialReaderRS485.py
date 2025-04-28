@@ -8,7 +8,7 @@ from tools.config import get_timezone
 logger = logging.getLogger(__name__)
 
 import pytz
-from PySide6.QtWidgets import QMessageBox
+from PySide6.QtWidgets import QMessageBox, QPushButton
 from pymodbus.client import ModbusSerialClient
 from pymodbus.constants import Endian
 from pymodbus.payload import BinaryPayloadDecoder
@@ -153,14 +153,11 @@ class SerialReaderRS485:
             await device.save(update_fields=['actual_status', 'wait_time'])
 
         msg = "Device is not connected" if self.error_flag else "There is no response from the device"
-        reply = QMessageBox.warning(
+        ok_button = QPushButton("Ok")
+        ok_button.clicked.connect(self.main_window.hide_loading)
+        QMessageBox.warning(
             self.main_window,
             f"{datetime.now().strftime('%d/%m/%Y %H:%M:%S')}",
             f"{self.device_custom_name} - {msg} - {self.error_text}",
-            QMessageBox.StandardButton.Ok, QMessageBox.StandardButton.Cancel
+            ok_button
         )
-
-        if reply == QMessageBox.StandardButton.Ok:
-            self.main_window.hide_loading()
-        elif reply == QMessageBox.StandardButton.Cancel:
-            self.main_window.hide_loading()
