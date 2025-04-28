@@ -153,10 +153,14 @@ class SerialReaderRS485:
             await device.save(update_fields=['actual_status', 'wait_time'])
 
         msg = "Device is not connected" if self.error_flag else "There is no response from the device"
-        QMessageBox.warning(
+        reply = QMessageBox.warning(
             self.main_window,
             f"{datetime.now().strftime('%d/%m/%Y %H:%M:%S')}",
             f"{self.device_custom_name} - {msg} - {self.error_text}",
-            QMessageBox.StandardButton.Ok,
-            QMessageBox.StandardButton.Cancel
+            QMessageBox.StandardButton.Ok | QMessageBox.StandardButton.Cancel
         )
+
+        if reply == QMessageBox.StandardButton.Ok:
+            self.main_window.hide_loading()
+        elif reply == QMessageBox.StandardButton.Cancel:
+            self.main_window.hide_loading()
