@@ -23,6 +23,7 @@ class ProjectsWidget(QWidget):
         super().__init__(main_window)
 
         self.main_window = main_window
+        self.main_window.hide_loading()
         self.thread_manager = main_window.thread_manager
         self.isAdmin = main_window.isAdmin
         self.setWindowTitle("Список проєктів")

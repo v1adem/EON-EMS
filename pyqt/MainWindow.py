@@ -2,8 +2,8 @@ import logging
 logger = logging.getLogger(__name__)
 
 from PySide6 import QtCore
-from PySide6.QtGui import QAction, QIcon
-from PySide6.QtWidgets import QMainWindow, QWidget, QStackedWidget, QVBoxLayout, QDialog, QSystemTrayIcon, QMenu
+from PySide6.QtGui import QAction, QIcon, QMovie
+from PySide6.QtWidgets import QMainWindow, QWidget, QStackedWidget, QVBoxLayout, QDialog, QSystemTrayIcon, QMenu, QLabel
 
 from tools.config import resource_path
 from pyqt.dialogs.LanguageDialog import LanguageDialog
@@ -133,6 +133,31 @@ class MainWindow(QMainWindow):
             self.stacked_widget.addWidget(self.registration_widget)
 
             self.stacked_widget.setCurrentIndex(0)
+
+    def show_loading(self):
+        self.loading_overlay = QWidget(self)
+        self.loading_overlay.setStyleSheet("background-color: rgba(0, 0, 0, 100);")
+        self.loading_overlay.setGeometry(self.rect())
+        self.loading_overlay.setAttribute(QtCore.Qt.WidgetAttribute.WA_TransparentForMouseEvents, False)
+
+        layout = QVBoxLayout(self.loading_overlay)
+        layout.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
+
+        self.loading_label = QLabel(self.loading_overlay)
+        spinner_path = resource_path("pyqt/icons/loading.gif")
+        self.movie = QMovie(spinner_path)
+        self.loading_label.setMovie(self.movie)
+        self.movie.start()
+
+        layout.addWidget(self.loading_label)
+
+        self.loading_overlay.show()
+
+    def hide_loading(self):
+        if hasattr(self, 'movie'):
+            self.movie.stop()
+        if hasattr(self, 'loading_overlay'):
+            self.loading_overlay.deleteLater()
 
     def exit_app(self):
         self.is_exit = True
