@@ -141,6 +141,7 @@ class SerialReaderRS485:
         return result
 
     async def update_device_status(self):
+        self.main_window.hide_loading()
         device = await Device.filter(name=self.device_custom_name).first()
         if device:
             device.actual_status = False
@@ -151,8 +152,6 @@ class SerialReaderRS485:
             device.wait_time = wait_time_local.astimezone(tz)
 
             await device.save(update_fields=['actual_status', 'wait_time'])
-
-        self.main_window.hide_loading()
 
         msg = "Device is not connected" if self.error_flag else "There is no response from the device"
         QMessageBox.warning(
