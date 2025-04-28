@@ -156,7 +156,7 @@ class SerialReaderRS485:
 
         msg = "Device is not connected" if self.error_flag else "There is no response from the device"
         QMessageBox.warning(
-            self.main_window,
+            None,
             f"{datetime.now().strftime('%d/%m/%Y %H:%M:%S')}",
             f"{self.device_custom_name} - {msg} - {self.error_text}",
             QMessageBox.StandardButton.Ok,
