@@ -114,7 +114,7 @@ class RegistrationLoginForm(QWidget):
                 self.main_window.isAdmin = True
                 self.status_label.setText(f"Вітаємо, {username}!")
                 self.main_window.show_loading()
-                await asyncio.sleep(1)
+                await asyncio.sleep(0.5)
                 self.main_window.open_projects_list()
             else:
                 self.status_label.setText("Невірний логін або пароль")
