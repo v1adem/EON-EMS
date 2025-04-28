@@ -292,6 +292,7 @@ class DeviceDetailsWidget(QWidget):
                 self.update_graphs()
 
         AsyncioPySide6.runTask(run_load_report_data())
+        self.main_window.hide_loading()
         self.report_table.setEditTriggers(QTableView.EditTrigger.NoEditTriggers)
 
     def apply_date_filter(self):

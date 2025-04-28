@@ -26,6 +26,7 @@ class ProjectViewWidget(QWidget):
     def __init__(self, main_window, project):
         super().__init__(main_window)
         self.main_window = main_window
+        self.main_window.hide_loading()
         self.project = project
         self.isAdmin = main_window.isAdmin
 
@@ -75,7 +76,7 @@ class ProjectViewWidget(QWidget):
         self.devices_list.doubleClicked.connect(self.open_device_details)
 
     def load_devices(self):
-        self.show_loading_indicator()
+        self.main_window.show_loading()
         async def run_load_devices():
             self.devices = await Device.filter(project_id=self.project.id).all()
             for index, device in enumerate(self.devices, start=1):
@@ -164,10 +165,10 @@ class ProjectViewWidget(QWidget):
             self.devices_model.clear()
             AsyncioPySide6.runTask(run_load_devices())
         finally:
-            self.hide_loading_indicator()
+            self.main_window.hide_loading()
 
     async def toggle_device_status(self, device, button):
-        self.show_loading_indicator()
+        self.main_window.show_loading()
         try:
             device.toggle_reading_status()
             await device.save()
@@ -178,10 +179,10 @@ class ProjectViewWidget(QWidget):
                                  QMessageBox.StandardButton.Ok, QMessageBox.StandardButton.Cancel)
             logger.error(e)
         finally:
-            self.hide_loading_indicator()
+            self.main_window.hide_loading()
 
     async def force_device_try(self, device):
-        self.show_loading_indicator()
+        self.main_window.show_loading()
         try:
             tz = get_timezone()
             now_utc = datetime.utcnow().replace(tzinfo=pytz.utc)
@@ -193,10 +194,10 @@ class ProjectViewWidget(QWidget):
         except Exception as e:
             logger.error(e)
         finally:
-            self.hide_loading_indicator()
+            self.main_window.hide_loading()
 
     def add_new_device(self):
-        self.show_loading_indicator()
+        self.main_window.show_loading()
         self.new_device = None
         async def run_add_device():
             dialog = QDialog(self)
@@ -251,10 +252,10 @@ class ProjectViewWidget(QWidget):
         try:
             AsyncioPySide6.runTask(run_add_device())
         finally:
-            self.hide_loading_indicator()
+            self.main_window.hide_loading()
 
     def edit_device(self, device):
-        self.show_loading_indicator()
+        self.main_window.show_loading()
         async def run_save_changes():
             dialog = QDialog(self)
             dialog.setWindowTitle("Редагувати пристрій")
@@ -378,10 +379,10 @@ class ProjectViewWidget(QWidget):
         try:
             AsyncioPySide6.runTask(run_save_changes())
         finally:
-            self.hide_loading_indicator()
+            self.main_window.hide_loading()
 
     def delete_device(self, device):
-        self.show_loading_indicator()
+        self.main_window.show_loading()
         async def run_delete_device():
             reply = QMessageBox.question(self, "Підтвердження видалення",
                                          f"Ви впевнені, що хочете видалити пристрій '{device.name}'?",
@@ -407,10 +408,10 @@ class ProjectViewWidget(QWidget):
         try:
             AsyncioPySide6.runTask(run_delete_device())
         finally:
-            self.hide_loading_indicator()
+            self.main_window.hide_loading()
 
     def open_device_details(self, index):
-        self.show_loading_indicator()
+        self.main_window.show_loading()
         async def run_open_device_details():
             device_name = self.devices_model.itemFromIndex(index).data(Qt.ItemDataRole.UserRole)
             device = await Device.filter(name=device_name, project_id=self.project.id).first()
@@ -418,10 +419,8 @@ class ProjectViewWidget(QWidget):
                 self.main_window.open_device_details(device)
             else:
                 print("Пристрій не знайдено.")
-        try:
-            AsyncioPySide6.runTask(run_open_device_details())
-        finally:
-            self.hide_loading_indicator()
+
+        AsyncioPySide6.runTask(run_open_device_details())
 
     def open_project_export_dialog(self):
         self.dialog = QDialog(self)
@@ -452,7 +451,7 @@ class ProjectViewWidget(QWidget):
         self.dialog.exec()
 
     def export_project_to_excel(self):
-        self.show_loading_indicator()
+        self.main_window.show_loading()
         start_datetime = self.start_export_date.dateTime().toPython()
         end_datetime_for_name = self.end_export_date.dateTime().toPython()
         end_datetime = self.end_export_date.dateTime().addDays(1).toPython()
@@ -522,28 +521,4 @@ class ProjectViewWidget(QWidget):
         try:
             AsyncioPySide6.runTask(run_export_to_excel())
         finally:
-            self.hide_loading_indicator()
-
-    def show_loading_indicator(self):
-        self.setEnabled(False)
-        movie = QMovie(resource_path("pyqt/animations/loading.gif"))
-        self.loading_indicator.setMovie(movie)
-        movie.start()
-        self.loading_indicator.raise_()
-        center_x = self.width() // 2 - movie.frameRect().width() // 2
-        center_y = self.height() // 2 - movie.frameRect().height() // 2
-        self.loading_indicator.setGeometry(
-            center_x,
-            center_y,
-            movie.frameRect().width(),
-            movie.frameRect().height()
-        )
-        self.loading_indicator.show()
-
-
-    def hide_loading_indicator(self):
-        self.setEnabled(True)
-        movie = self.loading_indicator.movie()
-        if movie and movie.state() == QMovie.MovieState.Running:
-            movie.stop()
-        self.loading_indicator.hide()
+            self.main_window.hide_loading()
