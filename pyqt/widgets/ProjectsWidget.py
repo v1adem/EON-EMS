@@ -1,23 +1,22 @@
 import subprocess
 
+import pyudev
 import xlsxwriter
 from AsyncioPySide6 import AsyncioPySide6
 from PySide6.QtCore import Qt, QSize, QDate
-from PySide6.QtGui import QStandardItemModel, QIcon, QStandardItem
+from PySide6.QtGui import QStandardItemModel, QIcon, QStandardItem, QMovie
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QListView, QPushButton, QComboBox, QSizePolicy, \
     QInputDialog, QMessageBox, QDialog, QLineEdit, QSpinBox, QDialogButtonBox, QSpacerItem, QFormLayout, QFileDialog, \
     QDateEdit
 from pymodbus.client import ModbusSerialClient
 from tortoise.exceptions import DoesNotExist
 
-import pyudev
-
 from register_maps.RegisterMaps import RegisterMap
-from rtu.DataCollector import logger
 from tools.config import resource_path
 from models.Device import Device
 from models.Project import Project
 from models.Report import SDM120Report, SDM120ReportTmp, SDM630Report, SDM630ReportTmp, SDM72Report, SDM72ReportTmp
+
 
 class ProjectsWidget(QWidget):
     def __init__(self, main_window):
@@ -29,6 +28,11 @@ class ProjectsWidget(QWidget):
         self.setWindowTitle("Список проєктів")
 
         self.layout = QVBoxLayout(self)
+
+        self.loading_indicator = QLabel(self)
+        self.loading_indicator.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.loading_indicator.hide()
+        self.layout.addWidget(self.loading_indicator)
 
         self.top_layout = QHBoxLayout(self)
 
@@ -67,8 +71,6 @@ class ProjectsWidget(QWidget):
         self.add_project_button.clicked.connect(self.add_new_project)
 
     def load_projects(self):
-        self.projects_model.clear()
-
         async def run_load_projects():
             self.projects = await Project.all()
             for index, project in enumerate(self.projects, start=1):
@@ -142,7 +144,13 @@ class ProjectsWidget(QWidget):
                 item_layout.setContentsMargins(0, 0, 0, 0)
 
                 self.projects_list.setIndexWidget(item.index(), item_widget)
-        AsyncioPySide6.runTask(run_load_projects())
+
+        try:
+            self.show_loading_indicator()
+            self.projects_model.clear()
+            AsyncioPySide6.runTask(run_load_projects())
+        finally:
+            self.hide_loading_indicator()
 
     def update_connection_status(self, project, label):
         if self.is_connected(project):
@@ -160,8 +168,11 @@ class ProjectsWidget(QWidget):
             await project.save(force_update=True)
 
             self.load_projects()
-
-        AsyncioPySide6.runTask(run_change_port())
+        try:
+            self.show_loading_indicator()
+            AsyncioPySide6.runTask(run_change_port())
+        finally:
+            self.hide_loading_indicator()
 
     def is_connected(self, project):
         if project.port == '-Nothing-':
@@ -205,7 +216,11 @@ class ProjectsWidget(QWidget):
 
                 self.edit_project(self.new_project)
 
-        AsyncioPySide6.runTask(run_add_new_project())
+        try:
+            self.show_loading_indicator()
+            AsyncioPySide6.runTask(run_add_new_project())
+        finally:
+            self.hide_loading_indicator()
 
     def delete_project(self, project):
         async def run_delete_project():
@@ -238,8 +253,11 @@ class ProjectsWidget(QWidget):
 
                 except DoesNotExist:
                     print("Проєкт або пристрої не знайдені в базі даних.")
-
-        AsyncioPySide6.runTask(run_delete_project())
+        try:
+            self.show_loading_indicator()
+            AsyncioPySide6.runTask(run_delete_project())
+        finally:
+            self.hide_loading_indicator()
 
     def edit_project(self, project):
         dialog = QDialog(self)
@@ -341,7 +359,11 @@ class ProjectsWidget(QWidget):
                 await project.save(force_update=True)
                 self.load_projects()
 
-            AsyncioPySide6.runTask(run_save_changes())
+            try:
+                self.show_loading_indicator()
+                AsyncioPySide6.runTask(run_save_changes())
+            finally:
+                self.hide_loading_indicator()
 
     def open_project_details(self, index):
         async def run_open_details():
@@ -352,7 +374,11 @@ class ProjectsWidget(QWidget):
             else:
                 print("Couldn't find project")
 
-        AsyncioPySide6.runTask(run_open_details())
+        try:
+            self.show_loading_indicator()
+            AsyncioPySide6.runTask(run_open_details())
+        finally:
+            self.hide_loading_indicator()
 
     def open_export_all_projects_dialog(self):
         self.dialog = QDialog(self)
@@ -452,4 +478,29 @@ class ProjectsWidget(QWidget):
             except Exception as e:
                 QMessageBox.warning(self, "Помилка", f"Сталася помилка при експорті даних: {e}")
 
-        AsyncioPySide6.runTask(run_export_to_excel())
+        try:
+            self.show_loading_indicator()
+            AsyncioPySide6.runTask(run_export_to_excel())
+        finally:
+            self.hide_loading_indicator()
+
+    def show_loading_indicator(self):
+        movie = QMovie(resource_path("pyqt/animations/loading.gif"))
+        self.loading_indicator.setMovie(movie)
+        movie.start()
+        self.loading_indicator.raise_()
+        self.loading_indicator.setGeometry(
+            self.width() // 2 - movie.frameRect().width() // 2,
+            self.height() // 2 - movie.frameRect().height() // 2,
+            movie.frameRect().width(),
+            movie.frameRect().height()
+        )
+        self.loading_indicator.show()
+        self.setEnabled(False)
+
+    def hide_loading_indicator(self):
+        movie = self.loading_indicator.movie()
+        if movie and movie.state() == QMovie.MovieState.Running:
+            movie.stop()
+        self.loading_indicator.hide()
+        self.setEnabled(True)

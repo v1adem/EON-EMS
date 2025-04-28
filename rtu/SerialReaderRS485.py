@@ -1,8 +1,6 @@
 from datetime import datetime, timedelta
 import logging
 
-from pymodbus.exceptions import ModbusIOException
-
 from tools.config import get_timezone
 
 logger = logging.getLogger(__name__)
@@ -46,10 +44,6 @@ def decode_32bit_signed(data):
     return BinaryPayloadDecoder.fromRegisters(data, byteorder=Endian.BIG,
                                               wordorder=Endian.BIG).decode_32bit_int()
 
-def decode_16bit_float(data):
-    decoded_data = BinaryPayloadDecoder.fromRegisters(data, byteorder=Endian.BIG,
-                                                      wordorder=Endian.BIG).decode_16bit_float()
-    return decoded_data
 
 def decode_32bit_float(data):
     decoded_data = BinaryPayloadDecoder.fromRegisters(data, byteorder=Endian.BIG,
@@ -70,8 +64,8 @@ class SerialReaderRS485:
         self.register_map = RegisterMap.get_register_map(device_name)
 
         self.client = ModbusSerialClient(
-            port=self.port, baudrate=baudrate, parity=parity,
-            stopbits=stopbits, bytesize=bytesize, timeout=0.5, retries=0
+            port=f"COM{port}", baudrate=baudrate, parity=parity,
+            stopbits=stopbits, bytesize=bytesize, timeout=0.5, retries=1
         )
 
     def connect(self):
@@ -105,7 +99,6 @@ class SerialReaderRS485:
     async def read_all_properties(self):
         result = {}
         if self.connect():
-            print("Connected")
             grouped_registers = self.group_registers()
             try:
                 for group in grouped_registers:
@@ -113,11 +106,12 @@ class SerialReaderRS485:
                     total_length = group['length']
                     response = self.client.read_input_registers(start_address, count=total_length,
                                                                 slave=self.device_address)
+
                     if response.isError():
-                        self.error_text = f"No response from {start_address} : {response}"
+                        self.error_text = f"No response from {start_address}"
                         logger.error(self.error_text)
                         self.no_response_error_flag = True
-                        return result
+                        continue
 
                     registers = response.registers
                     idx = 0
@@ -127,12 +121,8 @@ class SerialReaderRS485:
                         result[name] = decode_data(data, spec)
                         idx += length
 
-            except ModbusIOException as e:
-                self.error_text = f"{datetime.now().strftime('%d/%m/%Y %H:%M:%S')} | Modbus IO Error: {e}"
-                logger.error(self.error_text)
-                self.error_flag = True
             except Exception as e:
-                self.error_text = f"{datetime.now().strftime('%d/%m/%Y %H:%M:%S')} | An unexpected error occurred: {str(e)}"
+                self.error_text = f"{e}"
                 logger.error(self.error_text)
                 self.error_flag = True
             finally:

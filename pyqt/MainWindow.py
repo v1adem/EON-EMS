@@ -35,7 +35,7 @@ class MainWindow(QMainWindow):
 
         back_icon = QIcon(resource_path("pyqt/icons/back.png"))
         exitAct = QAction(back_icon, "Exit", self)
-        exitAct.setShortcut("Ctrl+Q")
+        exitAct.setShortcut("Esc")
         exitAct.triggered.connect(self.go_back)
         self.toolbar = self.addToolBar("Exit")
         self.toolbar.addAction(exitAct)
@@ -144,4 +144,3 @@ class MainWindow(QMainWindow):
         else:
             self.hide()
             event.ignore()
-

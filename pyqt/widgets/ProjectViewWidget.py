@@ -8,14 +8,13 @@ from register_maps.RegisterMaps import RegisterMap
 
 logger = logging.getLogger(__name__)
 
-
 import pytz
 from AsyncioPySide6 import AsyncioPySide6
 from PySide6.QtCore import Qt, QSize, QTime, QDate
-from PySide6.QtGui import QStandardItemModel, QStandardItem, QIcon
+from PySide6.QtGui import QStandardItemModel, QStandardItem, QIcon, QMovie
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QLabel, QListView, QPushButton, QHBoxLayout, QMessageBox, QDialog, \
     QFormLayout, QLineEdit, QComboBox, QSpinBox, QDialogButtonBox, QRadioButton, QTimeEdit, QSpacerItem, QSizePolicy, \
-    QDateEdit, QFileDialog
+    QFileDialog, QDateEdit
 from tortoise.exceptions import DoesNotExist
 
 from tools.config import resource_path, get_timezone
@@ -31,6 +30,12 @@ class ProjectViewWidget(QWidget):
         self.isAdmin = main_window.isAdmin
 
         layout = QVBoxLayout(self)
+
+        self.loading_indicator = QLabel(self)
+        self.loading_indicator.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.loading_indicator.hide()
+        layout.addWidget(self.loading_indicator)
+
         top_layout = QHBoxLayout(self)
 
         self.label = QLabel(f"Деталі проєкту: {project.name}")
@@ -69,8 +74,6 @@ class ProjectViewWidget(QWidget):
         self.devices_list.doubleClicked.connect(self.open_device_details)
 
     def load_devices(self):
-        self.devices_model.clear()
-
         async def run_load_devices():
             self.devices = await Device.filter(project_id=self.project.id).all()
             for index, device in enumerate(self.devices, start=1):
@@ -137,7 +140,7 @@ class ProjectViewWidget(QWidget):
                 delete_button = QPushButton()
                 delete_button.setIcon(QIcon(resource_path("pyqt/icons/delete.png")))
                 delete_button.setFixedSize(36, 36)
-                delete_button.clicked.connect(lambda _, d=device: self.delete_device(d))\
+                delete_button.clicked.connect(lambda _, d=device: self.delete_device(d))
 
                 if not device.actual_status and device.reading_status:
                     item_layout.addWidget(force_try_button)
@@ -155,14 +158,19 @@ class ProjectViewWidget(QWidget):
                 item_layout.setContentsMargins(0, 0, 0, 0)
 
                 self.devices_list.setIndexWidget(item.index(), item_widget)
-
-        AsyncioPySide6.runTask(run_load_devices())
+        try:
+            self.show_loading_indicator()
+            self.devices_model.clear()
+            AsyncioPySide6.runTask(run_load_devices())
+        finally:
+            self.hide_loading_indicator()
 
     async def toggle_device_status(self, device, button):
         try:
             device.toggle_reading_status()
             await device.save()
             button.setText("Увімкнути" if not device.get_reading_status() else "Вимкнути")
+            self.load_devices()
         except Exception as e:
             QMessageBox.critical(self, "Помилка", f"Не вдалося змінити статус пристрою: {e}",
                                  QMessageBox.StandardButton.Ok, QMessageBox.StandardButton.Cancel)
@@ -182,7 +190,6 @@ class ProjectViewWidget(QWidget):
 
     def add_new_device(self):
         self.new_device = None
-
         async def run_add_device():
             dialog = QDialog(self)
             dialog.setWindowTitle("Додати новий пристрій")
@@ -233,8 +240,11 @@ class ProjectViewWidget(QWidget):
                                          device_address=device_address, project_id=self.project.id)
                 await self.new_device.save()
                 self.edit_device(self.new_device)
-
-        AsyncioPySide6.runTask(run_add_device())
+        try:
+            self.show_loading_indicator()
+            AsyncioPySide6.runTask(run_add_device())
+        finally:
+            self.hide_loading_indicator()
 
     def edit_device(self, device):
         async def run_save_changes():
@@ -357,8 +367,11 @@ class ProjectViewWidget(QWidget):
 
                 await device.save(force_update=True)
                 self.load_devices()
-
-        AsyncioPySide6.runTask(run_save_changes())
+        try:
+            self.show_loading_indicator()
+            AsyncioPySide6.runTask(run_save_changes())
+        finally:
+            self.hide_loading_indicator()
 
     def delete_device(self, device):
         async def run_delete_device():
@@ -383,7 +396,11 @@ class ProjectViewWidget(QWidget):
 
                 except DoesNotExist:
                     print("Проєкт або пристрої не знайдені в базі даних.")
-        AsyncioPySide6.runTask(run_delete_device())
+        try:
+            self.show_loading_indicator()
+            AsyncioPySide6.runTask(run_delete_device())
+        finally:
+            self.hide_loading_indicator()
 
     def open_device_details(self, index):
         async def run_open_device_details():
@@ -393,8 +410,11 @@ class ProjectViewWidget(QWidget):
                 self.main_window.open_device_details(device)
             else:
                 print("Пристрій не знайдено.")
-
-        AsyncioPySide6.runTask(run_open_device_details())
+        try:
+            self.show_loading_indicator()
+            AsyncioPySide6.runTask(run_open_device_details())
+        finally:
+            self.hide_loading_indicator()
 
     def open_project_export_dialog(self):
         self.dialog = QDialog(self)
@@ -491,5 +511,29 @@ class ProjectViewWidget(QWidget):
 
             except Exception as e:
                 QMessageBox.warning(self, "Помилка", f"Сталася помилка при експорті даних: {e}")
+        try:
+            self.show_loading_indicator()
+            AsyncioPySide6.runTask(run_export_to_excel())
+        finally:
+            self.hide_loading_indicator()
 
-        AsyncioPySide6.runTask(run_export_to_excel())
+    def show_loading_indicator(self):
+        movie = QMovie(resource_path("pyqt/animations/loading.gif"))
+        self.loading_indicator.setMovie(movie)
+        movie.start()
+        self.loading_indicator.raise_()
+        self.loading_indicator.setGeometry(
+            self.width() // 2 - movie.frameRect().width() // 2,
+            self.height() // 2 - movie.frameRect().height() // 2,
+            movie.frameRect().width(),
+            movie.frameRect().height()
+        )
+        self.loading_indicator.show()
+        self.setEnabled(False)  # Вимкнути взаємодію
+
+    def hide_loading_indicator(self):
+        movie = self.loading_indicator.movie()
+        if movie and movie.state() == QMovie.MovieState.Running:
+            movie.stop()
+        self.loading_indicator.hide()
+        self.setEnabled(True)
