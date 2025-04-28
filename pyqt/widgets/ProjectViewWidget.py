@@ -31,7 +31,7 @@ class ProjectViewWidget(QWidget):
 
         layout = QVBoxLayout(self)
 
-        self.loading_indicator = QLabel(self)
+        self.loading_indicator = QLabel()
         self.loading_indicator.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.loading_indicator.hide()
         layout.addWidget(self.loading_indicator)
