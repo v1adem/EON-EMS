@@ -111,7 +111,7 @@ class SerialReaderRS485:
                         self.error_text = f"No response from {start_address}"
                         logger.error(self.error_text)
                         self.no_response_error_flag = True
-                        continue
+                        return
 
                     registers = response.registers
                     idx = 0
