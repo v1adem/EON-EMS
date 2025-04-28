@@ -157,7 +157,7 @@ class SerialReaderRS485:
             self.main_window,
             f"{datetime.now().strftime('%d/%m/%Y %H:%M:%S')}",
             f"{self.device_custom_name} - {msg} - {self.error_text}",
-            QMessageBox.StandardButton.Ok | QMessageBox.StandardButton.Cancel
+            QMessageBox.StandardButton.Ok, QMessageBox.StandardButton.Cancel
         )
 
         if reply == QMessageBox.StandardButton.Ok:
