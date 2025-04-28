@@ -1,6 +1,8 @@
 from datetime import datetime, timedelta
 import logging
 
+from numpy.f2py.auxfuncs import throw_error
+
 from tools.config import get_timezone
 
 logger = logging.getLogger(__name__)
@@ -111,7 +113,7 @@ class SerialReaderRS485:
                         self.error_text = f"No response from {start_address}"
                         logger.error(self.error_text)
                         self.no_response_error_flag = True
-                        return
+                        raise Exception(f"No response from start address {start_address}")
 
                     registers = response.registers
                     idx = 0
