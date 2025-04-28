@@ -74,6 +74,7 @@ class ProjectViewWidget(QWidget):
         self.devices_list.doubleClicked.connect(self.open_device_details)
 
     def load_devices(self):
+        self.show_loading_indicator()
         async def run_load_devices():
             self.devices = await Device.filter(project_id=self.project.id).all()
             for index, device in enumerate(self.devices, start=1):
@@ -159,13 +160,13 @@ class ProjectViewWidget(QWidget):
 
                 self.devices_list.setIndexWidget(item.index(), item_widget)
         try:
-            self.show_loading_indicator()
             self.devices_model.clear()
             AsyncioPySide6.runTask(run_load_devices())
         finally:
             self.hide_loading_indicator()
 
     async def toggle_device_status(self, device, button):
+        self.show_loading_indicator()
         try:
             device.toggle_reading_status()
             await device.save()
@@ -175,8 +176,11 @@ class ProjectViewWidget(QWidget):
             QMessageBox.critical(self, "Помилка", f"Не вдалося змінити статус пристрою: {e}",
                                  QMessageBox.StandardButton.Ok, QMessageBox.StandardButton.Cancel)
             logger.error(e)
+        finally:
+            self.hide_loading_indicator()
 
     async def force_device_try(self, device):
+        self.show_loading_indicator()
         try:
             tz = get_timezone()
             now_utc = datetime.utcnow().replace(tzinfo=pytz.utc)
@@ -187,8 +191,11 @@ class ProjectViewWidget(QWidget):
             self.load_devices()
         except Exception as e:
             logger.error(e)
+        finally:
+            self.hide_loading_indicator()
 
     def add_new_device(self):
+        self.show_loading_indicator()
         self.new_device = None
         async def run_add_device():
             dialog = QDialog(self)
@@ -241,12 +248,12 @@ class ProjectViewWidget(QWidget):
                 await self.new_device.save()
                 self.edit_device(self.new_device)
         try:
-            self.show_loading_indicator()
             AsyncioPySide6.runTask(run_add_device())
         finally:
             self.hide_loading_indicator()
 
     def edit_device(self, device):
+        self.show_loading_indicator()
         async def run_save_changes():
             dialog = QDialog(self)
             dialog.setWindowTitle("Редагувати пристрій")
@@ -368,12 +375,12 @@ class ProjectViewWidget(QWidget):
                 await device.save(force_update=True)
                 self.load_devices()
         try:
-            self.show_loading_indicator()
             AsyncioPySide6.runTask(run_save_changes())
         finally:
             self.hide_loading_indicator()
 
     def delete_device(self, device):
+        self.show_loading_indicator()
         async def run_delete_device():
             reply = QMessageBox.question(self, "Підтвердження видалення",
                                          f"Ви впевнені, що хочете видалити пристрій '{device.name}'?",
@@ -397,12 +404,12 @@ class ProjectViewWidget(QWidget):
                 except DoesNotExist:
                     print("Проєкт або пристрої не знайдені в базі даних.")
         try:
-            self.show_loading_indicator()
             AsyncioPySide6.runTask(run_delete_device())
         finally:
             self.hide_loading_indicator()
 
     def open_device_details(self, index):
+        self.show_loading_indicator()
         async def run_open_device_details():
             device_name = self.devices_model.itemFromIndex(index).data(Qt.ItemDataRole.UserRole)
             device = await Device.filter(name=device_name, project_id=self.project.id).first()
@@ -411,7 +418,6 @@ class ProjectViewWidget(QWidget):
             else:
                 print("Пристрій не знайдено.")
         try:
-            self.show_loading_indicator()
             AsyncioPySide6.runTask(run_open_device_details())
         finally:
             self.hide_loading_indicator()
@@ -445,6 +451,7 @@ class ProjectViewWidget(QWidget):
         self.dialog.exec()
 
     def export_project_to_excel(self):
+        self.show_loading_indicator()
         start_datetime = self.start_export_date.dateTime().toPython()
         end_datetime_for_name = self.end_export_date.dateTime().toPython()
         end_datetime = self.end_export_date.dateTime().addDays(1).toPython()
@@ -512,7 +519,6 @@ class ProjectViewWidget(QWidget):
             except Exception as e:
                 QMessageBox.warning(self, "Помилка", f"Сталася помилка при експорті даних: {e}")
         try:
-            self.show_loading_indicator()
             AsyncioPySide6.runTask(run_export_to_excel())
         finally:
             self.hide_loading_indicator()
