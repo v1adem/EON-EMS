@@ -141,7 +141,9 @@ class SerialReaderRS485:
         return result
 
     async def update_device_status(self):
+        print("To hide")
         self.main_window.hide_loading()
+        print("Hided")
         device = await Device.filter(name=self.device_custom_name).first()
         if device:
             device.actual_status = False
