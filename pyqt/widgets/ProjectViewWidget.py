@@ -31,10 +31,11 @@ class ProjectViewWidget(QWidget):
 
         layout = QVBoxLayout(self)
 
-        self.loading_indicator = QLabel()
+        self.loading_indicator = QLabel(self)
         self.loading_indicator.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.loading_indicator.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+        self.loading_indicator.setStyleSheet("background: transparent;")
         self.loading_indicator.hide()
-        layout.addWidget(self.loading_indicator)
 
         top_layout = QHBoxLayout(self)
 
@@ -529,9 +530,11 @@ class ProjectViewWidget(QWidget):
         self.loading_indicator.setMovie(movie)
         movie.start()
         self.loading_indicator.raise_()
+        center_x = self.width() // 2 - movie.frameRect().width() // 2
+        center_y = self.height() // 2 - movie.frameRect().height() // 2
         self.loading_indicator.setGeometry(
-            self.width() // 2 - movie.frameRect().width() // 2,
-            self.height() // 2 - movie.frameRect().height() // 2,
+            center_x,
+            center_y,
             movie.frameRect().width(),
             movie.frameRect().height()
         )
