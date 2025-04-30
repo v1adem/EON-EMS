@@ -1,5 +1,5 @@
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QColor, QTextCursor, QTextCharFormat
+from PySide6.QtGui import QColor, QTextCursor, QTextCharFormat, QFont
 from PySide6.QtWidgets import QPlainTextEdit
 
 class ConsoleWidget(QPlainTextEdit):
@@ -9,6 +9,9 @@ class ConsoleWidget(QPlainTextEdit):
         self.document().setMaximumBlockCount(100)
         self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         self.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+
+        font = QFont("DejaVu Sans Mono", 10)
+        self.setFont(font)
 
     def write(self, text):
         try:
