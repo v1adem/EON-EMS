@@ -81,6 +81,8 @@ class DeviceDetailsWidget(QWidget):
 
         self.load_report_data()
 
+        self.main_window.hide_loading()
+
         self.timer_update_all_tabs_graphs = QTimer(self)
         self.timer_update_all_tabs_graphs.timeout.connect(self.auto_update)
         self.timer_update_all_tabs_graphs.setInterval(device.reading_interval * 1000)
@@ -172,8 +174,6 @@ class DeviceDetailsWidget(QWidget):
 
         bottom_left_layout = QGridLayout()
 
-        import sys
-        print(f"Stdout encoding: {sys.stdout.encoding}")
         console_widget = ConsoleWidget()
         bottom_left_layout.addWidget(console_widget, 0, 0, 2, 1)
 
@@ -294,7 +294,6 @@ class DeviceDetailsWidget(QWidget):
                 self.update_graphs()
 
         AsyncioPySide6.runTask(run_load_report_data())
-        self.main_window.hide_loading()
         self.report_table.setEditTriggers(QTableView.EditTrigger.NoEditTriggers)
 
     def apply_date_filter(self):

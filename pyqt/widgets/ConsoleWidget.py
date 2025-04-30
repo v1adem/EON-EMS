@@ -14,10 +14,6 @@ class ConsoleWidget(QPlainTextEdit):
         self.setFont(font)
 
     def write(self, text):
-        try:
-            utf8_text = text.encode('utf-8').decode('utf-8')
-        except UnicodeDecodeError:
-            utf8_text = text
 
         cursor = self.textCursor()
         cursor.movePosition(QTextCursor.MoveOperation.End)
@@ -33,10 +29,10 @@ class ConsoleWidget(QPlainTextEdit):
         else:
             color = QColor("white")
 
-        format = QTextCharFormat()
-        format.setForeground(color)
-        cursor.mergeCharFormat(format)
-        cursor.insertText(utf8_text)
+        #format = QTextCharFormat()
+        #format.setForeground(color)
+        #cursor.mergeCharFormat(format)
+        cursor.insertText(text)
         self.setTextCursor(cursor)
         self.verticalScrollBar().setValue(self.verticalScrollBar().maximum())
 
