@@ -113,9 +113,7 @@ class SerialReaderRS485:
                         self.error_text = f"No response from {start_address}"
                         logger.error(self.error_text)
                         self.no_response_error_flag = True
-                        if start_address == 0:
-                            break
-                        continue
+                        break
 
                     registers = response.registers
                     idx = 0
@@ -137,8 +135,8 @@ class SerialReaderRS485:
 
         if self.error_flag or self.no_response_error_flag:
             await self.update_device_status()
-        else:
-            return result
+
+        return result
 
     async def update_device_status(self):
         device = await Device.filter(name=self.device_custom_name).first()
