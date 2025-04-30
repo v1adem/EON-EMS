@@ -14,7 +14,6 @@ class ConsoleWidget(QPlainTextEdit):
         self.setFont(font)
 
     def write(self, text):
-
         cursor = self.textCursor()
         cursor.movePosition(QTextCursor.MoveOperation.End)
 
@@ -29,9 +28,9 @@ class ConsoleWidget(QPlainTextEdit):
         else:
             color = QColor("white")
 
-        #format = QTextCharFormat()
-        #format.setForeground(color)
-        #cursor.mergeCharFormat(format)
+        format = QTextCharFormat()
+        format.setForeground(color)
+        cursor.mergeCharFormat(format)
         cursor.insertText(text)
         self.setTextCursor(cursor)
         self.verticalScrollBar().setValue(self.verticalScrollBar().maximum())
