@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta
 import logging
 
+from PySide6 import QtCore
 from numpy.f2py.auxfuncs import throw_error
 
 from tools.config import get_timezone
@@ -156,10 +157,14 @@ class SerialReaderRS485:
             await device.save(update_fields=['actual_status', 'wait_time'])
 
         msg = "Device is not connected" if self.error_flag else "There is no response from the device"
-        QMessageBox.warning(
-            None,
-            f"{datetime.now().strftime('%d/%m/%Y %H:%M:%S')}",
-            f"{self.device_custom_name} - {msg} - {self.error_text}",
-            QMessageBox.StandardButton.Ok,
-            QMessageBox.StandardButton.Cancel
-        )
+
+        def show_message_box():
+            QMessageBox.warning(
+                None,
+                f"{datetime.now().strftime('%d/%m/%Y %H:%M:%S')}",
+                f"{self.device_custom_name} - {msg} - {self.error_text}",
+                QMessageBox.StandardButton.Ok,
+                QMessageBox.StandardButton.Cancel
+            )
+
+        QtCore.QTimer.singleShot(100, show_message_box)
