@@ -182,7 +182,6 @@ class ProjectViewWidget(QWidget):
             self.main_window.hide_loading()
 
     async def force_device_try(self, device):
-        self.main_window.show_loading()
         try:
             tz = get_timezone()
             now_utc = datetime.utcnow().replace(tzinfo=pytz.utc)
@@ -195,8 +194,6 @@ class ProjectViewWidget(QWidget):
             self.load_devices()
         except Exception as e:
             logger.error(e)
-        finally:
-            self.main_window.hide_loading()
 
     def add_new_device(self):
         self.main_window.show_loading()
