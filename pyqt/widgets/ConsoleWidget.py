@@ -10,7 +10,7 @@ class ConsoleWidget(QPlainTextEdit):
         self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         self.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
 
-        font = QFont("DejaVu Sans Mono", 10)
+        font = QFont("Monospace", 10)
         self.setFont(font)
 
     def write(self, text):

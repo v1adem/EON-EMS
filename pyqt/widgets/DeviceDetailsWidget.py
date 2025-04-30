@@ -172,8 +172,10 @@ class DeviceDetailsWidget(QWidget):
 
         bottom_left_layout = QGridLayout()
 
+        import sys
+        print(f"Stdout encoding: {sys.stdout.encoding}")
         console_widget = ConsoleWidget()
-        bottom_left_layout.addWidget(console_widget, 0, 0, 2, 1)  # Розташування консолі ліворуч
+        bottom_left_layout.addWidget(console_widget, 0, 0, 2, 1)
 
         clock_title = QLabel("Поточний час")
         clock_title.setStyleSheet("font-size: 16pt; font-weight: bold;")
@@ -248,7 +250,7 @@ class DeviceDetailsWidget(QWidget):
 
         self.tabs.addTab(tab, phase_name)
 
-        sys.stdout = console_widget  # Перенаправлення виводу на консоль
+        sys.stdout = console_widget
         logger.info("Console initialized")
 
     def auto_update(self):
