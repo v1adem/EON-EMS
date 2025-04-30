@@ -35,7 +35,7 @@ class ProjectsWidget(QWidget):
         self.loading_indicator.hide()
         self.layout.addWidget(self.loading_indicator)
 
-        self.top_layout = QHBoxLayout(self)
+        self.top_layout = QHBoxLayout()
 
         self.projects_label = QLabel("Проєкти", self)
         self.projects_label.setStyleSheet("font-size: 18px;")

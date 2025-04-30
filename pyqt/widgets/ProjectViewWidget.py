@@ -38,7 +38,7 @@ class ProjectViewWidget(QWidget):
         self.loading_indicator.setStyleSheet("background: transparent;")
         self.loading_indicator.hide()
 
-        top_layout = QHBoxLayout(self)
+        top_layout = QHBoxLayout()
 
         self.label = QLabel(f"Деталі проєкту: {project.name}")
         self.label.setStyleSheet("font-size: 18px;")
