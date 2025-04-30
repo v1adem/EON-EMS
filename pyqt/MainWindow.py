@@ -1,4 +1,7 @@
 import logging
+
+from PySide6.QtCore import QSize
+
 logger = logging.getLogger(__name__)
 
 from PySide6 import QtCore
@@ -146,6 +149,7 @@ class MainWindow(QMainWindow):
         self.loading_label = QLabel(self.loading_overlay)
         spinner_path = resource_path("pyqt/icons/loading.gif")
         self.movie = QMovie(spinner_path)
+        self.movie.setScaledSize(QSize(200, 200))
         self.loading_label.setMovie(self.movie)
         self.movie.start()
 
