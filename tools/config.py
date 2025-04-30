@@ -58,7 +58,7 @@ def init_logger():
     logger = logging.getLogger()
     logger.setLevel(logging.DEBUG)
 
-    formatter = logging.Formatter('%(pastime)s - %(message)s')
+    formatter = logging.Formatter('%(asctime)s - %(message)s')
 
     console = Console()
     console_handler = RichHandler(console=console, rich_tracebacks=True, show_path=False)
