@@ -1,6 +1,9 @@
 import asyncio
 from datetime import datetime, timedelta
 import logging
+
+from models.Project import Project
+
 logger = logging.getLogger(__name__)
 
 from AsyncioPySide6 import AsyncioPySide6
@@ -83,7 +86,9 @@ class DataCollectorRunnable(QRunnable):
 
     async def collect_data(self):
         while not self.stop_collecting:
+            self.project = await Project.filter(id=self.project.id).first()
             devices = await Device.filter(project=self.project).all()
+            print(devices)
             for device in devices:
                 if self.stop_collecting:
                     return
