@@ -1,10 +1,8 @@
 import logging
 
-from PySide6.QtCore import QSize
-
 logger = logging.getLogger(__name__)
 
-from PySide6 import QtCore
+from PySide6 import QtCore, QtGui
 from PySide6.QtGui import QAction, QIcon, QMovie
 from PySide6.QtWidgets import QMainWindow, QWidget, QStackedWidget, QVBoxLayout, QDialog, QSystemTrayIcon, QMenu, QLabel
 
@@ -33,6 +31,11 @@ class MainWindow(QMainWindow):
         self.setGeometry(100, 100, 1200, 800)
         self.setMinimumWidth(800)
         self.setMinimumHeight(600)
+
+        screen_geometry = QtCore.QRect(QtGui.QGuiApplication.primaryScreen().geometry())
+        x = (screen_geometry.width() - self.width()) // 2
+        y = (screen_geometry.height() - self.height()) // 2
+        self.move(x, y)
 
         self.menu_bar = self.menuBar()
 
@@ -138,30 +141,22 @@ class MainWindow(QMainWindow):
             self.stacked_widget.setCurrentIndex(0)
 
     def show_loading(self):
-        self.loading_overlay = QWidget(self)
-        self.loading_overlay.setStyleSheet("background-color: rgba(0, 0, 0, 100);")
-        self.loading_overlay.setGeometry(self.rect())
-        self.loading_overlay.setAttribute(QtCore.Qt.WidgetAttribute.WA_TransparentForMouseEvents, False)
+        self.loading_label = QLabel(self)
+        self.loading_label.setStyleSheet("background-color: rgba(255, 255, 255, 200);")
+        self.loading_label.setFixedSize(self.size())
+        self.loading_label.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
 
-        layout = QVBoxLayout(self.loading_overlay)
-        layout.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
+        movie = QMovie(resource_path("pyqt/animations/loading.gif"))
+        self.loading_label.setMovie(movie)
+        movie.start()
 
-        self.loading_label = QLabel(self.loading_overlay)
-        spinner_path = resource_path("pyqt/icons/loading.gif")
-        self.movie = QMovie(spinner_path)
-        self.movie.setScaledSize(QSize(200, 200))
-        self.loading_label.setMovie(self.movie)
-        self.movie.start()
-
-        layout.addWidget(self.loading_label)
-
-        self.loading_overlay.show()
+        self.loading_label.show()
 
     def hide_loading(self):
-        if hasattr(self, 'movie'):
-            self.movie.stop()
-        if hasattr(self, 'loading_overlay'):
-            self.loading_overlay.deleteLater()
+        if hasattr(self, 'loading_label'):
+            self.loading_label.movie().stop()
+            self.loading_label.hide()
+            self.loading_label.deleteLater()
 
     def exit_app(self):
         self.is_exit = True
