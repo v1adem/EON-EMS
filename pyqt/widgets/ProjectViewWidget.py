@@ -188,6 +188,8 @@ class ProjectViewWidget(QWidget):
             now_utc = datetime.utcnow().replace(tzinfo=pytz.utc)
             wait_time_local = now_utc - timedelta(seconds=600)
 
+            print("Force try")
+
             device.wait_time = wait_time_local.astimezone(tz)
             await device.save(update_fields=['wait_time'])
             self.load_devices()
