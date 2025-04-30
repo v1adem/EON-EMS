@@ -1,6 +1,9 @@
 import sys
 from datetime import datetime, timedelta
 import logging
+
+from pyqt.SafeButton import SafeButton
+
 logger = logging.getLogger(__name__)
 
 import pyqtgraph as pg
@@ -10,7 +13,7 @@ from PySide6.QtCore import QTimer, QDate, Qt, QSortFilterProxyModel, QTime
 from PySide6.QtGui import QStandardItemModel, QFont, QStandardItem, QIcon
 from PySide6.QtWidgets import QToolTip
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QSplitter, QLabel, QDateEdit, QTableView, QTabWidget, QHBoxLayout, \
-    QPushButton, QCheckBox, QGridLayout, QLCDNumber, QDialog, QMessageBox, QFileDialog
+     QCheckBox, QGridLayout, QLCDNumber, QDialog, QMessageBox, QFileDialog
 
 from tools.config import resource_path
 from models.Report import SDM630Report, SDM630ReportTmp, SDM120Report, SDM120ReportTmp, SDM72Report, SDM72ReportTmp
@@ -110,7 +113,7 @@ class DeviceDetailsWidget(QWidget):
         self.end_date_table_filter.setStyleSheet("font-size: 16px;")
         filter_layout.addWidget(self.end_date_table_filter)
 
-        filter_button = QPushButton("Застосувати фільтр")
+        filter_button = SafeButton("Застосувати фільтр", 500)
         filter_button.setStyleSheet("font-size: 16px;")
         filter_button.clicked.connect(self.apply_date_filter)
         filter_layout.addWidget(filter_button)
@@ -124,13 +127,13 @@ class DeviceDetailsWidget(QWidget):
         self.auto_update_checkbox.setChecked(True)
         button_layout.addWidget(self.auto_update_checkbox)
 
-        update_button = QPushButton("Оновити")
+        update_button = SafeButton("Оновити")
         update_button.setIcon(QIcon(resource_path("pyqt/icons/refresh.png")))
         update_button.setStyleSheet("font-size: 16px;")
         update_button.clicked.connect(self.load_report_data)
         button_layout.addWidget(update_button)
 
-        export_button = QPushButton("Експорт в Excel")
+        export_button = SafeButton("Експорт в Excel")
         export_button.setStyleSheet("font-size: 16px;")
         export_button.setFixedHeight(36)
         export_button.clicked.connect(self.open_export_dialog)
@@ -1051,7 +1054,7 @@ class DeviceDetailsWidget(QWidget):
         if self.device_model == "SDM120":
             layout.addWidget(self.include_charts)
 
-        save_button = QPushButton("Зберегти в Excel")
+        save_button = SafeButton("Зберегти в Excel")
         save_button.clicked.connect(self.export_to_excel)
         layout.addWidget(save_button)
 

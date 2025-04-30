@@ -4,6 +4,7 @@ import logging
 
 import xlsxwriter
 
+from pyqt.SafeButton import SafeButton
 from register_maps.RegisterMaps import RegisterMap
 
 logger = logging.getLogger(__name__)
@@ -11,8 +12,8 @@ logger = logging.getLogger(__name__)
 import pytz
 from AsyncioPySide6 import AsyncioPySide6
 from PySide6.QtCore import Qt, QSize, QTime, QDate
-from PySide6.QtGui import QStandardItemModel, QStandardItem, QIcon, QMovie
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QLabel, QListView, QPushButton, QHBoxLayout, QMessageBox, QDialog, \
+from PySide6.QtGui import QStandardItemModel, QStandardItem, QIcon
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QLabel, QListView, QHBoxLayout, QMessageBox, QDialog, \
     QFormLayout, QLineEdit, QComboBox, QSpinBox, QDialogButtonBox, QRadioButton, QTimeEdit, QSpacerItem, QSizePolicy, \
     QFileDialog, QDateEdit
 from tortoise.exceptions import DoesNotExist
@@ -44,13 +45,13 @@ class ProjectViewWidget(QWidget):
         self.label.setStyleSheet("font-size: 18px;")
         top_layout.addWidget(self.label)
 
-        export_button = QPushButton("Експорт в Excel")
+        export_button = SafeButton("Експорт в Excel")
         export_button.setFixedSize(360, 36)
         export_button.setStyleSheet("font-size: 16px;")
         export_button.clicked.connect(self.open_project_export_dialog)
         top_layout.addWidget(export_button)
 
-        refresh_button = QPushButton()
+        refresh_button = SafeButton()
         refresh_button.setIcon(QIcon(resource_path("pyqt/icons/refresh.png")))
         refresh_button.setFixedSize(36, 36)
         refresh_button.clicked.connect(self.load_devices)
@@ -66,7 +67,7 @@ class ProjectViewWidget(QWidget):
 
         self.load_devices()
 
-        self.add_device_button = QPushButton("Додати новий пристрій", self)
+        self.add_device_button = SafeButton("Додати новий пристрій", 1000, self)
         self.add_device_button.setStyleSheet("font-size: 18px;")
         layout.addWidget(self.add_device_button)
         if not self.isAdmin:
@@ -124,23 +125,23 @@ class ProjectViewWidget(QWidget):
                 item_layout.addWidget(actual_status_label)
                 item_layout.addWidget(time_label)
 
-                toggle_status_button = QPushButton("Увімкнути" if not device.get_reading_status() else "Вимкнути")
+                toggle_status_button = SafeButton("Увімкнути" if not device.get_reading_status() else "Вимкнути")
                 toggle_status_button.setFixedSize(100, 36)
                 toggle_status_button.clicked.connect(
                     lambda _, d=device, btn=toggle_status_button: AsyncioPySide6.runTask(
                         self.toggle_device_status(d, btn)))
 
-                force_try_button = QPushButton("Примусова спроба")
+                force_try_button = SafeButton("Примусова спроба")
                 force_try_button.setFixedSize(150, 36)
                 force_try_button.clicked.connect(
                     lambda _, d=device: AsyncioPySide6.runTask(self.force_device_try(d)))
 
-                edit_button = QPushButton()
+                edit_button = SafeButton()
                 edit_button.setIcon(QIcon(resource_path("pyqt/icons/edit.png")))
                 edit_button.setFixedSize(36, 36)
                 edit_button.clicked.connect(lambda _, d=device: self.edit_device(d))
 
-                delete_button = QPushButton()
+                delete_button = SafeButton()
                 delete_button.setIcon(QIcon(resource_path("pyqt/icons/delete.png")))
                 delete_button.setFixedSize(36, 36)
                 delete_button.clicked.connect(lambda _, d=device: self.delete_device(d))
@@ -436,7 +437,7 @@ class ProjectViewWidget(QWidget):
 
         layout.addLayout(date_range_layout)
 
-        save_button = QPushButton("Зберегти в Excel")
+        save_button = SafeButton("Зберегти в Excel")
         save_button.clicked.connect(self.export_project_to_excel)
         layout.addWidget(save_button)
 

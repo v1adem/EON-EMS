@@ -4,13 +4,14 @@ import pyudev
 import xlsxwriter
 from AsyncioPySide6 import AsyncioPySide6
 from PySide6.QtCore import Qt, QSize, QDate
-from PySide6.QtGui import QStandardItemModel, QIcon, QStandardItem, QMovie
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QListView, QPushButton, QComboBox, QSizePolicy, \
+from PySide6.QtGui import QStandardItemModel, QIcon, QStandardItem
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QListView, QComboBox, QSizePolicy, \
     QInputDialog, QMessageBox, QDialog, QLineEdit, QSpinBox, QDialogButtonBox, QSpacerItem, QFormLayout, QFileDialog, \
     QDateEdit
 from pymodbus.client import ModbusSerialClient
 from tortoise.exceptions import DoesNotExist
 
+from pyqt.SafeButton import SafeButton
 from register_maps.RegisterMaps import RegisterMap
 from tools.config import resource_path
 from models.Device import Device
@@ -44,13 +45,13 @@ class ProjectsWidget(QWidget):
         self.projects_list = QListView(self)
         self.projects_model = QStandardItemModel()
 
-        export_button = QPushButton("Експорт в Excel")
+        export_button = SafeButton("Експорт в Excel")
         export_button.setFixedSize(360, 36)
         export_button.setStyleSheet("font-size: 16px;")
         export_button.clicked.connect(self.open_export_all_projects_dialog)
         self.top_layout.addWidget(export_button)
 
-        refresh_button = QPushButton()
+        refresh_button = SafeButton()
         refresh_button.setIcon(QIcon(resource_path("pyqt/icons/refresh.png")))
         refresh_button.setFixedSize(36, 36)
         refresh_button.clicked.connect(self.load_projects())
@@ -62,7 +63,7 @@ class ProjectsWidget(QWidget):
         self.projects_list.setModel(self.projects_model)
         self.projects_list.doubleClicked.connect(self.open_project_details)
 
-        self.add_project_button = QPushButton("Додати новий проєкт", self)
+        self.add_project_button = SafeButton("Додати новий проєкт",1000, self)
         self.add_project_button.setStyleSheet("font-size: 18px;")
         self.layout.addWidget(self.add_project_button)
 
@@ -121,12 +122,12 @@ class ProjectsWidget(QWidget):
                 connection_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
                 item_layout.addWidget(connection_label)
 
-                edit_button = QPushButton()
+                edit_button = SafeButton()
                 edit_button.setIcon(QIcon(resource_path("pyqt/icons/edit.png")))
                 edit_button.setFixedSize(36, 36)
                 edit_button.clicked.connect(lambda _, p=project: self.edit_project(p))
 
-                delete_button = QPushButton()
+                delete_button = SafeButton()
                 delete_button.setIcon(QIcon(resource_path("pyqt/icons/delete.png")))
                 delete_button.setFixedSize(36, 36)
                 delete_button.clicked.connect(lambda _, p=project: self.delete_project(p))
@@ -290,7 +291,7 @@ class ProjectsWidget(QWidget):
                     self, "Недоступно", "Функція не підтримується на цій платформі."
                 )
 
-        open_settings_button = QPushButton("Подивитися налаштування порту")
+        open_settings_button = SafeButton("Подивитися налаштування порту")
         open_settings_button.clicked.connect(open_device_manager)
         layout.addWidget(open_settings_button)
 
@@ -398,7 +399,7 @@ class ProjectsWidget(QWidget):
 
         layout.addLayout(date_range_layout)
 
-        save_button = QPushButton("Зберегти в Excel")
+        save_button = SafeButton("Зберегти в Excel")
         save_button.clicked.connect(self.export_all_projects_to_excel)
         layout.addWidget(save_button)
 
