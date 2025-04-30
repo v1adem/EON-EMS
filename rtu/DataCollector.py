@@ -88,7 +88,6 @@ class DataCollectorRunnable(QRunnable):
         while not self.stop_collecting:
             self.project = await Project.filter(id=self.project.id).first()
             devices = await Device.filter(project=self.project).all()
-            print(devices)
             for device in devices:
                 if self.stop_collecting:
                     return
