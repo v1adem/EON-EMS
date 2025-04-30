@@ -11,6 +11,11 @@ class ConsoleWidget(QPlainTextEdit):
         self.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
 
     def write(self, text):
+        try:
+            utf8_text = text.encode('utf-8').decode('utf-8')
+        except UnicodeDecodeError:
+            utf8_text = text
+
         cursor = self.textCursor()
         cursor.movePosition(QTextCursor.MoveOperation.End)
 
@@ -28,8 +33,7 @@ class ConsoleWidget(QPlainTextEdit):
         format = QTextCharFormat()
         format.setForeground(color)
         cursor.mergeCharFormat(format)
-        cursor.insertText(text)
-
+        cursor.insertText(utf8_text)
         self.setTextCursor(cursor)
         self.verticalScrollBar().setValue(self.verticalScrollBar().maximum())
 
