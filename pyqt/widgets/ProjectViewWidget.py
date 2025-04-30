@@ -168,7 +168,6 @@ class ProjectViewWidget(QWidget):
             self.main_window.hide_loading()
 
     async def toggle_device_status(self, device, button):
-        self.main_window.show_loading()
         try:
             device.toggle_reading_status()
             await device.save()
@@ -178,17 +177,12 @@ class ProjectViewWidget(QWidget):
             QMessageBox.critical(self, "Помилка", f"Не вдалося змінити статус пристрою: {e}",
                                  QMessageBox.StandardButton.Ok, QMessageBox.StandardButton.Cancel)
             logger.error(e)
-        finally:
-            self.main_window.hide_loading()
 
     async def force_device_try(self, device):
         try:
             tz = get_timezone()
             now_utc = datetime.utcnow().replace(tzinfo=pytz.utc)
             wait_time_local = now_utc - timedelta(seconds=600)
-
-            print("Force try")
-
             device.wait_time = wait_time_local.astimezone(tz)
             await device.save(update_fields=['wait_time'])
             self.load_devices()

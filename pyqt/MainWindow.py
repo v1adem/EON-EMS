@@ -147,10 +147,11 @@ class MainWindow(QMainWindow):
         spinner_path = resource_path("pyqt/icons/loading.gif")
         self.movie = QMovie(spinner_path)
         self.loading_label.setMovie(self.movie)
+        self.movie.start()
+
         layout.addWidget(self.loading_label)
 
         self.loading_overlay.show()
-        QtCore.QTimer.singleShot(0, self.movie.start)
 
     def hide_loading(self):
         if hasattr(self, 'movie'):
