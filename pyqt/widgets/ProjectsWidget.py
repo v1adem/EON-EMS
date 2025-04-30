@@ -72,7 +72,6 @@ class ProjectsWidget(QWidget):
         self.add_project_button.clicked.connect(self.add_new_project)
 
     def load_projects(self):
-        self.main_window.show_loading()
         async def run_load_projects():
             self.projects = await Project.all()
             for index, project in enumerate(self.projects, start=1):
@@ -147,11 +146,9 @@ class ProjectsWidget(QWidget):
 
                 self.projects_list.setIndexWidget(item.index(), item_widget)
 
-        try:
-            self.projects_model.clear()
-            AsyncioPySide6.runTask(run_load_projects())
-        finally:
-            self.main_window.hide_loading()
+        self.projects_model.clear()
+        AsyncioPySide6.runTask(run_load_projects())
+
 
     def update_connection_status(self, project, label):
         if self.is_connected(project):
