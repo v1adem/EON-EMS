@@ -105,7 +105,6 @@ class DataCollectorRunnable(QRunnable):
                 if new_data == {}:
                     continue
 
-                self.main_window.hide_loading()
                 if device.actual_status is False:
                     logger.info(f"Device {device.name} - {device.model} - is now online")
                     device.actual_status = True
