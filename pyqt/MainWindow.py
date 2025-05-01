@@ -24,6 +24,7 @@ class MainWindow(QMainWindow):
         self.is_exit = False
 
         self.thread_manager = thread_manager
+        self.project_view_widget = None
 
         self.isAdmin = False
 

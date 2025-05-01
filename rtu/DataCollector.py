@@ -110,6 +110,8 @@ class DataCollectorRunnable(QRunnable):
                     continue
 
                 if device.actual_status is False:
+                    if self.main_window.project_view_widget is not None:
+                        self.main_window.project_view_widget.load_devices()
                     logger.info(f"Device {device.name} - {device.model} - is now online")
                     device.actual_status = True
                     await device.save(force_update=True)
