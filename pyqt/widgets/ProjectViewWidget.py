@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 import logging
 
 import xlsxwriter
+from PyQt6.QtWidgets import QPushButton
 
 from pyqt.SafeButton import SafeButton
 from register_maps.RegisterMaps import RegisterMap
@@ -52,7 +53,7 @@ class ProjectViewWidget(QWidget):
         export_button.clicked.connect(self.open_project_export_dialog)
         top_layout.addWidget(export_button)
 
-        refresh_button = SafeButton(None, 200)
+        refresh_button = QPushButton()
         refresh_button.setIcon(QIcon(resource_path("pyqt/icons/refresh.png")))
         refresh_button.setFixedSize(36, 36)
         refresh_button.clicked.connect(self.load_devices)
