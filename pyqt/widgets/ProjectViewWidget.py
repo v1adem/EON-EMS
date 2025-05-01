@@ -1,3 +1,4 @@
+import asyncio
 from datetime import datetime, timedelta
 
 import logging
@@ -187,7 +188,8 @@ class ProjectViewWidget(QWidget):
             wait_time_local = now_utc - timedelta(seconds=600)
             device.wait_time = wait_time_local.astimezone(tz)
             await device.save(update_fields=['wait_time'])
-            self.load_devices()
+            await asyncio.sleep(0.5)
+            await self.load_devices()
         except Exception as e:
             logger.error(e)
 
