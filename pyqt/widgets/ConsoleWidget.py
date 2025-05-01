@@ -3,6 +3,7 @@ from PySide6.QtGui import QColor, QTextCursor, QTextCharFormat, QFont
 from PySide6.QtWidgets import QPlainTextEdit
 import re
 
+
 class ConsoleWidget(QPlainTextEdit):
     def __init__(self, parent=None):
         super().__init__(parent)

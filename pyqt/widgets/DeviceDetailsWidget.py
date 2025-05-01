@@ -177,8 +177,8 @@ class DeviceDetailsWidget(QWidget):
 
         bottom_left_layout = QGridLayout()
 
-        console_widget = ConsoleWidget()
-        bottom_left_layout.addWidget(console_widget, 0, 0, 2, 1)
+        self.console_widget = ConsoleWidget()
+        bottom_left_layout.addWidget(self.console_widget, 0, 0, 2, 1)
 
         clock_title = QLabel("Поточний час")
         clock_title.setStyleSheet("font-size: 16pt; font-weight: bold;")
@@ -248,12 +248,12 @@ class DeviceDetailsWidget(QWidget):
             "power_lcd": power_lcd,
             "energy_lcd": energy_lcd,
             "clock_label": clock_label,
-            "console_widget": console_widget,  # Додавання консолі в phase_data
+            "console_widget": self.console_widget,  # Додавання консолі в phase_data
         }
 
         self.tabs.addTab(tab, phase_name)
 
-        sys.stdout = console_widget
+        sys.stdout = self.console_widget
         logger.info("Console initialized")
 
     def auto_update(self):
@@ -844,7 +844,7 @@ class DeviceDetailsWidget(QWidget):
                 "active_power_1": "Активна\nпотужність\n",
                 "power_1": "Повна\nпотужність\n",
                 "reactive_power_1": "Реактивна\nпотужність\n",
-                "power_factor_1": "Коефіцієнт\nперетворення\n",
+                "power_factor_1": "Коефіцієнт\nпотужності\n",
                 "import_active_energy_1": "Імпортована\nактивна енергія\n",
                 "export_active_energy_1": "Експортована\nактивна енергія\n",
                 "total_active_energy": "Загальна\nактивна енергія\n",
@@ -858,7 +858,7 @@ class DeviceDetailsWidget(QWidget):
                 "active_power_1": "Активна потужність Watts",
                 "power_1": "Повна потужність VA",
                 "reactive_power_1": "Реактивна потужність VAr",
-                "power_factor_1": "Коефіцієнт перетворення",
+                "power_factor_1": "Коефіцієнт потужності",
                 "import_active_energy_1": "Імпортована активна енергія kWh",
                 "export_active_energy_1": "Експортована активна енергія kWh",
                 "total_active_energy": "Загальна активна енергія kWh",
@@ -1357,3 +1357,7 @@ class DeviceDetailsWidget(QWidget):
                     hourly_timestamps.append(current_hour_start)
 
                 self.update_energy_graph(hourly_timestamps, hourly_energy, phase_name)
+
+    def closeEvent(self, event):
+        self.console_widget.close()
+        super().closeEvent(event)

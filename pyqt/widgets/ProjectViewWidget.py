@@ -134,7 +134,7 @@ class ProjectViewWidget(QWidget):
                 force_try_button = SafeButton("Примусова спроба")
                 force_try_button.setFixedSize(150, 36)
                 force_try_button.clicked.connect(
-                    lambda _, d=device: AsyncioPySide6.runTask(self.force_device_try(d)))
+                    lambda _, d=device: AsyncioPySide6.runTask(self.force_device_try(d, time_label)))
 
                 edit_button = SafeButton()
                 edit_button.setIcon(QIcon(resource_path("pyqt/icons/edit.png")))
@@ -179,8 +179,9 @@ class ProjectViewWidget(QWidget):
                                  QMessageBox.StandardButton.Ok, QMessageBox.StandardButton.Cancel)
             logger.error(e)
 
-    async def force_device_try(self, device):
+    async def force_device_try(self, device, time_label):
         try:
+            time_label.setText("Відбувається спроба...")
             tz = get_timezone()
             now_utc = datetime.utcnow().replace(tzinfo=pytz.utc)
             wait_time_local = now_utc - timedelta(seconds=600)
