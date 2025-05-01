@@ -9,8 +9,11 @@ class SafeButton(QPushButton):
         self.clicked.connect(self.disable_temporarily)
 
     def disable_temporarily(self):
-        self.setDisabled(True)
+        if self.cooldown_ms > 0:
+            self.setDisabled(True)
+
         def setEnabled():
             self.setEnabled(True)
+
         if not self.destroyed:
             QTimer.singleShot(self.cooldown_ms, setEnabled)
