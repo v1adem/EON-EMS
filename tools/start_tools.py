@@ -1,7 +1,6 @@
+import logging
 import os
 import sys
-
-import logging
 
 from PySide6.QtWidgets import QMessageBox
 

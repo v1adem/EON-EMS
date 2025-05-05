@@ -51,7 +51,7 @@ class MainWindow(QMainWindow):
 
         # settings_icon = QIcon(resource_path("pyqt/icons/settings.png"))
         settings_menu = self.menu_bar.addMenu("Налаштування")
-        settings_action = QAction("Час видалення", self) #(settings_icon, "Час видалення", self)
+        settings_action = QAction("Час видалення", self)  # (settings_icon, "Час видалення", self)
         settings_action.triggered.connect(self.open_deleting_time_dialog)
         settings_menu.addAction(settings_action)
 
@@ -119,7 +119,6 @@ class MainWindow(QMainWindow):
         self.device_details_widget = DeviceDetailsWidget(self, device)
         self.stacked_widget.addWidget(self.device_details_widget)
         self.stacked_widget.setCurrentIndex(3)
-
 
     def go_back(self):
         current_index = self.stacked_widget.currentIndex()

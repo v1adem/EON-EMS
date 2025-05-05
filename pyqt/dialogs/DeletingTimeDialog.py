@@ -1,5 +1,6 @@
-from PySide6.QtWidgets import QDialog, QLabel, QSpinBox, QPushButton, QVBoxLayout, QFormLayout
 import logging
+
+from PySide6.QtWidgets import QDialog, QLabel, QSpinBox, QPushButton, QVBoxLayout, QFormLayout
 
 logger = logging.getLogger(__name__)
 from tools.config import get_deleting_time, set_deleting_time

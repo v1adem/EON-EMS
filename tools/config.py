@@ -1,5 +1,6 @@
-import logging.handlers
 import logging
+import logging.handlers
+
 logger = logging.getLogger(__name__)
 
 import pytz
@@ -9,7 +10,6 @@ import os
 
 from rich.logging import Console
 from rich.logging import RichHandler
-
 
 _CONFIG = {}
 _CONFIG_PATH = None
@@ -26,6 +26,7 @@ def resource_path(relative_path):
         base_path = os.path.abspath(".")
 
     return os.path.join(base_path, relative_path)
+
 
 def get_config_path():
     global _CONFIG_PATH
@@ -53,6 +54,7 @@ def get_log_file_path():
 class TortoiseFilter(logging.Filter):
     def filter(self, record):
         return not record.name.startswith('tortoise')
+
 
 def init_logger():
     logger = logging.getLogger()
@@ -139,4 +141,3 @@ def get_timezone():
 def set_timezone(new_timezone_str):
     _CONFIG['timezone'] = new_timezone_str
     _save_config()
-

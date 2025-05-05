@@ -1,7 +1,5 @@
-import asyncio
-from datetime import datetime, timedelta
-
 import logging
+from datetime import datetime, timedelta
 
 import xlsxwriter
 
@@ -79,6 +77,7 @@ class ProjectViewWidget(QWidget):
 
     def load_devices(self):
         self.main_window.show_loading()
+
         async def run_load_devices():
             self.devices = await Device.filter(project_id=self.project.id).all()
             for index, device in enumerate(self.devices, start=1):
@@ -112,7 +111,8 @@ class ProjectViewWidget(QWidget):
                     else:
                         actual_status_label.setText(f"Відключено.")
                         local_tz = get_timezone()
-                        time_label.setText(f"Наступна спроба - {device.wait_time.astimezone(local_tz).strftime('%H:%M')}")
+                        time_label.setText(
+                            f"Наступна спроба - {device.wait_time.astimezone(local_tz).strftime('%H:%M')}")
                         actual_status_label.setStyleSheet("font-size: 18px; color: #aa0000;")
 
                 actual_status_label = QLabel()
@@ -163,6 +163,7 @@ class ProjectViewWidget(QWidget):
                 item_layout.setContentsMargins(0, 0, 0, 0)
 
                 self.devices_list.setIndexWidget(item.index(), item_widget)
+
         try:
             self.devices_model.clear()
             AsyncioPySide6.runTask(run_load_devices())
@@ -195,6 +196,7 @@ class ProjectViewWidget(QWidget):
     def add_new_device(self):
         self.main_window.show_loading()
         self.new_device = None
+
         async def run_add_device():
             dialog = QDialog(self)
             dialog.setWindowTitle("Додати новий пристрій")
@@ -245,6 +247,7 @@ class ProjectViewWidget(QWidget):
                                          device_address=device_address, project_id=self.project.id)
                 await self.new_device.save()
                 self.edit_device(self.new_device)
+
         try:
             AsyncioPySide6.runTask(run_add_device())
         finally:
@@ -252,6 +255,7 @@ class ProjectViewWidget(QWidget):
 
     def edit_device(self, device):
         self.main_window.show_loading()
+
         async def run_save_changes():
             dialog = QDialog(self)
             dialog.setWindowTitle("Редагувати пристрій")
@@ -372,6 +376,7 @@ class ProjectViewWidget(QWidget):
 
                 await device.save(force_update=True)
                 self.load_devices()
+
         try:
             AsyncioPySide6.runTask(run_save_changes())
         finally:
@@ -379,6 +384,7 @@ class ProjectViewWidget(QWidget):
 
     def delete_device(self, device):
         self.main_window.show_loading()
+
         async def run_delete_device():
             reply = QMessageBox.question(self, "Підтвердження видалення",
                                          f"Ви впевнені, що хочете видалити пристрій '{device.name}'?",
@@ -401,6 +407,7 @@ class ProjectViewWidget(QWidget):
 
                 except DoesNotExist:
                     print("Проєкт або пристрої не знайдені в базі даних.")
+
         try:
             AsyncioPySide6.runTask(run_delete_device())
         finally:
@@ -408,6 +415,7 @@ class ProjectViewWidget(QWidget):
 
     def open_device_details(self, index):
         self.main_window.show_loading()
+
         async def run_open_device_details():
             device_name = self.devices_model.itemFromIndex(index).data(Qt.ItemDataRole.UserRole)
             device = await Device.filter(name=device_name, project_id=self.project.id).first()
@@ -514,6 +522,7 @@ class ProjectViewWidget(QWidget):
 
             except Exception as e:
                 QMessageBox.warning(self, "Помилка", f"Сталася помилка при експорті даних: {e}")
+
         try:
             AsyncioPySide6.runTask(run_export_to_excel())
         finally:

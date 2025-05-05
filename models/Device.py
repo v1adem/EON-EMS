@@ -12,6 +12,7 @@ def default_wait_time():
     now_utc = datetime.utcnow().replace(tzinfo=pytz.utc)
     return now_utc.astimezone(tz)
 
+
 class Device(Model):
     id = fields.IntField(pk=True)
     project = fields.ForeignKeyField("models.Project", related_name="devices", on_delete=fields.CASCADE)

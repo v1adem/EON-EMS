@@ -17,7 +17,6 @@
     "format": "float",
     "units": "Volts"
   },
-
   "Voltage between line 1 and Line 2": {
     "register": 7,
     "type": "input",
@@ -36,7 +35,6 @@
     "format": "float",
     "units": "Volts"
   },
-
   "Current in Line 1": {
     "register": 13,
     "type": "input",
@@ -55,7 +53,6 @@
     "format": "float",
     "units": "Amps"
   },
-
   "Active Power Line 1": {
     "register": 19,
     "type": "input",
@@ -74,14 +71,12 @@
     "format": "float",
     "units": "Watts"
   },
-
   "Total Active Power Line 1+2+3": {
     "register": 25,
     "type": "input",
     "format": "float",
     "units": "Watts"
   },
-
   "Apparent Total Energy": {
     "register": 83,
     "type": "input",

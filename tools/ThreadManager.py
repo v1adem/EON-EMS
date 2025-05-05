@@ -1,4 +1,5 @@
 import logging
+
 logger = logging.getLogger(__name__)
 
 from PySide6.QtCore import QThreadPool
@@ -34,12 +35,14 @@ class ThreadManager:
         logger.info("All tasks stopped.")
         self.pool.waitForDone()
 
+
 async def initialize_threads(main_window, thread_manager):
     from models.Project import Project
 
     projects = await Project.all()
     for project in projects:
         thread_manager.add_thread(project, main_window)
+
 
 def stop_threads_synchronously(thread_manager):
     logger.info("Stopping all threads...")

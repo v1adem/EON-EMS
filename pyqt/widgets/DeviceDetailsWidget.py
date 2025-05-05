@@ -1,6 +1,6 @@
+import logging
 import sys
 from datetime import datetime, timedelta
-import logging
 
 from pyqt.SafeButton import SafeButton
 
@@ -13,7 +13,7 @@ from PySide6.QtCore import QTimer, QDate, Qt, QSortFilterProxyModel, QTime
 from PySide6.QtGui import QStandardItemModel, QFont, QStandardItem, QIcon
 from PySide6.QtWidgets import QToolTip
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QSplitter, QLabel, QDateEdit, QTableView, QTabWidget, QHBoxLayout, \
-     QCheckBox, QGridLayout, QLCDNumber, QDialog, QMessageBox, QFileDialog
+    QCheckBox, QGridLayout, QLCDNumber, QDialog, QMessageBox, QFileDialog
 
 from tools.config import resource_path
 from models.Report import SDM630Report, SDM630ReportTmp, SDM120Report, SDM120ReportTmp, SDM72Report, SDM72ReportTmp

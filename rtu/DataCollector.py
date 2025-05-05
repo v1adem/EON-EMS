@@ -1,6 +1,6 @@
 import asyncio
-from datetime import datetime, timedelta
 import logging
+from datetime import datetime, timedelta
 
 from models.Project import Project
 
@@ -40,7 +40,7 @@ def is_voltage_out_of_range(new_data, device, phase):
     if voltage_key in new_data:
         if voltage_value >= device.maxV:
             logger.warning(f"Voltage of {phase} phase in {device.name} ({device.model}) is above ({device.maxV}V). \n" +
-                  f"Current value: {voltage_value}V. Extra: {voltage_value - device.maxV}V.")
+                           f"Current value: {voltage_value}V. Extra: {voltage_value - device.maxV}V.")
             return True
         elif voltage_value <= device.minV:
             print(f"Voltage of {phase} phase in {device.name} ({device.model}) is less than ({device.minV}V). \n" +
@@ -56,7 +56,7 @@ def is_current_over_limit(new_data, device, phase):
     if current_key in new_data:
         if current_value >= device.maxA:
             logger.warning(f"Current of {phase} phase in {device.name} ({device.model}) is above ({device.maxA}A). \n" +
-                  f"Current value: {current_value}A. Extra: {current_value - device.maxA}A.")
+                           f"Current value: {current_value}A. Extra: {current_value - device.maxA}A.")
             return True
     return False
 
@@ -68,7 +68,7 @@ def is_power_over_limit(new_data, device, phase):
     if power_key in new_data:
         if power_value >= device.maxW:
             logger.warning(f"Power of {phase} phase in {device.name} ({device.model}) is above ({device.maxW}W). \n" +
-                  f"Current value: {power_value}W. Extra: {power_value - device.maxW}W.")
+                           f"Current value: {power_value}W. Extra: {power_value - device.maxW}W.")
             return True
     return False
 
@@ -98,10 +98,10 @@ class DataCollectorRunnable(QRunnable):
                 if device.wait_time > now_local:
                     continue
                 main_db_model, tmp_db_model = self.get_db_model(device)
-                
+
                 last_report = await main_db_model.filter(device=device).last()
                 new_data = await get_data_from_device(device, self.project, self.main_window)
-                
+
                 # new_data = get_test_data(device.model, last_report)
 
                 if self.stop_collecting:  # Перевірка

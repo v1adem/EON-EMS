@@ -11,12 +11,12 @@ from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QListVi
 from pymodbus.client import ModbusSerialClient
 from tortoise.exceptions import DoesNotExist
 
-from pyqt.SafeButton import SafeButton
-from register_maps.RegisterMaps import RegisterMap
-from tools.config import resource_path
 from models.Device import Device
 from models.Project import Project
 from models.Report import SDM120Report, SDM120ReportTmp, SDM630Report, SDM630ReportTmp, SDM72Report, SDM72ReportTmp
+from pyqt.SafeButton import SafeButton
+from register_maps.RegisterMaps import RegisterMap
+from tools.config import resource_path
 
 
 class ProjectsWidget(QWidget):
@@ -63,7 +63,7 @@ class ProjectsWidget(QWidget):
         self.projects_list.setModel(self.projects_model)
         self.projects_list.doubleClicked.connect(self.open_project_details)
 
-        self.add_project_button = SafeButton("Додати новий проєкт",1000, self)
+        self.add_project_button = SafeButton("Додати новий проєкт", 1000, self)
         self.add_project_button.setStyleSheet("font-size: 18px;")
         self.layout.addWidget(self.add_project_button)
 
@@ -74,6 +74,7 @@ class ProjectsWidget(QWidget):
 
     def load_projects(self):
         self.main_window.show_loading()
+
         async def run_load_projects():
             self.projects = await Project.all()
             for index, project in enumerate(self.projects, start=1):
@@ -166,10 +167,12 @@ class ProjectsWidget(QWidget):
 
     def change_project_port(self, project, new_port):
         self.main_window.show_loading()
+
         async def run_change_port():
             project.port = new_port
             await project.save(force_update=True)
             self.load_projects()
+
         try:
             AsyncioPySide6.runTask(run_change_port())
         finally:
@@ -201,6 +204,7 @@ class ProjectsWidget(QWidget):
     def add_new_project(self):
         self.main_window.show_loading()
         self.new_project = None
+
         async def run_add_new_project():
             project_name, ok = QInputDialog.getText(self, "Додати новий проєкт", "Введіть назву проєкту:")
 
@@ -225,6 +229,7 @@ class ProjectsWidget(QWidget):
 
     def delete_project(self, project):
         self.main_window.show_loading()
+
         async def run_delete_project():
             reply = QMessageBox.question(self, "Підтвердження видалення",
                                          f"Ви впевнені, що хочете видалити проєкт '{project.name}'?",
@@ -255,6 +260,7 @@ class ProjectsWidget(QWidget):
 
                 except DoesNotExist:
                     print("Проєкт або пристрої не знайдені в базі даних.")
+
         try:
             AsyncioPySide6.runTask(run_delete_project())
         finally:

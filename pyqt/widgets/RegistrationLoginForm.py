@@ -1,5 +1,4 @@
 import asyncio
-
 import logging
 
 from pyqt.SafeButton import SafeButton
@@ -121,6 +120,7 @@ class RegistrationLoginForm(QWidget):
                 self.main_window.open_projects_list()
             else:
                 self.status_label.setText("Невірний логін або пароль")
+
         AsyncioPySide6.runTask(run_login())
 
     def guest_login(self):

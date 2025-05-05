@@ -1,14 +1,12 @@
-from datetime import datetime, timedelta
 import logging
-
-from numpy.f2py.auxfuncs import throw_error
+from datetime import datetime, timedelta
 
 from tools.config import get_timezone
 
 logger = logging.getLogger(__name__)
 
 import pytz
-from PySide6.QtWidgets import QMessageBox, QPushButton
+from PySide6.QtWidgets import QMessageBox
 from pymodbus.client import ModbusSerialClient
 from pymodbus.constants import Endian
 from pymodbus.payload import BinaryPayloadDecoder

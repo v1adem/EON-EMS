@@ -1,4 +1,5 @@
 import logging
+
 logger = logging.getLogger(__name__)
 
 import asyncio
@@ -21,6 +22,7 @@ from tools.start_tools import is_already_running, show_warning_message, get_data
 
 def on_about_to_quit(loop, thread_manager):
     stop_threads_synchronously(thread_manager)
+
     async def shutdown():
         try:
             logger.info("Closing database connections...")
@@ -38,6 +40,7 @@ def on_about_to_quit(loop, thread_manager):
         loop.call_soon_threadsafe(lambda: asyncio.run(shutdown()))
     else:
         asyncio.run(shutdown())
+
 
 if __name__ == "__main__":
 

@@ -1,7 +1,8 @@
+import re
+
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor, QTextCursor, QTextCharFormat, QFont
 from PySide6.QtWidgets import QPlainTextEdit
-import re
 
 
 class ConsoleWidget(QPlainTextEdit):
@@ -47,8 +48,9 @@ class ConsoleWidget(QPlainTextEdit):
                 if 0 <= code - 30 < len(colors):
                     format.setForeground(QColor(colors[code - 30]))
             elif 90 <= code <= 97:
-                 colors = ["darkgray", "lightred", "lightgreen", "lightyellow", "lightblue", "lightmagenta", "lightcyan", "white"]
-                 if 0 <= code - 90 < len(colors):
+                colors = ["darkgray", "lightred", "lightgreen", "lightyellow", "lightblue", "lightmagenta", "lightcyan",
+                          "white"]
+                if 0 <= code - 90 < len(colors):
                     format.setForeground(QColor(colors[code - 90]))
             elif 40 <= code <= 47:
                 colors = ["black", "red", "green", "yellow", "blue", "magenta", "cyan", "white"]

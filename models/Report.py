@@ -144,6 +144,7 @@ class SDM630ReportTmp(Model):
     class Meta:
         table = "sdm630_reports_tmp"
 
+
 class SDM72Report(Model):
     id = fields.IntField(pk=True)
     device = fields.ForeignKeyField('models.Device', related_name='sdm72d_reports')
@@ -184,6 +185,7 @@ class SDM72Report(Model):
 
     class Meta:
         table = "sdm72d_reports"
+
 
 class SDM72ReportTmp(Model):
     id = fields.IntField(pk=True)

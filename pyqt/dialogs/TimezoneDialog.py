@@ -1,10 +1,12 @@
+import logging
+
 import pytz
 from PySide6.QtWidgets import QDialog, QLabel, QComboBox, QDialogButtonBox, QFormLayout
 
 from tools.config import get_timezone, set_timezone
 
-import logging
 logger = logging.getLogger(__name__)
+
 
 class TimezoneDialog(QDialog):
     def __init__(self, parent=None):
