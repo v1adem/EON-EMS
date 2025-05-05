@@ -6,7 +6,6 @@ from tools.config import get_timezone
 logger = logging.getLogger(__name__)
 
 import pytz
-from PySide6.QtWidgets import QMessageBox
 from pymodbus.client import ModbusSerialClient
 from pymodbus.constants import Endian
 from pymodbus.payload import BinaryPayloadDecoder
@@ -65,7 +64,7 @@ class SerialReaderRS485:
 
         self.client = ModbusSerialClient(
             port=f"{port}", baudrate=baudrate, parity=parity,
-            stopbits=stopbits, bytesize=bytesize, timeout=0.5, retries=1
+            stopbits=stopbits, bytesize=bytesize, timeout=1.5, retries=1
         )
 
     def connect(self):
@@ -108,7 +107,7 @@ class SerialReaderRS485:
                                                                 slave=self.device_address)
 
                     if response.isError():
-                        self.error_text = f"No response from {start_address}"
+                        self.error_text = f"{self.device_custom_name} - No response from {start_address} address"
                         logger.error(self.error_text)
                         self.no_response_error_flag = True
                         break
@@ -151,11 +150,6 @@ class SerialReaderRS485:
         if self.main_window.project_view_widget is not None:
             self.main_window.project_view_widget.load_devices()
 
-        msg = "Device is not connected" if self.error_flag else "There is no response from the device"
-        QMessageBox.warning(
-            None,
-            f"{datetime.now().strftime('%d/%m/%Y %H:%M:%S')}",
-            f"{self.device_custom_name} - {msg} - {self.error_text}",
-            QMessageBox.StandardButton.Ok,
-            QMessageBox.StandardButton.Cancel
-        )
+        msg = f"{self.device_custom_name} - "
+        msg += "Device is not connected" if self.error_flag else "There is no response from the device"
+        logger.error(msg)
