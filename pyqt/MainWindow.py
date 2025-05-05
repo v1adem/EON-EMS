@@ -153,10 +153,12 @@ class MainWindow(QMainWindow):
         self.loading_label.show()
 
     def hide_loading(self):
-        if hasattr(self, 'loading_label'):
-            self.loading_label.movie().stop()
+        if hasattr(self, 'loading_label') and self.loading_label is not None:
+            if self.loading_label.movie() is not None:
+                self.loading_label.movie().stop()
             self.loading_label.hide()
             self.loading_label.deleteLater()
+            del self.loading_label
 
     def exit_app(self):
         self.is_exit = True
