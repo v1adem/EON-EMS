@@ -1,4 +1,5 @@
 import logging
+import os
 from datetime import datetime, timedelta
 
 import xlsxwriter
@@ -467,11 +468,18 @@ class ProjectViewWidget(QWidget):
                 QMessageBox.warning(self, "Експорт", "У проєкті немає пристроїв для експорту.")
                 return
 
+            desktop_reports_path = os.path.join(os.path.expanduser("~"), "Desktop", "Reports")
+            os.makedirs(desktop_reports_path, exist_ok=True)
+
+            default_filename = f"{self.project.name}_{start_datetime.date()}_{end_datetime_for_name.date()}.xlsx"
+            default_path = os.path.join(desktop_reports_path, default_filename)
+
             file_path, _ = QFileDialog.getSaveFileName(
                 self,
                 "Зберегти файл",
-                f"{self.project.name}_{start_datetime.date()}_{end_datetime_for_name.date()}.xlsx",
-                "Excel Files (*.xlsx)")
+                default_path,
+                "Excel Files (*.xlsx)"
+            )
 
             if not file_path:
                 return
