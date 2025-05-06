@@ -114,7 +114,7 @@ class DeviceDetailsWidget(QWidget):
         self.end_date_table_filter.setStyleSheet("font-size: 16px;")
         filter_layout.addWidget(self.end_date_table_filter)
 
-        filter_button = SafeButton("Застосувати фільтр", 500)
+        filter_button = SafeButton("Застосувати фільтр", -1)
         filter_button.setStyleSheet("font-size: 16px;")
         filter_button.clicked.connect(self.apply_date_filter)
         filter_layout.addWidget(filter_button)
