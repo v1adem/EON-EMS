@@ -120,7 +120,7 @@ class RegistrationLoginForm(QWidget):
                 self.main_window.open_projects_list()
             else:
                 self.status_label.setText("Невірний логін або пароль")
-                self.main_window.hide_loading()
+                self.login_button.setEnabled(True)
 
         AsyncioPySide6.runTask(run_login())
 
