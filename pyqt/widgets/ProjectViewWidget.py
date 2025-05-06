@@ -267,17 +267,11 @@ class ProjectViewWidget(QWidget):
             device_name_input.setText(device.name)
             form_layout.addRow("Назва пристрою:", device_name_input)
 
-            manufacturer_input = QComboBox(dialog)
-            manufacturer_input.addItem("Eastron")
-            manufacturer_input.setCurrentText(device.manufacturer)
-            manufacturer_input.setEditable(False)
-            form_layout.addRow("Виробник:", manufacturer_input)
+            manufacturer = device.manufacturer
+            form_layout.addRow("Виробник:", manufacturer)
 
-            model_input = QComboBox(dialog)
-            model_input.addItems(["SDM120", "SDM630", "SDM72"])
-            model_input.setCurrentText(device.model)
-            model_input.setEditable(False)
-            form_layout.addRow("Модель:", model_input)
+            model = device.model
+            form_layout.addRow("Модель:", model)
 
             device_address_input = QSpinBox(dialog)
             device_address_input.setRange(1, 255)

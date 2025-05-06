@@ -18,7 +18,7 @@ from PySide6.QtWidgets import QWidget, QVBoxLayout, QSplitter, QLabel, QDateEdit
 
 from tools.config import resource_path
 from models.Report import SDM630Report, SDM630ReportTmp, SDM120Report, SDM120ReportTmp, SDM72Report, SDM72ReportTmp
-from pyqt.widgets.ConsoleWidget import ConsoleWidget
+from pyqt.widgets.ConsoleWidget import ConsoleWidget, ConsoleOutputDuplicator
 from pyqt.widgets.DateAxisItem import DateAxisItem
 from register_maps.RegisterMaps import RegisterMap
 
@@ -249,12 +249,12 @@ class DeviceDetailsWidget(QWidget):
             "power_lcd": power_lcd,
             "energy_lcd": energy_lcd,
             "clock_label": clock_label,
-            "console_widget": self.console_widget,  # Додавання консолі в phase_data
+            "console_widget": self.console_widget,
         }
 
         self.tabs.addTab(tab, phase_name)
 
-        sys.stdout = self.console_widget
+        sys.stdout = ConsoleOutputDuplicator(self.console_widget, sys.__stdout__)
         logger.info("Console initialized")
 
     def auto_update(self):
@@ -1222,6 +1222,9 @@ class DeviceDetailsWidget(QWidget):
 
         bottom_left_layout = QGridLayout()
 
+        self.console_widget = ConsoleWidget()
+        bottom_left_layout.addWidget(self.console_widget, 0, 0, 2, 1)
+
         clock_title = QLabel("Поточний час")
         clock_title.setStyleSheet("font-size: 16pt; font-weight: bold;")
         clock_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -1290,9 +1293,13 @@ class DeviceDetailsWidget(QWidget):
             "power_lcd": power_lcd,
             "energy_lcd": energy_lcd,
             "clock_label": clock_label,
+            "console_widget": self.console_widget,
         }
 
         self.tabs.addTab(tab, phase_name)
+
+        sys.stdout = ConsoleOutputDuplicator(self.console_widget, sys.__stdout__)
+        logger.info("Console initialized")
 
     def update_graphs_sdm72(self):
         for phase_name in self.phases:
