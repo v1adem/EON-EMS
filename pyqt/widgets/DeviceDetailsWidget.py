@@ -128,7 +128,7 @@ class DeviceDetailsWidget(QWidget):
         self.auto_update_checkbox.setChecked(True)
         button_layout.addWidget(self.auto_update_checkbox)
 
-        update_button = SafeButton("Оновити")
+        update_button = SafeButton("Оновити", -1)
         update_button.setIcon(QIcon(resource_path("pyqt/icons/refresh.png")))
         update_button.setStyleSheet("font-size: 16px;")
         update_button.clicked.connect(self.load_report_data)
