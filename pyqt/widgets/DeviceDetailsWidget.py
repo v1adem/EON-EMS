@@ -1357,7 +1357,3 @@ class DeviceDetailsWidget(QWidget):
                     hourly_timestamps.append(current_hour_start)
 
                 self.update_energy_graph(hourly_timestamps, hourly_energy, phase_name)
-
-    def closeEvent(self, event):
-        self.console_widget.close()
-        super().closeEvent(event)

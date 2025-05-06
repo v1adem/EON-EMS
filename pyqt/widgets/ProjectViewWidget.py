@@ -135,7 +135,8 @@ class ProjectViewWidget(QWidget):
                 force_try_button = SafeButton("Примусова спроба")
                 force_try_button.setFixedSize(150, 36)
                 force_try_button.clicked.connect(
-                    lambda _, d=device: AsyncioPySide6.runTask(self.force_device_try(d, time_label, force_try_button)))
+                    lambda _, d=device, tl=time_label, b=force_try_button: AsyncioPySide6.runTask(
+                        self.force_device_try(d, tl, b)))
 
                 edit_button = SafeButton()
                 edit_button.setIcon(QIcon(resource_path("pyqt/icons/edit.png")))
