@@ -1228,12 +1228,12 @@ class DeviceDetailsWidget(QWidget):
         clock_title = QLabel("Поточний час")
         clock_title.setStyleSheet("font-size: 16pt; font-weight: bold;")
         clock_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        bottom_left_layout.addWidget(clock_title)
+        bottom_left_layout.addWidget(clock_title, 0, 1)
 
         clock_label = QLabel()
         clock_label.setStyleSheet("font-size: 16pt;")
         clock_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        bottom_left_layout.addWidget(clock_label)
+        bottom_left_layout.addWidget(clock_label, 1, 1)
 
         layout.addStretch()
 
