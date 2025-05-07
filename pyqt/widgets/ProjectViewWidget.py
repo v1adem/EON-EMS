@@ -256,7 +256,6 @@ class ProjectViewWidget(QWidget):
             self.main_window.hide_loading()
 
     def edit_device(self, device):
-        self.main_window.show_loading()
 
         async def run_save_changes():
             dialog = QDialog(self)
