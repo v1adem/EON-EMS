@@ -196,7 +196,6 @@ class ProjectViewWidget(QWidget):
             logger.error(e)
 
     def add_new_device(self):
-        self.main_window.show_loading()
         self.new_device = None
 
         async def run_add_device():
@@ -250,86 +249,84 @@ class ProjectViewWidget(QWidget):
                 await self.new_device.save()
                 self.edit_device(self.new_device)
 
-        try:
-            AsyncioPySide6.runTask(run_add_device())
-        finally:
-            self.main_window.hide_loading()
+        AsyncioPySide6.runTask(run_add_device())
+
 
     def edit_device(self, device):
-        async def run_save_changes():
-            dialog = QDialog(self)
-            dialog.setWindowTitle("Редагувати пристрій")
-            form_layout = QFormLayout(dialog)
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Редагувати пристрій")
+        form_layout = QFormLayout(dialog)
 
-            device_name_input = QLineEdit(dialog)
-            device_name_input.setText(device.name)
-            form_layout.addRow("Назва пристрою:", device_name_input)
+        device_name_input = QLineEdit(dialog)
+        device_name_input.setText(device.name)
+        form_layout.addRow("Назва пристрою:", device_name_input)
 
-            manufacturer = device.manufacturer
-            form_layout.addRow("Виробник:", manufacturer)
+        manufacturer = device.manufacturer
+        form_layout.addRow("Виробник:", manufacturer)
 
-            model = device.model
-            form_layout.addRow("Модель:", model)
+        model = device.model
+        form_layout.addRow("Модель:", model)
 
-            device_address_input = QSpinBox(dialog)
-            device_address_input.setRange(1, 255)
-            device_address_input.setValue(device.device_address)
-            form_layout.addRow("Адреса пристрою:", device_address_input)
+        device_address_input = QSpinBox(dialog)
+        device_address_input.setRange(1, 255)
+        device_address_input.setValue(device.device_address)
+        form_layout.addRow("Адреса пристрою:", device_address_input)
 
-            reading_type_interval = QRadioButton("Інтервал")
-            reading_type_time = QRadioButton("Час")
-            reading_type_interval.setChecked(device.reading_type == 1)
-            reading_type_time.setChecked(device.reading_type == 2)
-            form_layout.addRow("Тип зчитування:", reading_type_interval)
-            form_layout.addRow("", reading_type_time)
+        reading_type_interval = QRadioButton("Інтервал")
+        reading_type_time = QRadioButton("Час")
+        reading_type_interval.setChecked(device.reading_type == 1)
+        reading_type_time.setChecked(device.reading_type == 2)
+        form_layout.addRow("Тип зчитування:", reading_type_interval)
+        form_layout.addRow("", reading_type_time)
 
-            reading_interval_input = QSpinBox(dialog)
-            reading_interval_input.setRange(2, 59)
-            reading_interval_input.setValue(device.reading_interval // 60)  # В хвилинах
-            if device.reading_type == 2:
-                reading_interval_input.setDisabled(True)
-            form_layout.addRow("Інтервал зчитування (хв):", reading_interval_input)
+        reading_interval_input = QSpinBox(dialog)
+        reading_interval_input.setRange(2, 59)
+        reading_interval_input.setValue(device.reading_interval // 60)  # В хвилинах
+        if device.reading_type == 2:
+            reading_interval_input.setDisabled(True)
+        form_layout.addRow("Інтервал зчитування (хв):", reading_interval_input)
 
-            reading_time_input = QTimeEdit(dialog)
-            reading_time_input.setDisplayFormat("HH:mm")
-            reading_time_input.setTime(QTime(0, 0).addSecs(device.reading_time))
-            if device.reading_type == 1:
-                reading_time_input.setDisabled(True)
-            form_layout.addRow("Час зчитування:", reading_time_input)
+        reading_time_input = QTimeEdit(dialog)
+        reading_time_input.setDisplayFormat("HH:mm")
+        reading_time_input.setTime(QTime(0, 0).addSecs(device.reading_time))
+        if device.reading_type == 1:
+            reading_time_input.setDisabled(True)
+        form_layout.addRow("Час зчитування:", reading_time_input)
 
-            reading_type_interval.toggled.connect(
-                lambda: reading_interval_input.setEnabled(reading_type_interval.isChecked()))
-            reading_type_time.toggled.connect(lambda: reading_time_input.setEnabled(reading_type_time.isChecked()))
+        reading_type_interval.toggled.connect(
+            lambda: reading_interval_input.setEnabled(reading_type_interval.isChecked()))
+        reading_type_time.toggled.connect(lambda: reading_time_input.setEnabled(reading_type_time.isChecked()))
 
-            # Додавання полів для налаштування граничних значень
-            minV_input = QSpinBox(dialog)
-            minV_input.setRange(1, 99999)
-            minV_input.setValue(device.minV)
-            form_layout.addRow("Мінімальна напруга (V):", minV_input)
+        # Додавання полів для налаштування граничних значень
+        minV_input = QSpinBox(dialog)
+        minV_input.setRange(1, 99999)
+        minV_input.setValue(device.minV)
+        form_layout.addRow("Мінімальна напруга (V):", minV_input)
 
-            maxV_input = QSpinBox(dialog)
-            maxV_input.setRange(1, 99999)
-            maxV_input.setValue(device.maxV)
-            form_layout.addRow("Максимальна напруга (V):", maxV_input)
+        maxV_input = QSpinBox(dialog)
+        maxV_input.setRange(1, 99999)
+        maxV_input.setValue(device.maxV)
+        form_layout.addRow("Максимальна напруга (V):", maxV_input)
 
-            maxA_input = QSpinBox(dialog)
-            maxA_input.setRange(1, 99999)
-            maxA_input.setValue(device.maxA)
-            form_layout.addRow("Максимальний струм (A):", maxA_input)
+        maxA_input = QSpinBox(dialog)
+        maxA_input.setRange(1, 99999)
+        maxA_input.setValue(device.maxA)
+        form_layout.addRow("Максимальний струм (A):", maxA_input)
 
-            maxW_input = QSpinBox(dialog)
-            maxW_input.setRange(1, 99999)
-            maxW_input.setValue(device.maxW)
-            form_layout.addRow("Максимальна потужність (W):", maxW_input)
+        maxW_input = QSpinBox(dialog)
+        maxW_input.setRange(1, 99999)
+        maxW_input.setValue(device.maxW)
+        form_layout.addRow("Максимальна потужність (W):", maxW_input)
 
-            buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel,
-                                       dialog)
-            form_layout.addRow(buttons)
+        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel,
+                                   dialog)
+        form_layout.addRow(buttons)
 
-            buttons.accepted.connect(dialog.accept)
-            buttons.rejected.connect(dialog.reject)
+        buttons.accepted.connect(dialog.accept)
+        buttons.rejected.connect(dialog.reject)
 
-            if dialog.exec() == QDialog.DialogCode.Accepted:
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            async def run_save_changes():
                 new_name = device_name_input.text().strip()
                 new_device_address = device_address_input.value()
 
@@ -366,7 +363,7 @@ class ProjectViewWidget(QWidget):
 
                 await device.save(force_update=True)
                 self.load_devices()
-        AsyncioPySide6.runTask(run_save_changes())
+            AsyncioPySide6.runTask(run_save_changes())
 
 
     def delete_device(self, device):
