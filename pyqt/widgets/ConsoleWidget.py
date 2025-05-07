@@ -66,3 +66,16 @@ class ConsoleWidget(QPlainTextEdit):
 
     def flush(self):
         pass
+
+class ConsoleOutputDuplicator:
+    def __init__(self, widget, original_stdout):
+        self.widget = widget
+        self.original_stdout = original_stdout
+
+    def write(self, text):
+        self.original_stdout.write(text)
+        self.original_stdout.flush()
+        self.widget.write(text)
+
+    def flush(self):
+        self.original_stdout.flush()

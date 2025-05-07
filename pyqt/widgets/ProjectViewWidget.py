@@ -1,4 +1,5 @@
 import logging
+import os
 from datetime import datetime, timedelta
 
 import xlsxwriter
@@ -135,7 +136,8 @@ class ProjectViewWidget(QWidget):
                 force_try_button = SafeButton("Примусова спроба")
                 force_try_button.setFixedSize(150, 36)
                 force_try_button.clicked.connect(
-                    lambda _, d=device: AsyncioPySide6.runTask(self.force_device_try(d, time_label, force_try_button)))
+                    lambda _, d=device, tl=time_label, b=force_try_button: AsyncioPySide6.runTask(
+                        self.force_device_try(d, tl, b)))
 
                 edit_button = QPushButton()
                 edit_button.setIcon(QIcon(resource_path("pyqt/icons/edit.png")))
@@ -265,17 +267,11 @@ class ProjectViewWidget(QWidget):
             device_name_input.setText(device.name)
             form_layout.addRow("Назва пристрою:", device_name_input)
 
-            manufacturer_input = QComboBox(dialog)
-            manufacturer_input.addItem("Eastron")
-            manufacturer_input.setCurrentText(device.manufacturer)
-            manufacturer_input.setEditable(False)
-            form_layout.addRow("Виробник:", manufacturer_input)
+            manufacturer = device.manufacturer
+            form_layout.addRow("Виробник:", manufacturer)
 
-            model_input = QComboBox(dialog)
-            model_input.addItems(["SDM120", "SDM630", "SDM72"])
-            model_input.setCurrentText(device.model)
-            model_input.setEditable(False)
-            form_layout.addRow("Модель:", model_input)
+            model = device.model
+            form_layout.addRow("Модель:", model)
 
             device_address_input = QSpinBox(dialog)
             device_address_input.setRange(1, 255)
@@ -466,11 +462,18 @@ class ProjectViewWidget(QWidget):
                 QMessageBox.warning(self, "Експорт", "У проєкті немає пристроїв для експорту.")
                 return
 
+            desktop_reports_path = os.path.join(os.path.expanduser("~"), "Desktop", "Reports")
+            os.makedirs(desktop_reports_path, exist_ok=True)
+
+            default_filename = f"{self.project.name}_{start_datetime.date()}_{end_datetime_for_name.date()}.xlsx"
+            default_path = os.path.join(desktop_reports_path, default_filename)
+
             file_path, _ = QFileDialog.getSaveFileName(
                 self,
                 "Зберегти файл",
-                f"{self.project.name}_{start_datetime.date()}_{end_datetime_for_name.date()}.xlsx",
-                "Excel Files (*.xlsx)")
+                default_path,
+                "Excel Files (*.xlsx)"
+            )
 
             if not file_path:
                 return

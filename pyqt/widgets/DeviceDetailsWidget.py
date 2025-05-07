@@ -1,4 +1,5 @@
 import logging
+import os
 import sys
 from datetime import datetime, timedelta
 
@@ -17,7 +18,7 @@ from PySide6.QtWidgets import QWidget, QVBoxLayout, QSplitter, QLabel, QDateEdit
 
 from tools.config import resource_path
 from models.Report import SDM630Report, SDM630ReportTmp, SDM120Report, SDM120ReportTmp, SDM72Report, SDM72ReportTmp
-from pyqt.widgets.ConsoleWidget import ConsoleWidget
+from pyqt.widgets.ConsoleWidget import ConsoleWidget, ConsoleOutputDuplicator
 from pyqt.widgets.DateAxisItem import DateAxisItem
 from register_maps.RegisterMaps import RegisterMap
 
@@ -113,7 +114,7 @@ class DeviceDetailsWidget(QWidget):
         self.end_date_table_filter.setStyleSheet("font-size: 16px;")
         filter_layout.addWidget(self.end_date_table_filter)
 
-        filter_button = SafeButton("Застосувати фільтр", 500)
+        filter_button = SafeButton("Застосувати фільтр", -1)
         filter_button.setStyleSheet("font-size: 16px;")
         filter_button.clicked.connect(self.apply_date_filter)
         filter_layout.addWidget(filter_button)
@@ -127,7 +128,7 @@ class DeviceDetailsWidget(QWidget):
         self.auto_update_checkbox.setChecked(True)
         button_layout.addWidget(self.auto_update_checkbox)
 
-        update_button = SafeButton("Оновити")
+        update_button = SafeButton("Оновити", -1)
         update_button.setIcon(QIcon(resource_path("pyqt/icons/refresh.png")))
         update_button.setStyleSheet("font-size: 16px;")
         update_button.clicked.connect(self.load_report_data)
@@ -248,12 +249,12 @@ class DeviceDetailsWidget(QWidget):
             "power_lcd": power_lcd,
             "energy_lcd": energy_lcd,
             "clock_label": clock_label,
-            "console_widget": self.console_widget,  # Додавання консолі в phase_data
+            "console_widget": self.console_widget,
         }
 
         self.tabs.addTab(tab, phase_name)
 
-        sys.stdout = self.console_widget
+        sys.stdout = ConsoleOutputDuplicator(self.console_widget, sys.__stdout__)
         logger.info("Console initialized")
 
     def auto_update(self):
@@ -1086,11 +1087,18 @@ class DeviceDetailsWidget(QWidget):
                 QMessageBox.warning(self, "Експорт", "Дані за вибраний період відсутні.")
                 return
 
+            desktop_reports_path = os.path.join(os.path.expanduser("~"), "Desktop", "Reports")
+            os.makedirs(desktop_reports_path, exist_ok=True)
+
+            default_filename = f"{self.device.name}_{start_datetime.date()}_{end_datetime_for_name.date()}.xlsx"
+            default_path = os.path.join(desktop_reports_path, default_filename)
+
             file_path, _ = QFileDialog.getSaveFileName(
                 self,
                 "Зберегти файл",
-                f"{self.device.name}_{start_datetime.date()}_{end_datetime_for_name.date()}.xlsx",
-                "Excel Files (*.xlsx)")
+                default_path,
+                "Excel Files (*.xlsx)"
+            )
 
             if not file_path:
                 return
@@ -1214,15 +1222,18 @@ class DeviceDetailsWidget(QWidget):
 
         bottom_left_layout = QGridLayout()
 
+        self.console_widget = ConsoleWidget()
+        bottom_left_layout.addWidget(self.console_widget, 0, 0, 2, 1)
+
         clock_title = QLabel("Поточний час")
         clock_title.setStyleSheet("font-size: 16pt; font-weight: bold;")
         clock_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        bottom_left_layout.addWidget(clock_title)
+        bottom_left_layout.addWidget(clock_title, 0, 1)
 
         clock_label = QLabel()
         clock_label.setStyleSheet("font-size: 16pt;")
         clock_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        bottom_left_layout.addWidget(clock_label)
+        bottom_left_layout.addWidget(clock_label, 1, 1)
 
         layout.addStretch()
 
@@ -1282,9 +1293,13 @@ class DeviceDetailsWidget(QWidget):
             "power_lcd": power_lcd,
             "energy_lcd": energy_lcd,
             "clock_label": clock_label,
+            "console_widget": self.console_widget,
         }
 
         self.tabs.addTab(tab, phase_name)
+
+        sys.stdout = ConsoleOutputDuplicator(self.console_widget, sys.__stdout__)
+        logger.info("Console initialized")
 
     def update_graphs_sdm72(self):
         for phase_name in self.phases:
@@ -1357,7 +1372,3 @@ class DeviceDetailsWidget(QWidget):
                     hourly_timestamps.append(current_hour_start)
 
                 self.update_energy_graph(hourly_timestamps, hourly_energy, phase_name)
-
-    def closeEvent(self, event):
-        self.console_widget.close()
-        super().closeEvent(event)
