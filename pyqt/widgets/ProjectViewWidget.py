@@ -256,7 +256,6 @@ class ProjectViewWidget(QWidget):
             self.main_window.hide_loading()
 
     def edit_device(self, device):
-
         async def run_save_changes():
             dialog = QDialog(self)
             dialog.setWindowTitle("Редагувати пристрій")
@@ -319,7 +318,7 @@ class ProjectViewWidget(QWidget):
             form_layout.addRow("Максимальний струм (A):", maxA_input)
 
             maxW_input = QSpinBox(dialog)
-            maxW_input.setRange(1, 99999)  # Потужність у межах 10-10000W
+            maxW_input.setRange(1, 99999)
             maxW_input.setValue(device.maxW)
             form_layout.addRow("Максимальна потужність (W):", maxW_input)
 
@@ -367,11 +366,8 @@ class ProjectViewWidget(QWidget):
 
                 await device.save(force_update=True)
                 self.load_devices()
+        AsyncioPySide6.runTask(run_save_changes())
 
-        try:
-            AsyncioPySide6.runTask(run_save_changes())
-        finally:
-            self.main_window.hide_loading()
 
     def delete_device(self, device):
         self.main_window.show_loading()
