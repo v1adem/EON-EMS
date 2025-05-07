@@ -333,8 +333,6 @@ class ProjectViewWidget(QWidget):
 
             if dialog.exec() == QDialog.DialogCode.Accepted:
                 new_name = device_name_input.text().strip()
-                new_manufacturer = manufacturer_input.currentText()
-                new_model = model_input.currentText()
                 new_device_address = device_address_input.value()
 
                 if reading_type_interval.isChecked():
@@ -358,8 +356,6 @@ class ProjectViewWidget(QWidget):
 
                 # Оновлення параметрів пристрою
                 device.name = new_name
-                device.manufacturer = new_manufacturer
-                device.model = new_model
                 device.device_address = new_device_address
                 device.reading_type = new_reading_type
                 device.reading_interval = new_reading_interval
