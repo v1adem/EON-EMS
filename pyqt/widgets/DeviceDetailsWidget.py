@@ -250,6 +250,27 @@ class DeviceDetailsWidget(QWidget):
             "console_widget": self.console_widget,
         }
 
+        voltage_plot_item = voltage_graph.plot([], [], pen=pg.mkPen(color=(0, 102, 204), width=2),
+                                               name=f"Напруга {phase_name}")
+        voltage_scatter_item = pg.ScatterPlotItem(pen=None, brush=(0, 102, 204), size=7)
+        voltage_graph.addItem(voltage_scatter_item)
+        setattr(self, f"voltage_plot_item_{phase_name}", voltage_plot_item)
+        setattr(self, f"voltage_scatter_item_{phase_name}", voltage_scatter_item)
+
+        current_plot_item = current_graph.plot([], [], pen=pg.mkPen(color=(204, 51, 0), width=2),
+                                               name=f"Струм {phase_name}")
+        current_scatter_item = pg.ScatterPlotItem(pen=None, brush=(204, 51, 0), size=7)
+        current_graph.addItem(current_scatter_item)
+        setattr(self, f"current_plot_item_{phase_name}", current_plot_item)
+        setattr(self, f"current_scatter_item_{phase_name}", current_scatter_item)
+
+        power_plot_item = power_graph.plot([], [], pen=pg.mkPen(color=(0, 255, 0), width=2),
+                                           name=f"Потуж. {phase_name}")
+        power_scatter_item = pg.ScatterPlotItem(pen=None, brush=(0, 255, 0), size=7)
+        power_graph.addItem(power_scatter_item)
+        setattr(self, f"power_plot_item_{phase_name}", power_plot_item)
+        setattr(self, f"power_scatter_item_{phase_name}", power_scatter_item)
+
         self.tabs.addTab(tab, phase_name)
 
         sys.stdout = ConsoleOutputDuplicator(self.console_widget, sys.__stdout__)
@@ -1197,8 +1218,8 @@ class DeviceDetailsWidget(QWidget):
             "tab": tab,
             "voltage_graph": voltage_graph,
             "current_graph": current_graph,
-            "power_graph": power_graph,
             "energy_graph": energy_graph,
+            "power_graph": power_graph,
             "voltage_lcd": voltage_lcd,
             "current_lcd": current_lcd,
             "power_lcd": power_lcd,
@@ -1206,6 +1227,27 @@ class DeviceDetailsWidget(QWidget):
             "clock_label": clock_label,
             "console_widget": self.console_widget,
         }
+
+        voltage_plot_item = voltage_graph.plot([], [], pen=pg.mkPen(color=(0, 102, 204), width=2),
+                                               name=f"Напруга {phase_name}")
+        voltage_scatter_item = pg.ScatterPlotItem(pen=None, brush=(0, 102, 204), size=7)
+        voltage_graph.addItem(voltage_scatter_item)
+        setattr(self, f"voltage_plot_item_{phase_name}", voltage_plot_item)
+        setattr(self, f"voltage_scatter_item_{phase_name}", voltage_scatter_item)
+
+        current_plot_item = current_graph.plot([], [], pen=pg.mkPen(color=(204, 51, 0), width=2),
+                                               name=f"Струм {phase_name}")
+        current_scatter_item = pg.ScatterPlotItem(pen=None, brush=(204, 51, 0), size=7)
+        current_graph.addItem(current_scatter_item)
+        setattr(self, f"current_plot_item_{phase_name}", current_plot_item)
+        setattr(self, f"current_scatter_item_{phase_name}", current_scatter_item)
+
+        power_plot_item = power_graph.plot([], [], pen=pg.mkPen(color=(0, 255, 0), width=2),
+                                           name=f"Потуж. {phase_name}")
+        power_scatter_item = pg.ScatterPlotItem(pen=None, brush=(0, 255, 0), size=7)
+        power_graph.addItem(power_scatter_item)
+        setattr(self, f"power_plot_item_{phase_name}", power_plot_item)
+        setattr(self, f"power_scatter_item_{phase_name}", power_scatter_item)
 
         self.tabs.addTab(tab, phase_name)
 
