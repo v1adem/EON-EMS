@@ -291,7 +291,8 @@ class DeviceDetailsWidget(QWidget):
             self.setup_table_click_handler(self.report_table)
 
             is_sdm72 = self.device.model == "SDM72"
-            self.update_graphs(is_sdm72)
+            print(is_sdm72)
+            self.update_graphs(is_sdm72=is_sdm72)
 
         AsyncioPySide6.runTask(run_load_report_data())
         self.report_table.setEditTriggers(QTableView.EditTrigger.NoEditTriggers)
@@ -517,18 +518,11 @@ class DeviceDetailsWidget(QWidget):
         legend.anchor(itemPos=(1, 0), parentPos=(1, 0), offset=(-10, 10))
         return legend
 
-    import pyqtgraph as pg
-    from datetime import datetime
-
     def _update_single_phase_line_graph(self, timestamps, values, phase_name, graph_type, color_single, y_label):
         timestamps_numeric = [ts.timestamp() for ts in timestamps]
         graph_widget = self.phase_data[phase_name][f"{graph_type}_graph"]
         plot_attr = f"{graph_type}_plot_item_{phase_name}"
         scatter_attr = f"{graph_type}_scatter_item_{phase_name}"
-
-        print(f"[_update_single_phase_line_graph] Phase: {phase_name}, Graph Type: {graph_type}")
-        print(f"[_update_single_phase_line_graph] Timestamps (numeric, first 5): {timestamps_numeric[:5]}")
-        print(f"[_update_single_phase_line_graph] Values (first 5): {values[:5]}")
 
         if not hasattr(self, plot_attr):
             plot_item = graph_widget.plot(timestamps_numeric, values, pen=pg.mkPen(color=color_single, width=2),
@@ -540,26 +534,18 @@ class DeviceDetailsWidget(QWidget):
             scatter.sigClicked.connect(self.on_graph_point_clicked)
             graph_widget.addItem(scatter)
             setattr(self, scatter_attr, scatter)
-            print(
-                f"[_update_single_phase_line_graph] Created plot item and scatter item for {phase_name} - {graph_type}")
         else:
             plot_item = getattr(self, plot_attr)
             plot_item.setData(timestamps_numeric, values)
 
             scatter = getattr(self, scatter_attr)
             scatter.setData(x=timestamps_numeric, y=values)
-            print(
-                f"[_update_single_phase_line_graph] Updated data for plot item and scatter item for {phase_name} - {graph_type}")
 
     def _update_general_line_graph(self, timestamps, all_phase_values, y_label, graph_type, color_shades):
         timestamps_numeric = [ts.timestamp() for ts in timestamps]
         graph_widget = self.phase_data["Загальне"][f"{graph_type}_graph"]
         graph_widget.clear()
         legend = self.create_legend(graph_widget)
-
-        print(f"[_update_general_line_graph] Graph Type: {graph_type}")
-        print(f"[_update_general_line_graph] Timestamps (numeric, first 5): {timestamps_numeric[:5]}")
-        print(f"[_update_general_line_graph] All Phase Values (shapes): {[len(v) for v in all_phase_values]}")
 
         for i, phase_values in enumerate(all_phase_values):
             color = color_shades[i % len(color_shades)]
@@ -572,19 +558,11 @@ class DeviceDetailsWidget(QWidget):
             scatter.sigClicked.connect(self.on_graph_point_clicked)
             graph_widget.addItem(scatter)
             legend.addItem(plot_item, f"{self.phases[i]}")
-            print(f"[_update_general_line_graph] Plotted data for phase: {self.phases[i]}")
 
         graph_widget.scene().addItem(legend)
-        print(f"[_update_general_line_graph] Legend added to the scene for {graph_type}")
 
     def update_energy_graph(self, hourly_timestamps, hourly_energy, phase_name):
-        print(f"[update_energy_graph] Phase: {phase_name}")
-        print(
-            f"[update_energy_graph] Hourly Timestamps (numeric, first 5): {[ts.timestamp() for ts in hourly_timestamps[:5]] if hourly_timestamps else []}")
-        print(f"[update_energy_graph] Hourly Energy (first 5): {hourly_energy[:5]}")
-
         if not hourly_timestamps or not hourly_energy:
-            print("[update_energy_graph] No hourly timestamps or energy data.")
             graph_widget = self.phase_data[phase_name]["energy_graph"]
             graph_widget.clear()
             return
@@ -593,7 +571,6 @@ class DeviceDetailsWidget(QWidget):
         valid_data = [(ts, energy) for ts, energy in zip(hourly_timestamps_numeric, hourly_energy) if energy > 0]
 
         if not valid_data:
-            print("[update_energy_graph] No valid energy data (all <= 0).")
             graph_widget = self.phase_data[phase_name]["energy_graph"]
             graph_widget.clear()
             return
@@ -626,7 +603,6 @@ class DeviceDetailsWidget(QWidget):
             )
             energy_bar_items.append(bar_item)
             graph_widget.addItem(bar_item)
-            print(f"[update_energy_graph] Added bar item: start={start_time}, end={end_time}, height={energy}")
 
         y_max = max(energy for _, energy in valid_data)
         graph_widget.setYRange(0, y_max, padding=0.1)
@@ -638,14 +614,9 @@ class DeviceDetailsWidget(QWidget):
             graph_widget.setXRange(min(hourly_timestamps_numeric) if hourly_timestamps_numeric else 0,
                                    max(hourly_timestamps_numeric) + 3600 if hourly_timestamps_numeric else 3600,
                                    padding=0.1)
-        print(f"[update_energy_graph] Set Y Range: 0 to {y_max}")
-        print(
-            f"[update_energy_graph] Set X Range: {x_min} to {x_max if last_hour_end is not None else (max(hourly_timestamps_numeric) + 3600 if hourly_timestamps_numeric else 3600)}")
-
         setattr(self, bar_attr, energy_bar_items)
 
     def update_graphs(self, is_sdm72=False):
-        print(f"[update_graphs] is_sdm72: {is_sdm72}")
         for phase_name in self.phases:
             timestamps = []
             voltages = []
@@ -653,9 +624,7 @@ class DeviceDetailsWidget(QWidget):
             powers = []
             energies = []
 
-            print(f"[update_graphs] Processing phase: {phase_name}")
             for report in self.report_data:
-                print(f"[update_graphs]   Report timestamp: {report.timestamp}")
                 try:
                     if phase_name == "Загальне":
                         voltages_for_general = []
@@ -670,7 +639,6 @@ class DeviceDetailsWidget(QWidget):
                         powers.append(powers_for_general)
                         if not is_sdm72:
                             energies.append(report.total_kWh)
-                            print(f"[update_graphs]   General - Total kWh: {report.total_kWh}")
                     else:
                         voltage = getattr(report, f'line_voltage_{self.phases.index(phase_name) + 1}')
                         current = getattr(report, f'current_{self.phases.index(phase_name) + 1}')
@@ -681,20 +649,9 @@ class DeviceDetailsWidget(QWidget):
                         powers.append(power)
                         if not is_sdm72:
                             energies.append(energy)
-                            print(
-                                f"[update_graphs]   Phase {phase_name} - Voltage: {voltage}, Current: {current}, Power: {power}, Energy: {energy}")
                 except Exception as e:
-                    print(
-                        f"[update_graphs] !!! Помилка при обробці звіту {report.timestamp} для фази {phase_name}: {e}")
+                    logger.warning(e)
                     continue
-
-            print(f"[update_graphs] Після циклу звітів для фази: {phase_name}")
-            print(f"[update_graphs]   Кількість часових міток: {len(timestamps)}")
-            print(f"[update_graphs]   Кількість напруг: {len(voltages)}")
-            print(f"[update_graphs]   Кількість струмів: {len(currents)}")
-            print(f"[update_graphs]   Кількість потужностей: {len(powers)}")
-            if not is_sdm72:
-                print(f"[update_graphs]   Кількість енергій: {len(energies)}")
 
             if phase_name != "Загальне":
                 self._update_single_phase_line_graph(timestamps, voltages, phase_name, "voltage",
@@ -725,12 +682,9 @@ class DeviceDetailsWidget(QWidget):
                     current_hour_start = None
                     current_hour_energy = 0.0
 
-                    print("[update_graphs] Processing energy data for Загальне (sdm72)")
                     for report in self.report_data:
                         current_hour = report.timestamp.replace(minute=0, second=0, microsecond=0)
                         energy_value = getattr(report, f'total_kWh')
-                        print(
-                            f"[update_graphs]   (sdm72) Report time: {report.timestamp}, Energy: {energy_value}, Current Hour: {current_hour}, Last Energy: {last_energy}, Current Hour Start: {current_hour_start}, Current Hour Energy: {current_hour_energy}")
 
                         if current_hour_start is None:
                             current_hour_start = current_hour
@@ -739,8 +693,6 @@ class DeviceDetailsWidget(QWidget):
                             if last_energy is not None:
                                 hourly_energy.append(current_hour_energy)
                                 hourly_timestamps.append(current_hour_start)
-                                print(
-                                    f"[update_graphs]   (sdm72) Hour ended. Added energy: {current_hour_energy} at {current_hour_start}")
                             current_hour_start = current_hour
                             current_hour_energy = 0.0
 
@@ -752,11 +704,6 @@ class DeviceDetailsWidget(QWidget):
                     if last_energy is not None and current_hour_start is not None:
                         hourly_energy.append(current_hour_energy)
                         hourly_timestamps.append(current_hour_start)
-                        print(
-                            f"[update_graphs]   (sdm72) Final hour. Added energy: {current_hour_energy} at {current_hour_start}")
-
-                    print(f"[update_graphs] (sdm72) Hourly Timestamps (first 5): {hourly_timestamps[:5]}")
-                    print(f"[update_graphs] (sdm72) Hourly Energy (first 5): {hourly_energy[:5]}")
                     self.update_energy_graph(hourly_timestamps, hourly_energy, phase_name)
                 else:
                     self.update_energy_graph(timestamps, energies, phase_name)
