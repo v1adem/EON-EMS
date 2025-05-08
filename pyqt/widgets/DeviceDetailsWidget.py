@@ -573,37 +573,36 @@ class DeviceDetailsWidget(QWidget):
 
     def update_energy_graph(self, hourly_timestamps, hourly_energy, phase_name):
         if not hourly_timestamps or not hourly_energy:
-            graph_widget = self.phase_data[phase_name]["energy_graph"]
-            graph_widget.clear()
             return
 
         hourly_timestamps_numeric = [ts.timestamp() for ts in hourly_timestamps]
-        valid_data = [(ts, energy) for ts, energy in zip(hourly_timestamps_numeric, hourly_energy) if energy > 0]
+        valid_data = [
+            (ts, energy) for ts, energy in zip(hourly_timestamps_numeric, hourly_energy)
+            if energy > 0
+        ]
 
         if not valid_data:
-            graph_widget = self.phase_data[phase_name]["energy_graph"]
-            graph_widget.clear()
             return
 
         bar_attr = f"energy_bar_items_{phase_name}"
         graph_widget = self.phase_data[phase_name]["energy_graph"]
-        graph_widget.clear()
-        energy_bar_items = []
 
-        first_report_timestamp = hourly_timestamps_numeric[0] if hourly_timestamps_numeric else None
-        last_hour_end = None
+        graph_widget.clear()
+
+        energy_bar_items = []
 
         for i, (ts, energy) in enumerate(valid_data):
             current_time = datetime.fromtimestamp(ts)
             hour_start = current_time.replace(minute=0, second=0, microsecond=0).timestamp()
             hour_end = hour_start + 3600
-            last_hour_end = hour_end
 
-            if i == 0 and first_report_timestamp is not None:
+            if i == 0:
+                first_report_timestamp = self.report_data[0].timestamp.timestamp()
                 start_time = first_report_timestamp
+                end_time = hour_end
             else:
                 start_time = hour_start
-            end_time = hour_end
+                end_time = hour_end
 
             bar_item = pg.BarGraphItem(
                 x0=start_time,
@@ -614,16 +613,12 @@ class DeviceDetailsWidget(QWidget):
             energy_bar_items.append(bar_item)
             graph_widget.addItem(bar_item)
 
-        if valid_data:
-            y_max = max(energy for _, energy in valid_data)
-            graph_widget.setYRange(0, y_max, padding=0.1)
-            x_min = min(ts for ts, _ in valid_data)
-            if last_hour_end is not None:
-                x_max = last_hour_end
-                graph_widget.setXRange(x_min, x_max, padding=0.1)
-            elif hourly_timestamps_numeric:
-                graph_widget.setXRange(min(hourly_timestamps_numeric), max(hourly_timestamps_numeric) + 3600,
-                                       padding=0.1)
+        y_max = max(energy for _, energy in valid_data)
+        graph_widget.setYRange(0, y_max, padding=0.1)
+
+        x_min = min(ts for ts, _ in valid_data)
+        x_max = max(hour_end for ts, _ in valid_data)
+        graph_widget.setXRange(x_min, x_max, padding=0.1)
 
         setattr(self, bar_attr, energy_bar_items)
 
