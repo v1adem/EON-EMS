@@ -538,28 +538,12 @@ class DeviceDetailsWidget(QWidget):
         legend.anchor(itemPos=(1, 0), parentPos=(1, 0), offset=(-10, 10))
         return legend
 
-    def _update_single_phase_line_graph(self, timestamps, values, phase_name, graph_type, color_single, y_label):
+    def _update_single_phase_line_graph(self, timestamps, values, phase_name, graph_type):
         timestamps_numeric = [ts.timestamp() for ts in timestamps]
-        graph_widget = self.phase_data[phase_name][f"{graph_type}_graph"]
-        plot_attr = f"{graph_type}_plot_item_{phase_name}"
-        scatter_attr = f"{graph_type}_scatter_item_{phase_name}"
-
-        if not hasattr(self, plot_attr):
-            plot_item = graph_widget.plot(timestamps_numeric, values, pen=pg.mkPen(color=color_single, width=2),
-                                          name=f"{y_label} {phase_name}")
-            setattr(self, plot_attr, plot_item)
-
-            scatter = pg.ScatterPlotItem(pen=None, brush=color_single, size=7)
-            scatter.setData(x=timestamps_numeric, y=values)
-            scatter.sigClicked.connect(self.on_graph_point_clicked)
-            graph_widget.addItem(scatter)
-            setattr(self, scatter_attr, scatter)
-        else:
-            plot_item = getattr(self, plot_attr)
-            plot_item.setData(timestamps_numeric, values)
-
-            scatter = getattr(self, scatter_attr)
-            scatter.setData(x=timestamps_numeric, y=values)
+        plot_item = getattr(self, f"{graph_type}_plot_item_{phase_name}")
+        scatter = getattr(self, f"{graph_type}_scatter_item_{phase_name}")
+        plot_item.setData(timestamps_numeric, values)
+        scatter.setData(x=timestamps_numeric, y=values)
 
     def _update_general_line_graph(self, timestamps, all_phase_values, y_label, graph_type, color_shades):
         timestamps_numeric = [ts.timestamp() for ts in timestamps]
@@ -676,12 +660,9 @@ class DeviceDetailsWidget(QWidget):
                     continue
             try:
                 if phase_name != "Загальне":
-                    self._update_single_phase_line_graph(timestamps, voltages, phase_name, "voltage",
-                                                         color_single=(0, 102, 204), y_label="Напруга")
-                    self._update_single_phase_line_graph(timestamps, currents, phase_name, "current",
-                                                         color_single=(204, 51, 0), y_label="Струм")
-                    self._update_single_phase_line_graph(timestamps, powers, phase_name, "power",
-                                                         color_single=(0, 255, 0), y_label="Потуж.")
+                    self._update_single_phase_line_graph(timestamps, voltages, phase_name, "voltage")
+                    self._update_single_phase_line_graph(timestamps, currents, phase_name, "current")
+                    self._update_single_phase_line_graph(timestamps, powers, phase_name, "power")
                     self.add_tooltips(self.phase_data[phase_name]["voltage_graph"], timestamps, voltages)
                     self.add_tooltips(self.phase_data[phase_name]["current_graph"], timestamps, currents)
                     self.add_tooltips(self.phase_data[phase_name]["power_graph"], timestamps, powers)
