@@ -290,7 +290,8 @@ class DeviceDetailsWidget(QWidget):
             self.report_table.resizeColumnsToContents()
             self.setup_table_click_handler(self.report_table)
 
-            self.update_graphs()
+            is_sdm72 = self.device.model == "SDM72"
+            self.update_graphs(is_sdm72)
 
         AsyncioPySide6.runTask(run_load_report_data())
         self.report_table.setEditTriggers(QTableView.EditTrigger.NoEditTriggers)
@@ -654,46 +655,46 @@ class DeviceDetailsWidget(QWidget):
 
             print(f"[update_graphs] Processing phase: {phase_name}")
             for report in self.report_data:
-                print(f"[update_graphs] Report timestamp: {report.timestamp}")
-                timestamps.append(report.timestamp)
-                if phase_name == "Загальне":
-                    voltages_for_general = []
-                    currents_for_general = []
-                    powers_for_general = []
-                    for i in range(len(self.phases) - 1):
-                        voltages_for_general.append(getattr(report, f'line_voltage_{i + 1}'))
-                        currents_for_general.append(getattr(report, f'current_{i + 1}'))
-                        powers_for_general.append(getattr(report, f'power_{i + 1}'))
-                    voltages.append(voltages_for_general)
-                    currents.append(currents_for_general)
-                    powers.append(powers_for_general)
-                    if not is_sdm72:
-                        energies.append(report.total_kWh)
-                        print(f"[update_graphs] General - Total kWh: {report.total_kWh}")
-                else:
-                    voltage = getattr(report, f'line_voltage_{self.phases.index(phase_name) + 1}')
-                    current = getattr(report, f'current_{self.phases.index(phase_name) + 1}')
-                    power = getattr(report, f'power_{self.phases.index(phase_name) + 1}')
-                    energy = getattr(report, f'total_kWh_{self.phases.index(phase_name) + 1}')
-                    voltages.append(voltage)
-                    currents.append(current)
-                    powers.append(power)
-                    if not is_sdm72:
-                        energies.append(energy)
-                        print(
-                            f"[update_graphs] Phase {phase_name} - Voltage: {voltage}, Current: {current}, Power: {power}, Energy: {energy}")
+                print(f"[update_graphs]   Report timestamp: {report.timestamp}")
+                try:
+                    if phase_name == "Загальне":
+                        voltages_for_general = []
+                        currents_for_general = []
+                        powers_for_general = []
+                        for i in range(len(self.phases) - 1):
+                            voltages_for_general.append(getattr(report, f'line_voltage_{i + 1}'))
+                            currents_for_general.append(getattr(report, f'current_{i + 1}'))
+                            powers_for_general.append(getattr(report, f'power_{i + 1}'))
+                        voltages.append(voltages_for_general)
+                        currents.append(currents_for_general)
+                        powers.append(powers_for_general)
+                        if not is_sdm72:
+                            energies.append(report.total_kWh)
+                            print(f"[update_graphs]   General - Total kWh: {report.total_kWh}")
+                    else:
+                        voltage = getattr(report, f'line_voltage_{self.phases.index(phase_name) + 1}')
+                        current = getattr(report, f'current_{self.phases.index(phase_name) + 1}')
+                        power = getattr(report, f'power_{self.phases.index(phase_name) + 1}')
+                        energy = getattr(report, f'total_kWh_{self.phases.index(phase_name) + 1}')
+                        voltages.append(voltage)
+                        currents.append(current)
+                        powers.append(power)
+                        if not is_sdm72:
+                            energies.append(energy)
+                            print(
+                                f"[update_graphs]   Phase {phase_name} - Voltage: {voltage}, Current: {current}, Power: {power}, Energy: {energy}")
+                except Exception as e:
+                    print(
+                        f"[update_graphs] !!! Помилка при обробці звіту {report.timestamp} для фази {phase_name}: {e}")
+                    continue
 
-            print(f"[update_graphs] Timestamps for {phase_name} (first 5): {timestamps[:5]}")
-            print(
-                f"[update_graphs] Voltages for {phase_name} (shape): {[len(v) for v in voltages] if phase_name == 'Загальне' else len(voltages)}")
-            print(
-                f"[update_graphs] Currents for {phase_name} (shape): {[len(c) for c in currents] if phase_name == 'Загальне' else len(currents)}")
-            print(
-                f"[update_graphs] Powers for {phase_name} (shape): {[len(p) for p in powers] if phase_name == 'Загальне' else len(powers)}")
-            if not is_sdm72 and phase_name != "Загальне":
-                print(f"[update_graphs] Energies for {phase_name} (first 5): {energies[:5]}")
-            elif not is_sdm72 and phase_name == "Загальне":
-                print(f"[update_graphs] Energies for {phase_name} (first 5): {energies[:5]}")
+            print(f"[update_graphs] Після циклу звітів для фази: {phase_name}")
+            print(f"[update_graphs]   Кількість часових міток: {len(timestamps)}")
+            print(f"[update_graphs]   Кількість напруг: {len(voltages)}")
+            print(f"[update_graphs]   Кількість струмів: {len(currents)}")
+            print(f"[update_graphs]   Кількість потужностей: {len(powers)}")
+            if not is_sdm72:
+                print(f"[update_graphs]   Кількість енергій: {len(energies)}")
 
             if phase_name != "Загальне":
                 self._update_single_phase_line_graph(timestamps, voltages, phase_name, "voltage",
@@ -729,7 +730,7 @@ class DeviceDetailsWidget(QWidget):
                         current_hour = report.timestamp.replace(minute=0, second=0, microsecond=0)
                         energy_value = getattr(report, f'total_kWh')
                         print(
-                            f"[update_graphs]   Report time: {report.timestamp}, Energy: {energy_value}, Current Hour: {current_hour}, Last Energy: {last_energy}, Current Hour Start: {current_hour_start}, Current Hour Energy: {current_hour_energy}")
+                            f"[update_graphs]   (sdm72) Report time: {report.timestamp}, Energy: {energy_value}, Current Hour: {current_hour}, Last Energy: {last_energy}, Current Hour Start: {current_hour_start}, Current Hour Energy: {current_hour_energy}")
 
                         if current_hour_start is None:
                             current_hour_start = current_hour
@@ -739,7 +740,7 @@ class DeviceDetailsWidget(QWidget):
                                 hourly_energy.append(current_hour_energy)
                                 hourly_timestamps.append(current_hour_start)
                                 print(
-                                    f"[update_graphs]   Hour ended. Added energy: {current_hour_energy} at {current_hour_start}")
+                                    f"[update_graphs]   (sdm72) Hour ended. Added energy: {current_hour_energy} at {current_hour_start}")
                             current_hour_start = current_hour
                             current_hour_energy = 0.0
 
@@ -752,10 +753,10 @@ class DeviceDetailsWidget(QWidget):
                         hourly_energy.append(current_hour_energy)
                         hourly_timestamps.append(current_hour_start)
                         print(
-                            f"[update_graphs]   Final hour. Added energy: {current_hour_energy} at {current_hour_start}")
+                            f"[update_graphs]   (sdm72) Final hour. Added energy: {current_hour_energy} at {current_hour_start}")
 
-                    print(f"[update_graphs] Hourly Timestamps (first 5): {hourly_timestamps[:5]}")
-                    print(f"[update_graphs] Hourly Energy (first 5): {hourly_energy[:5]}")
+                    print(f"[update_graphs] (sdm72) Hourly Timestamps (first 5): {hourly_timestamps[:5]}")
+                    print(f"[update_graphs] (sdm72) Hourly Energy (first 5): {hourly_energy[:5]}")
                     self.update_energy_graph(hourly_timestamps, hourly_energy, phase_name)
                 else:
                     self.update_energy_graph(timestamps, energies, phase_name)
