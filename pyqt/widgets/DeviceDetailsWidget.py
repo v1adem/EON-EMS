@@ -653,29 +653,29 @@ class DeviceDetailsWidget(QWidget):
                 except Exception as e:
                     logger.warning(e)
                     continue
-            print(f"Data for graphs collected for {phase_name}")
-
-            if phase_name != "Загальне":
-                self._update_single_phase_line_graph(timestamps, voltages, phase_name, "voltage",
-                                                     color_single=(0, 102, 204), y_label="Напруга")
-                print("Voltage data updated")
-                self._update_single_phase_line_graph(timestamps, currents, phase_name, "current",
-                                                     color_single=(204, 51, 0), y_label="Струм")
-                self._update_single_phase_line_graph(timestamps, powers, phase_name, "power",
-                                                     color_single=(0, 255, 0), y_label="Потуж.")
-                self.add_tooltips(self.phase_data[phase_name]["voltage_graph"], timestamps, voltages)
-                self.add_tooltips(self.phase_data[phase_name]["current_graph"], timestamps, currents)
-                self.add_tooltips(self.phase_data[phase_name]["power_graph"], timestamps, powers)
-            else:
-                transposed_voltages = list(zip(*voltages))
-                transposed_currents = list(zip(*currents))
-                transposed_powers = list(zip(*powers))
-                self._update_general_line_graph(timestamps, transposed_voltages, "Напруга", "voltage",
-                                                color_shades=[(0, 0, 153), (0, 102, 204), (0, 153, 255)])
-                self._update_general_line_graph(timestamps, transposed_currents, "Струм", "current",
-                                                color_shades=[(153, 0, 0), (204, 51, 0), (255, 102, 0)])
-                self._update_general_line_graph(timestamps, transposed_powers, "Потуж.", "power",
-                                                color_shades=[(0, 153, 0), (51, 204, 0), (102, 255, 0)])
+            try:
+                if phase_name != "Загальне":
+                    self._update_single_phase_line_graph(timestamps, voltages, phase_name, "voltage",
+                                                         color_single=(0, 102, 204), y_label="Напруга")
+                    self._update_single_phase_line_graph(timestamps, currents, phase_name, "current",
+                                                         color_single=(204, 51, 0), y_label="Струм")
+                    self._update_single_phase_line_graph(timestamps, powers, phase_name, "power",
+                                                         color_single=(0, 255, 0), y_label="Потуж.")
+                    self.add_tooltips(self.phase_data[phase_name]["voltage_graph"], timestamps, voltages)
+                    self.add_tooltips(self.phase_data[phase_name]["current_graph"], timestamps, currents)
+                    self.add_tooltips(self.phase_data[phase_name]["power_graph"], timestamps, powers)
+                else:
+                    transposed_voltages = list(zip(*voltages))
+                    transposed_currents = list(zip(*currents))
+                    transposed_powers = list(zip(*powers))
+                    self._update_general_line_graph(timestamps, transposed_voltages, "Напруга", "voltage",
+                                                    color_shades=[(0, 0, 153), (0, 102, 204), (0, 153, 255)])
+                    self._update_general_line_graph(timestamps, transposed_currents, "Струм", "current",
+                                                    color_shades=[(153, 0, 0), (204, 51, 0), (255, 102, 0)])
+                    self._update_general_line_graph(timestamps, transposed_powers, "Потуж.", "power",
+                                                    color_shades=[(0, 153, 0), (51, 204, 0), (102, 255, 0)])
+            except Exception as e:
+                logger.error(e)
 
             hourly_energy = []
             hourly_timestamps = []
