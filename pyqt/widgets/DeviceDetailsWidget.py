@@ -542,6 +542,12 @@ class DeviceDetailsWidget(QWidget):
         timestamps_numeric = [ts.timestamp() for ts in timestamps]
         plot_item = getattr(self, f"{graph_type}_plot_item_{phase_name}")
         scatter = getattr(self, f"{graph_type}_scatter_item_{phase_name}")
+
+        if not timestamps_numeric or not values:
+            print(
+                f"[_update_single_phase_line_graph] Skipped update for {phase_name} - {graph_type} due to empty data.")
+            return
+
         plot_item.setData(timestamps_numeric, values)
         scatter.setData(x=timestamps_numeric, y=values)
 
