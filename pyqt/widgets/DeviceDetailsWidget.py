@@ -290,10 +290,7 @@ class DeviceDetailsWidget(QWidget):
             self.report_table.resizeColumnsToContents()
             self.setup_table_click_handler(self.report_table)
 
-            if self.device_model == "SDM72":
-                self.update_graphs_sdm72()
-            else:
-                self.update_graphs()
+            self.update_graphs()
 
         AsyncioPySide6.runTask(run_load_report_data())
         self.report_table.setEditTriggers(QTableView.EditTrigger.NoEditTriggers)
@@ -570,6 +567,8 @@ class DeviceDetailsWidget(QWidget):
         valid_data = [(ts, energy) for ts, energy in zip(hourly_timestamps_numeric, hourly_energy) if energy > 0]
 
         if not valid_data:
+            graph_widget = self.phase_data[phase_name]["energy_graph"]
+            graph_widget.clear()
             return
 
         bar_attr = f"energy_bar_items_{phase_name}"
@@ -578,11 +577,13 @@ class DeviceDetailsWidget(QWidget):
         energy_bar_items = []
 
         first_report_timestamp = self.report_data[0].timestamp.timestamp() if self.report_data else None
+        last_hour_end = None  # Ініціалізуємо змінну для зберігання останнього hour_end
 
         for i, (ts, energy) in enumerate(valid_data):
             current_time = datetime.fromtimestamp(ts)
             hour_start = current_time.replace(minute=0, second=0, microsecond=0).timestamp()
             hour_end = hour_start + 3600
+            last_hour_end = hour_end
 
             if i == 0 and first_report_timestamp is not None:
                 start_time = first_report_timestamp
@@ -599,16 +600,20 @@ class DeviceDetailsWidget(QWidget):
             energy_bar_items.append(bar_item)
             graph_widget.addItem(bar_item)
 
-        if valid_data:
-            y_max = max(energy for _, energy in valid_data)
-            graph_widget.setYRange(0, y_max, padding=0.1)
-            x_min = min(ts for ts, _ in valid_data)
-            x_max = max(hour_end for ts, _ in valid_data)
+        y_max = max(energy for _, energy in valid_data)
+        graph_widget.setYRange(0, y_max, padding=0.1)
+        x_min = min(ts for ts, _ in valid_data)
+        if last_hour_end is not None:
+            x_max = last_hour_end
             graph_widget.setXRange(x_min, x_max, padding=0.1)
+        else:
+            graph_widget.setXRange(min(hourly_timestamps_numeric) if hourly_timestamps_numeric else 0,
+                                   max(hourly_timestamps_numeric) + 3600 if hourly_timestamps_numeric else 3600,
+                                   padding=0.1)
 
         setattr(self, bar_attr, energy_bar_items)
 
-    def update_graphs(self):
+    def update_graphs(self, is_sdm72=False):
         for phase_name in self.phases:
             timestamps = []
             voltages = []
@@ -629,54 +634,70 @@ class DeviceDetailsWidget(QWidget):
                     voltages.append(voltages_for_general)
                     currents.append(currents_for_general)
                     powers.append(powers_for_general)
-                    energies.append(report.total_kWh)
+                    if not is_sdm72:
+                        energies.append(report.total_kWh)
                 else:
                     voltages.append(getattr(report, f'line_voltage_{self.phases.index(phase_name) + 1}'))
                     currents.append(getattr(report, f'current_{self.phases.index(phase_name) + 1}'))
                     powers.append(getattr(report, f'power_{self.phases.index(phase_name) + 1}'))
-                    energies.append(getattr(report, f'total_kWh_{self.phases.index(phase_name) + 1}'))
+                    if not is_sdm72:
+                        energies.append(getattr(report, f'total_kWh_{self.phases.index(phase_name) + 1}'))
 
-            if phase_name == "Загальне":
-                self._update_general_line_graph(
-                    timestamps, voltages, "Напруга", "voltage",
-                    color_shades=[(0, 0, 153), (0, 102, 204), (0, 153, 255)]
-                )
-                self._update_general_line_graph(
-                    timestamps, currents, "Струм", "current",
-                    color_shades=[(153, 0, 0), (204, 51, 0), (255, 102, 0)]
-                )
-                self._update_general_line_graph(
-                    timestamps, powers, "Потуж.", "power",
-                    color_shades=[(0, 153, 0), (51, 204, 0), (102, 255, 0)]
-                )
-            else:
-                self._update_single_phase_line_graph(
-                    timestamps, voltages, phase_name, "voltage",
-                    color_single=(0, 102, 204),
-                    y_label="Напруга"
-                )
-                self._update_single_phase_line_graph(
-                    timestamps, currents, phase_name, "current",
-                    color_single=(204, 51, 0),
-                    y_label="Струм"
-                )
-                self._update_single_phase_line_graph(
-                    timestamps, powers, phase_name, "power",
-                    color_single=(0, 255, 0),
-                    y_label="Потуж."
-                )
+            if phase_name != "Загальне":
+                self._update_single_phase_line_graph(timestamps, voltages, phase_name, "voltage",
+                                                     color_single=(0, 102, 204), y_label="Напруга")
+                self._update_single_phase_line_graph(timestamps, currents, phase_name, "current",
+                                                     color_single=(204, 51, 0), y_label="Струм")
+                self._update_single_phase_line_graph(timestamps, powers, phase_name, "power",
+                                                     color_single=(0, 255, 0), y_label="Потуж.")
                 self.add_tooltips(self.phase_data[phase_name]["voltage_graph"], timestamps, voltages)
                 self.add_tooltips(self.phase_data[phase_name]["current_graph"], timestamps, currents)
                 self.add_tooltips(self.phase_data[phase_name]["power_graph"], timestamps, powers)
+            else:
+                transposed_voltages = list(zip(*voltages))
+                transposed_currents = list(zip(*currents))
+                transposed_powers = list(zip(*powers))
+                self._update_general_line_graph(timestamps, transposed_voltages, "Напруга", "voltage",
+                                                color_shades=[(0, 0, 153), (0, 102, 204), (0, 153, 255)])
+                self._update_general_line_graph(timestamps, transposed_currents, "Струм", "current",
+                                                color_shades=[(153, 0, 0), (204, 51, 0), (255, 102, 0)])
+                self._update_general_line_graph(timestamps, transposed_powers, "Потуж.", "power",
+                                                color_shades=[(0, 153, 0), (51, 204, 0), (102, 255, 0)])
 
-        if self.report_data:
-            hourly_timestamps = [r.timestamp for r in self.report_data]
-            self.update_energy_graph(hourly_timestamps, [r.total_kWh for r in self.report_data], "Загальне")
-            for phase in self.phases[:-1]:
-                self.update_energy_graph(hourly_timestamps,
-                                         [getattr(r, f"total_kWh_{self.phases.index(phase) + 1}") for r in
-                                          self.report_data],
-                                         phase)
+                if is_sdm72:
+                    hourly_energy = []
+                    hourly_timestamps = []
+
+                    last_energy = None
+                    current_hour_start = None
+                    current_hour_energy = 0.0
+
+                    for report in self.report_data:
+                        current_hour = report.timestamp.replace(minute=0, second=0, microsecond=0)
+
+                        if current_hour_start is None:
+                            current_hour_start = current_hour
+
+                        if current_hour != current_hour_start:
+                            if last_energy is not None:
+                                hourly_energy.append(current_hour_energy)
+                                hourly_timestamps.append(current_hour_start)
+                            current_hour_start = current_hour
+                            current_hour_energy = 0.0
+                        energy_value = getattr(report, f'total_kWh')
+
+                        if last_energy is not None:
+                            current_hour_energy += abs(energy_value - last_energy)
+
+                        last_energy = energy_value
+
+                    if last_energy is not None:
+                        hourly_energy.append(current_hour_energy)
+                        hourly_timestamps.append(current_hour_start)
+
+                    self.update_energy_graph(hourly_timestamps, hourly_energy, phase_name)
+                else:
+                    self.update_energy_graph(timestamps, energies, phase_name)
 
     def center_graphs_on_table_row(self, row_index):
         if not self.report_data:
@@ -1180,75 +1201,3 @@ class DeviceDetailsWidget(QWidget):
 
         sys.stdout = ConsoleOutputDuplicator(self.console_widget, sys.__stdout__)
         logger.info("Console initialized")
-
-    def update_graphs_sdm72(self):
-        for phase_name in self.phases:
-            timestamps = []
-            voltages = []
-            currents = []
-            powers = []
-
-            for report in self.report_data:
-                timestamps.append(report.timestamp)
-                if phase_name == "Загальне":
-                    voltages_for_general = []
-                    currents_for_general = []
-                    powers_for_general = []
-                    for i in range(len(self.phases) - 1):
-                        voltages_for_general.append(getattr(report, f'line_voltage_{i + 1}'))
-                        currents_for_general.append(getattr(report, f'current_{i + 1}'))
-                        powers_for_general.append(getattr(report, f'power_{i + 1}'))
-                    voltages.append(voltages_for_general)
-                    currents.append(currents_for_general)
-                    powers.append(powers_for_general)
-                else:
-                    voltages.append(getattr(report, f'line_voltage_{self.phases.index(phase_name) + 1}'))
-                    currents.append(getattr(report, f'current_{self.phases.index(phase_name) + 1}'))
-                    powers.append(getattr(report, f'power_{self.phases.index(phase_name) + 1}'))
-            if phase_name != "Загальне":
-                self.update_voltage_graph(timestamps, voltages, phase_name)
-                self.update_current_graph(timestamps, currents, phase_name)
-                self.update_power_graph(timestamps, powers, phase_name)
-
-                self.add_tooltips(self.phase_data[phase_name]["voltage_graph"], timestamps, voltages)
-                self.add_tooltips(self.phase_data[phase_name]["current_graph"], timestamps, currents)
-                self.add_tooltips(self.phase_data[phase_name]["power_graph"], timestamps, powers)
-            else:
-                transposed_voltages = list(zip(*voltages))
-                transposed_currents = list(zip(*currents))
-                transposed_powers = list(zip(*powers))
-                self.update_voltage_graph(timestamps, transposed_voltages, phase_name)
-                self.update_current_graph(timestamps, transposed_currents, phase_name)
-                self.update_power_graph(timestamps, transposed_powers, phase_name)
-
-                hourly_energy = []
-                hourly_timestamps = []
-
-                last_energy = None
-                current_hour_start = None
-                current_hour_energy = 0.0
-
-                for report in self.report_data:
-                    current_hour = report.timestamp.replace(minute=0, second=0, microsecond=0)
-
-                    if current_hour_start is None:
-                        current_hour_start = current_hour
-
-                    if current_hour != current_hour_start:
-                        if last_energy is not None:
-                            hourly_energy.append(current_hour_energy)
-                            hourly_timestamps.append(current_hour_start)
-                        current_hour_start = current_hour
-                        current_hour_energy = 0.0
-                    energy_value = getattr(report, f'total_kWh')
-
-                    if last_energy is not None:
-                        current_hour_energy += abs(energy_value - last_energy)
-
-                    last_energy = energy_value
-
-                if last_energy is not None:
-                    hourly_energy.append(current_hour_energy)
-                    hourly_timestamps.append(current_hour_start)
-
-                self.update_energy_graph(hourly_timestamps, hourly_energy, phase_name)
