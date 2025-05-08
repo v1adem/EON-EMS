@@ -636,6 +636,7 @@ class DeviceDetailsWidget(QWidget):
 
             for report in self.report_data:
                 try:
+                    timestamps.append(report.timestamp)
                     if phase_name == "Загальне":
                         voltages_for_general = []
                         currents_for_general = []
