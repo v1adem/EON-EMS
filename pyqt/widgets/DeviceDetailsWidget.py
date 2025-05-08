@@ -653,10 +653,12 @@ class DeviceDetailsWidget(QWidget):
                 except Exception as e:
                     logger.warning(e)
                     continue
+            print(f"Data for graphs collected for {phase_name}")
 
             if phase_name != "Загальне":
                 self._update_single_phase_line_graph(timestamps, voltages, phase_name, "voltage",
                                                      color_single=(0, 102, 204), y_label="Напруга")
+                print("Voltage data updated")
                 self._update_single_phase_line_graph(timestamps, currents, phase_name, "current",
                                                      color_single=(204, 51, 0), y_label="Струм")
                 self._update_single_phase_line_graph(timestamps, powers, phase_name, "power",
