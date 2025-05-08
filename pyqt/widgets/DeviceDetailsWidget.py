@@ -291,7 +291,6 @@ class DeviceDetailsWidget(QWidget):
             self.setup_table_click_handler(self.report_table)
 
             is_sdm72 = self.device.model == "SDM72"
-            print(is_sdm72)
             self.update_graphs(is_sdm72=is_sdm72)
 
         AsyncioPySide6.runTask(run_load_report_data())
@@ -643,12 +642,13 @@ class DeviceDetailsWidget(QWidget):
                         voltage = getattr(report, f'line_voltage_{self.phases.index(phase_name) + 1}')
                         current = getattr(report, f'current_{self.phases.index(phase_name) + 1}')
                         power = getattr(report, f'power_{self.phases.index(phase_name) + 1}')
-                        energy = getattr(report, f'total_kWh_{self.phases.index(phase_name) + 1}')
+                        if not is_sdm72:
+                            energy = getattr(report, f'total_kWh_{self.phases.index(phase_name) + 1}')
+                            energies.append(energy)
                         voltages.append(voltage)
                         currents.append(current)
                         powers.append(power)
-                        if not is_sdm72:
-                            energies.append(energy)
+
                 except Exception as e:
                     logger.warning(e)
                     continue
