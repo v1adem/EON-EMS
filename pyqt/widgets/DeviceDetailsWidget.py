@@ -29,6 +29,11 @@ class DeviceDetailsWidget(QWidget):
         self.device_model = self.device.model
         self.main_window = main_window
 
+        self.console_widget = ConsoleWidget()
+        self.output_duplicator = ConsoleOutputDuplicator(self.console_widget, sys.__stdout__)
+        sys.stdout = self.output_duplicator
+        logger.info("Console initialized")
+
         self.report_data = None
 
         self.init_column_labels()
@@ -176,7 +181,6 @@ class DeviceDetailsWidget(QWidget):
 
         bottom_left_layout = QGridLayout()
 
-        self.console_widget = ConsoleWidget()
         bottom_left_layout.addWidget(self.console_widget, 0, 0, 2, 1)
 
         clock_title = QLabel("Поточний час")
@@ -246,8 +250,7 @@ class DeviceDetailsWidget(QWidget):
             "current_lcd": current_lcd,
             "power_lcd": power_lcd,
             "energy_lcd": energy_lcd,
-            "clock_label": clock_label,
-            "console_widget": self.console_widget,
+            "clock_label": clock_label
         }
 
         voltage_plot_item = voltage_graph.plot([], [], pen=pg.mkPen(color=(0, 102, 204), width=2),
@@ -314,7 +317,6 @@ class DeviceDetailsWidget(QWidget):
 
         bottom_left_layout = QGridLayout()
 
-        self.console_widget = ConsoleWidget()
         bottom_left_layout.addWidget(self.console_widget, 0, 0, 2, 1)
 
         clock_title = QLabel("Поточний час")
@@ -384,8 +386,7 @@ class DeviceDetailsWidget(QWidget):
             "current_lcd": current_lcd,
             "power_lcd": power_lcd,
             "energy_lcd": energy_lcd,
-            "clock_label": clock_label,
-            "console_widget": self.console_widget,
+            "clock_label": clock_label
         }
 
         voltage_plot_item = voltage_graph.plot([], [], pen=pg.mkPen(color=(0, 102, 204), width=2),
@@ -410,9 +411,6 @@ class DeviceDetailsWidget(QWidget):
         setattr(self, f"power_scatter_item_{phase_name}", power_scatter_item)
 
         self.tabs.addTab(tab, phase_name)
-
-        sys.stdout = ConsoleOutputDuplicator(self.console_widget, sys.__stdout__)
-        logger.info("Console initialized")
 
 
     def auto_update(self):
