@@ -711,11 +711,8 @@ class DeviceDetailsWidget(QWidget):
 
         if not hasattr(graph_widget, 'legend'):
             legend = self.create_legend(graph_widget)
-            graph_widget.legend = legend
-            graph_widget.scene().addItem(legend)
         else:
             legend = graph_widget.legend
-            legend.clear()
 
         try:
             for i, phase_values in enumerate(all_phase_values):
