@@ -631,7 +631,7 @@ class DeviceDetailsWidget(QWidget):
 
         point = points[0]
 
-        x_value = point.data()
+        x_value = int(point.data())
         if x_value is None:
             logger.warning("Point does not contain 'data', using pos().x() instead")
             x_value = point.pos().x()
@@ -689,7 +689,7 @@ class DeviceDetailsWidget(QWidget):
         return legend
 
     def _update_single_phase_line_graph(self, timestamps, values, phase_name, graph_type):
-        timestamps_numeric = [ts.timestamp() for ts in timestamps]
+        timestamps_numeric = [int(ts.timestamp()) for ts in timestamps]
         plot_item = getattr(self, f"{graph_type}_plot_item_{phase_name}")
         scatter = getattr(self, f"{graph_type}_scatter_item_{phase_name}")
 
