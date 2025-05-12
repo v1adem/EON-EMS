@@ -736,12 +736,12 @@ class DeviceDetailsWidget(QWidget):
                     plot_item = graph_widget.plot(timestamps_numeric, phase_values, pen=pen,
                                                   name=f"{y_label} {self.phases[i]}")
                     setattr(self, plot_attr, plot_item)
-                    #legend.addItem(plot_item, f"{self.phases[i]}")
+                    legend.addItem(plot_item, f"{self.phases[i]}")
 
                     scatter = pg.ScatterPlotItem(pen=None, brush=color, size=7)
                     scatter.setData(x=timestamps_numeric, y=phase_values)
                     scatter.sigClicked.connect(self.on_graph_point_clicked)
-                    graph_widget.addItem(scatter)
+                    #graph_widget.addItem(scatter)
                     setattr(self, scatter_attr, scatter)
                 else:
                     plot_item = getattr(self, plot_attr)
