@@ -627,6 +627,7 @@ class DeviceDetailsWidget(QWidget):
 
     def on_graph_point_clicked(self, plot, points):
         if not any(points):
+            logger.error("No points selected")
             return
 
         point = points[0]
