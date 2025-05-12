@@ -632,32 +632,8 @@ class DeviceDetailsWidget(QWidget):
 
         point = points[0]
 
-        # Отримуємо координати точки
-        x_value = point.data()
-        if x_value is None:
-            x_value = point.pos().x()
-
-        # Знаходимо індекс точки на графіку
-        x_values = plot.getData()[0]  # Ось так отримуємо дані графіка, вони будуть в форматі (x, y)
-        if x_values is None or len(x_values) == 0:
-            return
-
-        # Знайдемо найближчий індекс точки до натискання
-        closest_index = min(range(len(x_values)), key=lambda i: abs(x_values[i] - x_value))
-
-        # Рахуємо діапазон для відображення
-        start_index = max(0, closest_index - 5)  # Мінімум 0, щоб уникнути виходу за межі
-        end_index = min(len(x_values) - 1, closest_index + 5)  # Максимум останній індекс
-
-        # Встановлюємо нові видимі межі для графіка
-        x_min = x_values[start_index]
-        x_max = x_values[end_index]
-
-        # Центруємо графік на точці і задаємо нові межі
-        plot.setXRange(x_min, x_max)
-
-        # Додатково: ви можете додати логування або інші дії після центрування
-        logger.info(f"Центрування графіка між {x_min} і {x_max}.")
+        point_pos = point.pos()
+        plot.view().centerOn(point_pos)
 
     def create_legend(self, graph_widget):
         legend = pg.LegendItem(offset=(70, 10), pen=None, brush=pg.mkBrush('w'))
