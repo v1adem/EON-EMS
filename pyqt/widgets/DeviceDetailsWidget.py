@@ -1,9 +1,7 @@
 import logging
 import os
 import sys
-from datetime import datetime, timedelta, timezone
-
-import pytz
+from datetime import datetime, timedelta
 
 logger = logging.getLogger(__name__)
 
@@ -627,13 +625,53 @@ class DeviceDetailsWidget(QWidget):
         graph_widget.scene().sigMouseMoved.connect(on_mouse_moved)
 
     def on_graph_point_clicked(self, plot, points):
-        if not points:
+        if not points or not self.report_data:
             return
 
-        point = points[0]
+        # Отримуємо timestamp з даних точки
+        point_data = points[0].data()
+        if not point_data:
+            return
 
-        point_pos = point.pos()
-        plot.view().centerOn(point_pos)
+        # Знаходимо відповідний рядок у таблиці
+        timestamp = datetime.fromtimestamp(point_data)
+
+        # Отримуємо модель таблиці (враховуємо, що це може бути QSortFilterProxyModel)
+        model = self.report_table.model()
+        source_model = model.sourceModel() if hasattr(model, 'sourceModel') else model
+
+        # Шукаємо рядок з найближчим часом
+        closest_row = -1
+        min_diff = float('inf')
+
+        for row in range(source_model.rowCount()):
+            index = source_model.index(row, 0)  # Припускаємо, що timestamp у першому стовпці
+            report_timestamp_str = source_model.data(index)
+
+            try:
+                report_timestamp = datetime.strptime(report_timestamp_str, "%Y-%m-%d %H:%M:%S")
+                time_diff = abs((timestamp - report_timestamp).total_seconds())
+
+                if time_diff < min_diff:
+                    min_diff = time_diff
+                    closest_row = row
+            except ValueError:
+                continue
+
+        if closest_row >= 0:
+            # Вибір рядка у таблиці
+            if hasattr(model, 'mapFromSource'):
+                # Якщо використовується proxy model
+                proxy_index = model.mapFromSource(source_model.index(closest_row, 0))
+            else:
+                # Якщо використовується безпосередньо source model
+                proxy_index = source_model.index(closest_row, 0)
+
+            self.report_table.selectRow(proxy_index.row())
+            self.report_table.scrollTo(proxy_index, QTableView.ScrollHint.PositionAtCenter)
+
+            # Центрування графіків
+            self.center_graphs_on_timestamp(timestamp)
 
     def create_legend(self, graph_widget):
         legend = pg.LegendItem(offset=(70, 10), pen=None, brush=pg.mkBrush('w'))
@@ -899,16 +937,7 @@ class DeviceDetailsWidget(QWidget):
 
             self.update_energy_graph(hourly_timestamps, hourly_energy, phase_name)
 
-    def center_graphs_on_table_row(self, row_index):
-        if not self.report_data:
-            return
-
-        source_index = self.report_table.model().mapToSource(self.report_table.model().index(row_index, 0))
-        source_row = source_index.row()
-
-        selected_report = self.report_data[source_row]
-        selected_timestamp = selected_report.timestamp
-
+    def center_graphs_on_timestamp(self, timestamp):
         for phase_name in self.phases:
             graph_widgets = [
                 self.phase_data[phase_name]["voltage_graph"],
@@ -918,14 +947,13 @@ class DeviceDetailsWidget(QWidget):
             ]
 
             for graph_widget in graph_widgets:
-                min_time = selected_timestamp - timedelta(hours=1)
-                max_time = selected_timestamp + timedelta(hours=1)
+                min_time = timestamp - timedelta(minutes=30)
+                max_time = timestamp + timedelta(minutes=30)
 
                 min_timestamp_numeric = min_time.timestamp()
                 max_timestamp_numeric = max_time.timestamp()
 
                 graph_widget.setXRange(min_timestamp_numeric, max_timestamp_numeric, padding=0)
-
     def set_light_theme(self):
         for phase_name, phase_data in self.phase_data.items():
             phase_data["voltage_graph"].setBackground('w')
