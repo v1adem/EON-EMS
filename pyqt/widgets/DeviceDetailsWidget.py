@@ -671,6 +671,9 @@ class DeviceDetailsWidget(QWidget):
                 closest_row = row
                 closest_timestamp = table_datetime
 
+        print("Graph point datetime:", x_value_datetime.isoformat())
+        print("Table datetime sample:", table_datetime.isoformat())
+
         if closest_row != -1:
             self.report_table.selectRow(closest_row)
             self.report_table.scrollTo(model.index(closest_row, 0))
