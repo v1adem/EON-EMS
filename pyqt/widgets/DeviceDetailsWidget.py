@@ -626,12 +626,11 @@ class DeviceDetailsWidget(QWidget):
 
     def on_graph_point_clicked(self, plot, points):
         if not any(points):
-            logger.error("No points selected")
+            logger.error("[on_click] No points selected")
             return
 
         point = points[0]
         x_value = point.pos().x()
-        x_value -= 14400
 
         model = self.report_table.model()
         timestamp_column_index = -1
@@ -642,33 +641,39 @@ class DeviceDetailsWidget(QWidget):
                 break
 
         if timestamp_column_index == -1:
+            logger.error("[on_click] 'час' has not been found in the report table.")
             return
 
         closest_row = -1
         min_time_diff = float('inf')
+        closest_timestamp = None
+        x_value_datetime = datetime.fromtimestamp(x_value)
 
         for row in range(model.rowCount()):
             index = model.index(row, timestamp_column_index)
             table_timestamp_str = index.data()
-
             try:
                 table_datetime = datetime.strptime(table_timestamp_str, "%Y-%m-%d %H:%M:%S")
                 table_timestamp = table_datetime.timestamp()
             except ValueError:
-                logger.error(f"Time convert error in row - {row}: {table_timestamp_str}")
+                logger.error(f"[on_click] Error with converting datetime into timestamp - {row}: {table_timestamp_str}")
                 continue
 
             time_diff = abs(table_timestamp - x_value)
             if time_diff < min_time_diff:
                 min_time_diff = time_diff
                 closest_row = row
+                closest_timestamp = table_datetime
 
         if closest_row != -1:
             self.report_table.selectRow(closest_row)
             self.report_table.scrollTo(model.index(closest_row, 0))
             self.report_table.setSelectionBehavior(QTableView.SelectionBehavior.SelectRows)
+
+            logger.info(
+                f"Натиснуто на графіку: {x_value_datetime}, Знайдено у таблиці: {closest_timestamp}, Різниця у часі: {min_time_diff} секунд")
         else:
-            logger.error("Row is not found")
+            logger.error("Не знайдено відповідний рядок у таблиці.")
 
     def create_legend(self, graph_widget):
         legend = pg.LegendItem(offset=(70, 10), pen=None, brush=pg.mkBrush('w'))
