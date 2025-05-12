@@ -654,7 +654,7 @@ class DeviceDetailsWidget(QWidget):
         x_max = x_values[end_index]
 
         # Центруємо графік на точці і задаємо нові межі
-        plot.view().setXRange(x_min, x_max)
+        plot.setXRange(x_min, x_max)
 
         # Додатково: ви можете додати логування або інші дії після центрування
         logger.info(f"Центрування графіка між {x_min} і {x_max}.")
