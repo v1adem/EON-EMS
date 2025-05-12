@@ -544,38 +544,35 @@ class DeviceDetailsWidget(QWidget):
         scatter = getattr(self, f"{graph_type}_scatter_item_{phase_name}")
 
         if not timestamps_numeric or not values:
-            print(
+            logger.warning(
                 f"[_update_single_phase_line_graph] Skipped update for {phase_name} - {graph_type} due to empty data.")
             return
 
         current_x = plot_item.xData
 
-        if current_x is None or timestamps_numeric[-1] > current_x[-1]:
-            new_timestamps = []
-            new_values = []
-            if current_x is not None:
-                last_ts = current_x[-1]
-                for i, ts in enumerate(timestamps_numeric):
-                    if ts > last_ts:
-                        new_timestamps.append(ts)
-                        new_values.append(values[i])
-            else:
-                new_timestamps = timestamps_numeric
-                new_values = values
+        try:
+            if current_x is None or timestamps_numeric[-1] > current_x[-1]:
+                new_timestamps = []
+                new_values = []
+                if current_x is not None:
+                    last_ts = current_x[-1]
+                    for i, ts in enumerate(timestamps_numeric):
+                        if ts > last_ts:
+                            new_timestamps.append(ts)
+                            new_values.append(values[i])
+                else:
+                    new_timestamps = timestamps_numeric
+                    new_values = values
 
-            if new_timestamps:
-                updated_x = list(current_x) if current_x is not None else []
-                updated_y = list(plot_item.yData) if plot_item.yData is not None else []
-                updated_x.extend(new_timestamps)
-                updated_y.extend(new_values)
-                plot_item.setData(updated_x, updated_y)
-                scatter.setData(x=updated_x, y=updated_y)
-                print(
-                    f"[_update_single_phase_line_graph] Updated data for {phase_name} - {graph_type}, added {len(new_timestamps)} new points.")
-            else:
-                print(f"[_update_single_phase_line_graph] No new timestamps for {phase_name} - {graph_type}.")
-        else:
-            print(f"[_update_single_phase_line_graph] No new timestamps for {phase_name} - {graph_type}.")
+                if new_timestamps:
+                    updated_x = list(current_x) if current_x is not None else []
+                    updated_y = list(plot_item.yData) if plot_item.yData is not None else []
+                    updated_x.extend(new_timestamps)
+                    updated_y.extend(new_values)
+                    plot_item.setData(updated_x, updated_y)
+                    scatter.setData(x=updated_x, y=updated_y)
+        except Exception as e:
+            logger.error(f"[_update_single_phase_line_graph] Error updating graph for {phase_name} - {graph_type}: {e}")
 
     def _update_general_line_graph(self, timestamps, all_phase_values, y_label, graph_type, color_shades):
         timestamps_numeric = [ts.timestamp() for ts in timestamps]
@@ -592,55 +589,52 @@ class DeviceDetailsWidget(QWidget):
             legend = graph_widget.legend
             legend.removeItem(None)
 
-        for i, phase_values in enumerate(all_phase_values):
-            color = color_shades[i % len(color_shades)]
-            plot_attr = f"{graph_type}_plot_item_general_phase_{i}"
-            scatter_attr = f"{graph_type}_scatter_item_general_phase_{i}"
+        try:
+            for i, phase_values in enumerate(all_phase_values):
+                color = color_shades[i % len(color_shades)]
+                plot_attr = f"{graph_type}_plot_item_general_phase_{i}"
+                scatter_attr = f"{graph_type}_scatter_item_general_phase_{i}"
 
-            if not hasattr(self, plot_attr):
-                pen = pg.mkPen(color=color, width=2)
-                plot_item = graph_widget.plot(timestamps_numeric, phase_values, pen=pen,
-                                              name=f"{y_label} {self.phases[i]}")
-                setattr(self, plot_attr, plot_item)
-                legend.addItem(plot_item, f"{self.phases[i]}")
+                if not hasattr(self, plot_attr):
+                    pen = pg.mkPen(color=color, width=2)
+                    plot_item = graph_widget.plot(timestamps_numeric, phase_values, pen=pen,
+                                                  name=f"{y_label} {self.phases[i]}")
+                    setattr(self, plot_attr, plot_item)
+                    legend.addItem(plot_item, f"{self.phases[i]}")
 
-                scatter = pg.ScatterPlotItem(pen=None, brush=color, size=7)
-                scatter.setData(x=timestamps_numeric, y=phase_values)
-                scatter.sigClicked.connect(self.on_graph_point_clicked)
-                graph_widget.addItem(scatter)
-                setattr(self, scatter_attr, scatter)
-            else:
-                plot_item = getattr(self, plot_attr)
-                scatter = getattr(self, scatter_attr)
-
-                current_x = plot_item.xData
-
-                if current_x is None or timestamps_numeric[-1] > current_x[-1]:
-                    new_timestamps = []
-                    new_values = []
-                    if current_x is not None:
-                        last_ts = current_x[-1]
-                        for j, ts in enumerate(timestamps_numeric):
-                            if ts > last_ts:
-                                new_timestamps.append(ts)
-                                new_values.append(phase_values[j])
-                    else:
-                        new_timestamps = timestamps_numeric
-                        new_values = phase_values
-
-                    if new_timestamps:
-                        updated_x = list(current_x) if current_x is not None else []
-                        updated_y = list(plot_item.yData) if plot_item.yData is not None else []
-                        updated_x.extend(new_timestamps)
-                        updated_y.extend(new_values)
-                        plot_item.setData(updated_x, updated_y)
-                        scatter.setData(x=updated_x, y=updated_y)
-                        print(
-                            f"[_update_general_line_graph] Updated data for {self.phases[i]} - {graph_type}, added {len(new_timestamps)} new points.")
-                    else:
-                        print(f"[_update_general_line_graph] No new timestamps for {self.phases[i]} - {graph_type}.")
+                    scatter = pg.ScatterPlotItem(pen=None, brush=color, size=7)
+                    scatter.setData(x=timestamps_numeric, y=phase_values)
+                    scatter.sigClicked.connect(self.on_graph_point_clicked)
+                    graph_widget.addItem(scatter)
+                    setattr(self, scatter_attr, scatter)
                 else:
-                    print(f"[_update_general_line_graph] No new timestamps for {self.phases[i]} - {graph_type}.")
+                    plot_item = getattr(self, plot_attr)
+                    scatter = getattr(self, scatter_attr)
+
+                    current_x = plot_item.xData
+
+                    if current_x is None or timestamps_numeric[-1] > current_x[-1]:
+                        new_timestamps = []
+                        new_values = []
+                        if current_x is not None:
+                            last_ts = current_x[-1]
+                            for j, ts in enumerate(timestamps_numeric):
+                                if ts > last_ts:
+                                    new_timestamps.append(ts)
+                                    new_values.append(phase_values[j])
+                        else:
+                            new_timestamps = timestamps_numeric
+                            new_values = phase_values
+
+                        if new_timestamps:
+                            updated_x = list(current_x) if current_x is not None else []
+                            updated_y = list(plot_item.yData) if plot_item.yData is not None else []
+                            updated_x.extend(new_timestamps)
+                            updated_y.extend(new_values)
+                            plot_item.setData(updated_x, updated_y)
+                            scatter.setData(x=updated_x, y=updated_y)
+        except Exception as e:
+            logger.error(f"[_update_general_line_graph] Error updating graph: {e}")
 
     def update_energy_graph(self, hourly_timestamps, hourly_energy, phase_name):
         if not hourly_timestamps or not hourly_energy:
