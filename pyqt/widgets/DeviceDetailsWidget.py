@@ -636,7 +636,7 @@ class DeviceDetailsWidget(QWidget):
             logger.warning("Point does not contain 'data', using pos().x() instead")
             x_value = point.pos().x()
 
-        x_value_datetime = datetime.fromtimestamp(x_value).replace(microsecond=0)
+        x_value_datetime = datetime.fromtimestamp(x_value, tz=timezone.utc).astimezone().replace(microsecond=0)
         x_value_timestamp = x_value_datetime.timestamp()
 
         model = self.report_table.model()
