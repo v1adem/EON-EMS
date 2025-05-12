@@ -501,9 +501,23 @@ class DeviceDetailsWidget(QWidget):
             selection_model.selectionChanged.connect(self.on_table_row_selected)
 
     def on_table_row_selected(self, selected):
-        if selected.indexes():
-            row_index = selected.indexes()[0].row()
-            self.center_graphs_on_table_row(row_index)
+        if not selected.indexes():
+            return
+
+        proxy_index = selected.indexes()[0]
+        model = self.report_table.model()
+
+        source_model = model.sourceModel() if hasattr(model, 'sourceModel') else model
+
+        if hasattr(model, 'mapToSource'):
+            source_index = model.mapToSource(proxy_index)
+            row_index = source_index.row()
+        else:
+            row_index = proxy_index.row()
+
+        if 0 <= row_index < len(self.report_data):
+            selected_timestamp = self.report_data[row_index].timestamp
+            self.center_graphs_on_timestamp(selected_timestamp)
 
     def update_clock_indicators(self):
         async def run_update_clock_indicators():
@@ -625,33 +639,24 @@ class DeviceDetailsWidget(QWidget):
         graph_widget.scene().sigMouseMoved.connect(on_mouse_moved)
 
     def on_graph_point_clicked(self, plot, points):
-        """Обробник кліку на точку графіку - спрощений варіант"""
         if not points or not self.report_data:
             return
 
-        # Отримуємо індекс точки
         point_index = points[0].index()
 
-        # Отримуємо модель таблиці
         model = self.report_table.model()
 
-        # Визначаємо source model (якщо використовується proxy)
         source_model = model.sourceModel() if hasattr(model, 'sourceModel') else model
 
-        # Перевіряємо, чи індекс в межах допустимого
         if 0 <= point_index < source_model.rowCount():
-            # Вибір рядка у таблиці
             if hasattr(model, 'mapFromSource'):
-                # Для проксі-моделі
                 proxy_index = model.mapFromSource(source_model.index(point_index, 0))
             else:
-                # Для звичайної моделі
                 proxy_index = source_model.index(point_index, 0)
 
             self.report_table.selectRow(proxy_index.row())
             self.report_table.scrollTo(proxy_index, QTableView.ScrollHint.PositionAtCenter)
 
-            # Центрування графіків навколо обраної точки
             selected_timestamp = self.report_data[point_index].timestamp
             self.center_graphs_on_timestamp(selected_timestamp)
 
