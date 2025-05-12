@@ -631,6 +631,8 @@ class DeviceDetailsWidget(QWidget):
 
         point = points[0]
         x_value = point.pos().x()
+        x_value_datetime = datetime.fromtimestamp(x_value).replace(microsecond=0)
+        x_value_timestamp = x_value_datetime.timestamp()
 
         model = self.report_table.model()
         timestamp_column_index = -1
@@ -659,7 +661,7 @@ class DeviceDetailsWidget(QWidget):
                 logger.error(f"[on_click] Error with converting datetime into timestamp - {row}: {table_timestamp_str}")
                 continue
 
-            time_diff = abs(table_timestamp - x_value)
+            time_diff = abs(table_timestamp - x_value_timestamp)
             if time_diff < min_time_diff:
                 min_time_diff = time_diff
                 closest_row = row
@@ -726,7 +728,7 @@ class DeviceDetailsWidget(QWidget):
         if not hasattr(graph_widget, 'legend'):
             legend = self.create_legend(graph_widget)
             graph_widget.legend = legend
-            #graph_widget.scene().addItem(legend)
+            graph_widget.scene().addItem(legend)
         else:
             legend = graph_widget.legend
             legend.clear()
