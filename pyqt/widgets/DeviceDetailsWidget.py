@@ -720,7 +720,7 @@ class DeviceDetailsWidget(QWidget):
         if not hasattr(graph_widget, 'legend'):
             legend = self.create_legend(graph_widget)
             graph_widget.legend = legend
-            graph_widget.scene().addItem(legend)
+            #graph_widget.scene().addItem(legend)
         else:
             legend = graph_widget.legend
             legend.clear()
@@ -741,7 +741,7 @@ class DeviceDetailsWidget(QWidget):
                     scatter = pg.ScatterPlotItem(pen=None, brush=color, size=7)
                     scatter.setData(x=timestamps_numeric, y=phase_values)
                     scatter.sigClicked.connect(self.on_graph_point_clicked)
-                    #graph_widget.addItem(scatter)
+                    graph_widget.addItem(scatter)
                     setattr(self, scatter_attr, scatter)
                 else:
                     plot_item = getattr(self, plot_attr)
