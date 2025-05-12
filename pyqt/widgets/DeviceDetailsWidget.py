@@ -638,13 +638,14 @@ class DeviceDetailsWidget(QWidget):
             logger.warning("Point does not contain 'data', using pos().x() instead")
             x_value = point.pos().x()
 
+        # Конвертуємо UTC timestamp у datetime з часовою зоною
         x_value_datetime = datetime.fromtimestamp(x_value, tz=pytz.UTC).replace(microsecond=0)
-
         logger.info(f"Graph point datetime: {x_value_datetime.isoformat()}")
 
         model = self.report_table.model()
         timestamp_column_index = -1
 
+        # Знайдемо стовпець з "час"
         for column in range(model.columnCount()):
             header_text = model.headerData(column, Qt.Orientation.Horizontal)
             if "час" in header_text.lower():
@@ -661,33 +662,38 @@ class DeviceDetailsWidget(QWidget):
 
         kyiv_tz = pytz.timezone("Europe/Kyiv")
 
+        # Шукаємо найближчий рядок
         for row in range(model.rowCount()):
             index = model.index(row, timestamp_column_index)
             table_timestamp_str = index.data()
 
             try:
+                # Парсимо наївний datetime з таблиці та додаємо часову зону
                 table_naive = datetime.strptime(table_timestamp_str, "%Y-%m-%d %H:%M:%S")
                 table_datetime = kyiv_tz.localize(table_naive).astimezone(pytz.UTC).replace(microsecond=0)
 
                 logger.debug(f"Table datetime sample: {table_datetime.isoformat()}")
 
+                # Обчислюємо різницю в часі
                 time_diff = abs((table_datetime - x_value_datetime).total_seconds())
                 if time_diff < min_time_diff:
                     min_time_diff = time_diff
                     closest_row = row
                     closest_timestamp = table_datetime
+
             except Exception as e:
                 logger.error(
                     f"[on_click] Неможливо конвертувати дату на рядку {row}: {table_timestamp_str}, помилка: {e}")
                 continue
 
+        # Якщо знайшли найближчий рядок, вибираємо його
         if closest_row != -1:
             self.report_table.selectRow(closest_row)
             self.report_table.scrollTo(model.index(closest_row, 0))
             self.report_table.setSelectionBehavior(QTableView.SelectionBehavior.SelectRows)
 
             logger.info(
-                f"Графік: {x_value_datetime}, Таблиця: {closest_timestamp}, Δt: {min_time_diff:.2f} сек")
+                f"Графік: {x_value_datetime}, Таблиця: {closest_timestamp}, Δt: {min_time_diff:.2f} сек, Вибраний рядок: {closest_row}")
         else:
             logger.error("Відповідний рядок у таблиці не знайдено.")
 
