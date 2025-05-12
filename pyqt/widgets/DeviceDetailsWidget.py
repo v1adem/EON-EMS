@@ -414,7 +414,6 @@ class DeviceDetailsWidget(QWidget):
         sys.stdout = ConsoleOutputDuplicator(console_widget, sys.__stdout__)
         logger.info("Console initialized")
 
-
     def auto_update(self):
         if not self.auto_update_checkbox.isChecked():
             return
@@ -632,7 +631,7 @@ class DeviceDetailsWidget(QWidget):
 
         point = points[0]
         x_value = point.pos().x()
-        x_value -= 7200
+        #x_value -= 7200
 
         model = self.report_table.model()
         timestamp_column_index = -1
