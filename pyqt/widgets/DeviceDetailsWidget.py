@@ -507,8 +507,6 @@ class DeviceDetailsWidget(QWidget):
         proxy_index = selected.indexes()[0]
         model = self.report_table.model()
 
-        source_model = model.sourceModel() if hasattr(model, 'sourceModel') else model
-
         if hasattr(model, 'mapToSource'):
             source_index = model.mapToSource(proxy_index)
             row_index = source_index.row()
@@ -751,6 +749,7 @@ class DeviceDetailsWidget(QWidget):
                             {'pos': (x, y), 'data': x}
                             for x, y in zip(timestamps_numeric, phase_values)
                         ])
+                        legend.addItem(plot_item, f"{self.phases[i]}")
                     elif timestamps_numeric[-1] > current_x[-1]:
                         new_timestamps = []
                         new_values = []
@@ -771,7 +770,6 @@ class DeviceDetailsWidget(QWidget):
                                 {'pos': (x, y), 'data': x}
                                 for x, y in zip(updated_x, updated_y)
                             ])
-
                     else:
                         plot_item.setData(timestamps_numeric, phase_values)
                         scatter.setData([
