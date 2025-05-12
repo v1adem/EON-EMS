@@ -628,74 +628,28 @@ class DeviceDetailsWidget(QWidget):
 
     def on_graph_point_clicked(self, plot, points):
         if not points:
-            logger.error("[on_click] No points selected")
             return
 
         point = points[0]
-
         x_value = point.data()
         if x_value is None:
-            logger.warning("Point does not contain 'data', using pos().x() instead")
             x_value = point.pos().x()
 
-        # Конвертуємо UTC timestamp у datetime з часовою зоною
-        x_value_datetime = datetime.fromtimestamp(x_value, tz=pytz.UTC).replace(microsecond=0)
-        logger.info(f"Graph point datetime: {x_value_datetime.isoformat()}")
+        point_pos = point.pos()
 
-        model = self.report_table.model()
-        timestamp_column_index = -1
-
-        # Знайдемо стовпець з "час"
-        for column in range(model.columnCount()):
-            header_text = model.headerData(column, Qt.Orientation.Horizontal)
-            if "час" in header_text.lower():
-                timestamp_column_index = column
-                break
-
-        if timestamp_column_index == -1:
-            logger.error("[on_click] Стовпець з 'час' не знайдено в таблиці.")
+        x_values = plot.xData
+        if x_values is None or len(x_values) == 0:
             return
 
-        closest_row = -1
-        min_time_diff = float('inf')
-        closest_timestamp = None
+        closest_index = min(range(len(x_values)), key=lambda i: abs(x_values[i] - x_value))
 
-        kyiv_tz = pytz.timezone("Europe/Kyiv")
+        start_index = max(0, closest_index - 5)
+        end_index = min(len(x_values) - 1, closest_index + 5)
 
-        # Шукаємо найближчий рядок
-        for row in range(model.rowCount()):
-            index = model.index(row, timestamp_column_index)
-            table_timestamp_str = index.data()
+        x_min = x_values[start_index]
+        x_max = x_values[end_index]
 
-            try:
-                # Парсимо наївний datetime з таблиці та додаємо часову зону
-                table_naive = datetime.strptime(table_timestamp_str, "%Y-%m-%d %H:%M:%S")
-                table_datetime = kyiv_tz.localize(table_naive).astimezone(pytz.UTC).replace(microsecond=0)
-
-                logger.debug(f"Table datetime sample: {table_datetime.isoformat()}")
-
-                # Обчислюємо різницю в часі
-                time_diff = abs((table_datetime - x_value_datetime).total_seconds())
-                if time_diff < min_time_diff:
-                    min_time_diff = time_diff
-                    closest_row = row
-                    closest_timestamp = table_datetime
-
-            except Exception as e:
-                logger.error(
-                    f"[on_click] Неможливо конвертувати дату на рядку {row}: {table_timestamp_str}, помилка: {e}")
-                continue
-
-        # Якщо знайшли найближчий рядок, вибираємо його
-        if closest_row != -1:
-            self.report_table.selectRow(closest_row)
-            self.report_table.scrollTo(model.index(closest_row, 0))
-            self.report_table.setSelectionBehavior(QTableView.SelectionBehavior.SelectRows)
-
-            logger.info(
-                f"Графік: {x_value_datetime}, Таблиця: {closest_timestamp}, Δt: {min_time_diff:.2f} сек, Вибраний рядок: {closest_row}")
-        else:
-            logger.error("Відповідний рядок у таблиці не знайдено.")
+        plot.view().setXRange(x_min, x_max)
 
     def create_legend(self, graph_widget):
         legend = pg.LegendItem(offset=(70, 10), pen=None, brush=pg.mkBrush('w'))
