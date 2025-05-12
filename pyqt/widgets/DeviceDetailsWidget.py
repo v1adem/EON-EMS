@@ -3,6 +3,8 @@ import os
 import sys
 from datetime import datetime, timedelta, timezone
 
+import pytz
+
 logger = logging.getLogger(__name__)
 
 import pyqtgraph as pg
@@ -631,16 +633,18 @@ class DeviceDetailsWidget(QWidget):
 
         point = points[0]
 
-        x_value = int(point.data())
+        x_value = point.data()
         if x_value is None:
             logger.warning("Point does not contain 'data', using pos().x() instead")
             x_value = point.pos().x()
 
-        x_value_datetime = datetime.fromtimestamp(x_value, tz=timezone.utc).replace(microsecond=0)
-        x_value_timestamp = x_value_datetime.timestamp()
+        x_value_datetime = datetime.fromtimestamp(x_value, tz=pytz.UTC).replace(microsecond=0)
+
+        logger.info(f"Graph point datetime: {x_value_datetime.isoformat()}")
 
         model = self.report_table.model()
         timestamp_column_index = -1
+
         for column in range(model.columnCount()):
             header_text = model.headerData(column, Qt.Orientation.Horizontal)
             if "час" in header_text.lower():
@@ -655,24 +659,27 @@ class DeviceDetailsWidget(QWidget):
         min_time_diff = float('inf')
         closest_timestamp = None
 
+        kyiv_tz = pytz.timezone("Europe/Kyiv")
+
         for row in range(model.rowCount()):
             index = model.index(row, timestamp_column_index)
             table_timestamp_str = index.data()
+
             try:
-                table_datetime = datetime.strptime(table_timestamp_str, "%Y-%m-%d %H:%M:%S")
-                table_timestamp = table_datetime.timestamp()
-            except ValueError:
-                logger.error(f"[on_click] Неможливо конвертувати дату на рядку {row}: {table_timestamp_str}")
+                table_naive = datetime.strptime(table_timestamp_str, "%Y-%m-%d %H:%M:%S")
+                table_datetime = kyiv_tz.localize(table_naive).astimezone(pytz.UTC).replace(microsecond=0)
+
+                logger.debug(f"Table datetime sample: {table_datetime.isoformat()}")
+
+                time_diff = abs((table_datetime - x_value_datetime).total_seconds())
+                if time_diff < min_time_diff:
+                    min_time_diff = time_diff
+                    closest_row = row
+                    closest_timestamp = table_datetime
+            except Exception as e:
+                logger.error(
+                    f"[on_click] Неможливо конвертувати дату на рядку {row}: {table_timestamp_str}, помилка: {e}")
                 continue
-
-            time_diff = abs(table_timestamp - x_value_timestamp)
-            if time_diff < min_time_diff:
-                min_time_diff = time_diff
-                closest_row = row
-                closest_timestamp = table_datetime
-
-        print("Graph point datetime:", x_value_datetime.isoformat())
-        print("Table datetime sample:", table_datetime.isoformat())
 
         if closest_row != -1:
             self.report_table.selectRow(closest_row)
