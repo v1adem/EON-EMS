@@ -625,53 +625,35 @@ class DeviceDetailsWidget(QWidget):
         graph_widget.scene().sigMouseMoved.connect(on_mouse_moved)
 
     def on_graph_point_clicked(self, plot, points):
+        """Обробник кліку на точку графіку - спрощений варіант"""
         if not points or not self.report_data:
             return
 
-        # Отримуємо timestamp з даних точки
-        point_data = points[0].data()
-        if not point_data:
-            return
+        # Отримуємо індекс точки
+        point_index = points[0].index()
 
-        # Знаходимо відповідний рядок у таблиці
-        timestamp = datetime.fromtimestamp(point_data)
-
-        # Отримуємо модель таблиці (враховуємо, що це може бути QSortFilterProxyModel)
+        # Отримуємо модель таблиці
         model = self.report_table.model()
+
+        # Визначаємо source model (якщо використовується proxy)
         source_model = model.sourceModel() if hasattr(model, 'sourceModel') else model
 
-        # Шукаємо рядок з найближчим часом
-        closest_row = -1
-        min_diff = float('inf')
-
-        for row in range(source_model.rowCount()):
-            index = source_model.index(row, 0)  # Припускаємо, що timestamp у першому стовпці
-            report_timestamp_str = source_model.data(index)
-
-            try:
-                report_timestamp = datetime.strptime(report_timestamp_str, "%Y-%m-%d %H:%M:%S")
-                time_diff = abs((timestamp - report_timestamp).total_seconds())
-
-                if time_diff < min_diff:
-                    min_diff = time_diff
-                    closest_row = row
-            except ValueError:
-                continue
-
-        if closest_row >= 0:
+        # Перевіряємо, чи індекс в межах допустимого
+        if 0 <= point_index < source_model.rowCount():
             # Вибір рядка у таблиці
             if hasattr(model, 'mapFromSource'):
-                # Якщо використовується proxy model
-                proxy_index = model.mapFromSource(source_model.index(closest_row, 0))
+                # Для проксі-моделі
+                proxy_index = model.mapFromSource(source_model.index(point_index, 0))
             else:
-                # Якщо використовується безпосередньо source model
-                proxy_index = source_model.index(closest_row, 0)
+                # Для звичайної моделі
+                proxy_index = source_model.index(point_index, 0)
 
             self.report_table.selectRow(proxy_index.row())
             self.report_table.scrollTo(proxy_index, QTableView.ScrollHint.PositionAtCenter)
 
-            # Центрування графіків
-            self.center_graphs_on_timestamp(timestamp)
+            # Центрування графіків навколо обраної точки
+            selected_timestamp = self.report_data[point_index].timestamp
+            self.center_graphs_on_timestamp(selected_timestamp)
 
     def create_legend(self, graph_widget):
         legend = pg.LegendItem(offset=(70, 10), pen=None, brush=pg.mkBrush('w'))
