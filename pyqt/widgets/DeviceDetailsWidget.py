@@ -625,12 +625,17 @@ class DeviceDetailsWidget(QWidget):
         graph_widget.scene().sigMouseMoved.connect(on_mouse_moved)
 
     def on_graph_point_clicked(self, plot, points):
-        if not any(points):
+        if not points:
             logger.error("[on_click] No points selected")
             return
 
         point = points[0]
-        x_value = point.pos().x()
+
+        x_value = point.data()
+        if x_value is None:
+            logger.warning("Point does not contain 'data', using pos().x() instead")
+            x_value = point.pos().x()
+
         x_value_datetime = datetime.fromtimestamp(x_value).replace(microsecond=0)
         x_value_timestamp = x_value_datetime.timestamp()
 
@@ -643,13 +648,12 @@ class DeviceDetailsWidget(QWidget):
                 break
 
         if timestamp_column_index == -1:
-            logger.error("[on_click] 'час' has not been found in the report table.")
+            logger.error("[on_click] Стовпець з 'час' не знайдено в таблиці.")
             return
 
         closest_row = -1
         min_time_diff = float('inf')
         closest_timestamp = None
-        x_value_datetime = datetime.fromtimestamp(x_value)
 
         for row in range(model.rowCount()):
             index = model.index(row, timestamp_column_index)
@@ -658,7 +662,7 @@ class DeviceDetailsWidget(QWidget):
                 table_datetime = datetime.strptime(table_timestamp_str, "%Y-%m-%d %H:%M:%S")
                 table_timestamp = table_datetime.timestamp()
             except ValueError:
-                logger.error(f"[on_click] Error with converting datetime into timestamp - {row}: {table_timestamp_str}")
+                logger.error(f"[on_click] Неможливо конвертувати дату на рядку {row}: {table_timestamp_str}")
                 continue
 
             time_diff = abs(table_timestamp - x_value_timestamp)
@@ -673,9 +677,9 @@ class DeviceDetailsWidget(QWidget):
             self.report_table.setSelectionBehavior(QTableView.SelectionBehavior.SelectRows)
 
             logger.info(
-                f"Натиснуто на графіку: {x_value_datetime}, Знайдено у таблиці: {closest_timestamp}, Різниця у часі: {min_time_diff} секунд")
+                f"Графік: {x_value_datetime}, Таблиця: {closest_timestamp}, Δt: {min_time_diff:.2f} сек")
         else:
-            logger.error("Не знайдено відповідний рядок у таблиці.")
+            logger.error("Відповідний рядок у таблиці не знайдено.")
 
     def create_legend(self, graph_widget):
         legend = pg.LegendItem(offset=(70, 10), pen=None, brush=pg.mkBrush('w'))
@@ -716,7 +720,10 @@ class DeviceDetailsWidget(QWidget):
                     updated_x.extend(new_timestamps)
                     updated_y.extend(new_values)
                     plot_item.setData(updated_x, updated_y)
-                    scatter.setData(x=updated_x, y=updated_y)
+                    scatter.setData([
+                        {'pos': (x, y), 'data': x}
+                        for x, y in zip(updated_x, updated_y)
+                    ])
                     scatter.sigClicked.connect(self.on_graph_point_clicked)
         except Exception as e:
             logger.error(f"[_update_single_phase_line_graph] Error updating graph for {phase_name} - {graph_type}: {e}")
@@ -747,7 +754,10 @@ class DeviceDetailsWidget(QWidget):
                     legend.addItem(plot_item, f"{self.phases[i]}")
 
                     scatter = pg.ScatterPlotItem(pen=None, brush=color, size=7)
-                    scatter.setData(x=timestamps_numeric, y=phase_values)
+                    scatter.setData([
+                        {'pos': (x, y), 'data': x}
+                        for x, y in zip(timestamps_numeric, phase_values)
+                    ])
                     scatter.sigClicked.connect(self.on_graph_point_clicked)
                     graph_widget.addItem(scatter)
                     setattr(self, scatter_attr, scatter)
@@ -758,7 +768,10 @@ class DeviceDetailsWidget(QWidget):
                     current_x = plot_item.xData
                     if current_x is None:
                         plot_item.setData(timestamps_numeric, phase_values)
-                        scatter.setData(x=timestamps_numeric, y=phase_values)
+                        scatter.setData([
+                            {'pos': (x, y), 'data': x}
+                            for x, y in zip(timestamps_numeric, phase_values)
+                        ])
                     elif timestamps_numeric[-1] > current_x[-1]:
                         new_timestamps = []
                         new_values = []
@@ -775,10 +788,17 @@ class DeviceDetailsWidget(QWidget):
                             updated_x.extend(new_timestamps)
                             updated_y.extend(new_values)
                             plot_item.setData(updated_x, updated_y)
-                            scatter.setData(x=updated_x, y=updated_y)
+                            scatter.setData([
+                                {'pos': (x, y), 'data': x}
+                                for x, y in zip(updated_x, updated_y)
+                            ])
+
                     else:
                         plot_item.setData(timestamps_numeric, phase_values)
-                        scatter.setData(x=timestamps_numeric, y=phase_values)
+                        scatter.setData([
+                            {'pos': (x, y), 'data': x}
+                            for x, y in zip(timestamps_numeric, phase_values)
+                        ])
         except Exception as e:
             logger.error(f"[_update_general_line_graph] Error updating graph: {e}")
 
