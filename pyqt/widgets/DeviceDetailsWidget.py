@@ -715,6 +715,7 @@ class DeviceDetailsWidget(QWidget):
                     updated_y.extend(new_values)
                     plot_item.setData(updated_x, updated_y)
                     scatter.setData(x=updated_x, y=updated_y)
+                    scatter.sigClicked.connect(self.on_graph_point_clicked)
         except Exception as e:
             logger.error(f"[_update_single_phase_line_graph] Error updating graph for {phase_name} - {graph_type}: {e}")
 
