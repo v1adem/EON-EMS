@@ -626,7 +626,7 @@ class DeviceDetailsWidget(QWidget):
         graph_widget.scene().sigMouseMoved.connect(on_mouse_moved)
 
     def on_graph_point_clicked(self, plot, points):
-        if not points:
+        if not any(points):
             return
 
         point = points[0]
