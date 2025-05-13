@@ -15,7 +15,7 @@ class SDM630DeviceDetailsWidget(BaseDeviceDetailsWidget):
     def __init__(self, parent=None, device=None):
         super(SDM630DeviceDetailsWidget, self).__init__(parent, device)
         self.column_labels, self.column_labels_for_excel = self.init_column_labels()
-        self.phases = ["Фаза 1", "Фаза 2", "Фаза 3", "Загальне"]
+        self.phases = ["Загальне", "Фаза 1", "Фаза 2", "Фаза 3"]
         self.report_model = SDM630Report
         self.tmp_report_model = SDM630ReportTmp
 

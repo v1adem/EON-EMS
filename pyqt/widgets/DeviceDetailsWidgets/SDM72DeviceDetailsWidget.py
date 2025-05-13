@@ -20,7 +20,7 @@ class SDM72DeviceDetailsWidget(BaseDeviceDetailsWidget):
     def __init__(self, parent=None, device=None):
         super(SDM72DeviceDetailsWidget, self).__init__(parent, device)
         self.column_labels, self.column_labels_for_excel = self.init_column_labels()
-        self.phases = ["Фаза 1", "Фаза 2", "Фаза 3", "Загальне"]
+        self.phases = ["Загальне", "Фаза 1", "Фаза 2", "Фаза 3"]
         self.report_model = SDM72Report
         self.tmp_report_model = SDM72ReportTmp
 
@@ -246,6 +246,9 @@ class SDM72DeviceDetailsWidget(BaseDeviceDetailsWidget):
                 return
 
             phases = {
+                "Загальне": {
+                    "energy": getattr(last_report, 'total_kWh', 0),
+                },
                 "Фаза 1": {
                     "voltage": getattr(last_report, 'line_voltage_1', 0),
                     "current": getattr(last_report, 'current_1', 0),
@@ -262,9 +265,6 @@ class SDM72DeviceDetailsWidget(BaseDeviceDetailsWidget):
                     "voltage": getattr(last_report, 'line_voltage_3', 0),
                     "current": getattr(last_report, 'current_3', 0),
                     "power": getattr(last_report, 'power_3', 0),
-                    "energy": getattr(last_report, 'total_kWh', 0),
-                },
-                "Загальне": {
                     "energy": getattr(last_report, 'total_kWh', 0),
                 }
             }
