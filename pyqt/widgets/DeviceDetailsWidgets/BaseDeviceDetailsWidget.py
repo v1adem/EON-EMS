@@ -641,10 +641,10 @@ class BaseDeviceDetailsWidget(QWidget):
                         powers.append(powers_for_general)
                         energies.append(report.total_kWh)
                     else:
-                        voltage = getattr(report, f'line_voltage_{self.phases.index(phase_name) + 1}')
-                        current = getattr(report, f'current_{self.phases.index(phase_name) + 1}')
-                        power = getattr(report, f'power_{self.phases.index(phase_name) + 1}')
-                        energy = getattr(report, f'total_kWh_{self.phases.index(phase_name) + 1}')
+                        voltage = getattr(report, f'line_voltage_{self.phases.index(phase_name)}')
+                        current = getattr(report, f'current_{self.phases.index(phase_name)}')
+                        power = getattr(report, f'power_{self.phases.index(phase_name)}')
+                        energy = getattr(report, f'total_kWh_{self.phases.index(phase_name)}')
 
                         voltages.append(voltage)
                         currents.append(current)
