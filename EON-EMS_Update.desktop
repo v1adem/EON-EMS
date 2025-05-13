@@ -1,0 +1,6 @@
+[Desktop Entry]
+Type=Application
+Name=Update and Run EON-EMS
+Exec=/home/admin/Desktop/EON-EMS/update_and_run.sh
+Icon=system-software-update
+Terminal=true

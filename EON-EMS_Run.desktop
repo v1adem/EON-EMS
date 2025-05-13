@@ -1,0 +1,6 @@
+[Desktop Entry]
+Type=Application
+Name=Run EON_EMS
+Exec=/home/admin/Desktop/EON-EMS/start.sh
+Icon=utilities-terminal
+Terminal=true

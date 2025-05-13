@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=EON-EMS
+Exec=/home/admin/Desktop/EON-EMS/start.sh
+Hidden=false
+NoDisplay=false
+X-GNOME-Autostart-enabled=true\
