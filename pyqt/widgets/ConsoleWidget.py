@@ -16,9 +16,18 @@ class ConsoleWidget(QPlainTextEdit):
         self.ansi_escape = re.compile(r'\x1b\[[0-9;]*m')
 
     def write(self, text):
+        lines = text.splitlines(keepends=True)
+        cleaned_lines = []
+        for line in lines:
+            stripped_line = line.lstrip()
+            normalized_line = re.sub(r' {2,}', ' ', stripped_line)
+            cleaned_lines.append(normalized_line)
+
+        cleaned_text = ''.join(cleaned_lines)
+
         cursor = self.textCursor()
         cursor.movePosition(QTextCursor.MoveOperation.End)
-        self.append_formatted_text(text, cursor)
+        self.append_formatted_text(cleaned_text, cursor)
 
     def append_formatted_text(self, text, cursor):
         parts = self.ansi_escape.split(text)

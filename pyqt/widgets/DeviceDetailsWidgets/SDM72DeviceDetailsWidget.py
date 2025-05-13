@@ -104,8 +104,11 @@ class SDM72DeviceDetailsWidget(BaseDeviceDetailsWidget):
 
         bottom_left_layout = QGridLayout()
 
-        console_widget = ConsoleWidget()
-        bottom_left_layout.addWidget(console_widget, 0, 0, 2, 1)
+        if phase_name == "Загальне":
+            console_widget = ConsoleWidget()
+            bottom_left_layout.addWidget(console_widget, 0, 0, 2, 1)
+            sys.stdout = ConsoleOutputDuplicator(console_widget, sys.__stdout__)
+            logger.info(f"Console widget initialized in {self.device.name}")
 
         clock_title = QLabel("Поточний час")
         clock_title.setStyleSheet("font-size: 16pt; font-weight: bold;")
@@ -174,8 +177,7 @@ class SDM72DeviceDetailsWidget(BaseDeviceDetailsWidget):
             "current_lcd": current_lcd,
             "power_lcd": power_lcd,
             "energy_lcd": energy_lcd,
-            "clock_label": clock_label,
-            "console_widget": console_widget,
+            "clock_label": clock_label
         }
 
         voltage_plot_item = voltage_graph.plot([], [], pen=pg.mkPen(color=(0, 102, 204), width=2),
@@ -200,9 +202,6 @@ class SDM72DeviceDetailsWidget(BaseDeviceDetailsWidget):
         setattr(self, f"power_scatter_item_{phase_name}", power_scatter_item)
 
         self.tabs.addTab(tab, phase_name)
-
-        sys.stdout = ConsoleOutputDuplicator(console_widget, sys.__stdout__)
-        logger.info(f"Console widget initialized in {self.device.name}")
 
     def load_report_data(self):
         async def run_load_report_data():
