@@ -19,6 +19,9 @@ class SDM630DeviceDetailsWidget(BaseDeviceDetailsWidget):
         self.report_model = SDM630Report
         self.tmp_report_model = SDM630ReportTmp
 
+        self.initUi()
+        self.init_timers()
+
     def init_column_labels(self):
         column_labels = {
             "timestamp": "Час",

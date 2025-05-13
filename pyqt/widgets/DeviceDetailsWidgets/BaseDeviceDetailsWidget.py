@@ -36,9 +36,6 @@ class BaseDeviceDetailsWidget(QWidget):
         self.phase_data = {}
         self.report_data = None
 
-        self.initUi()
-        self.init_timers()
-
     def initUi(self):
         layout = QVBoxLayout(self)
 
