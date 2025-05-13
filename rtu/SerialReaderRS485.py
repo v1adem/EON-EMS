@@ -50,7 +50,7 @@ class SerialReaderRS485:
     def __init__(self, device, project):
         self.port = project.port
         self.device_custom_name = device.name
-        self.device_address = device.address
+        self.device_address = device.device_address
         self.register_map = RegisterMap.get_register_map(device.model)
 
         self.client = ModbusSerialClient(
