@@ -1,5 +1,9 @@
 import logging
 
+from pyqt.widgets.DeviceDetailsWidgets.SDM120DeviceDetailsWidget import SDM120DeviceDetailsWidget
+from pyqt.widgets.DeviceDetailsWidgets.SDM630DeviceDetailsWidget import SDM630DeviceDetailsWidget
+from pyqt.widgets.DeviceDetailsWidgets.SDM72DeviceDetailsWidget import SDM72DeviceDetailsWidget
+
 logger = logging.getLogger(__name__)
 
 from PySide6 import QtCore, QtGui
@@ -10,7 +14,7 @@ from tools.config import resource_path
 from pyqt.dialogs.LanguageDialog import LanguageDialog
 from pyqt.dialogs.DeletingTimeDialog import DeletingTimeDialog
 from pyqt.dialogs.TimezoneDialog import TimezoneDialog
-from pyqt.widgets.DeviceDetailsWidget import DeviceDetailsWidget
+from pyqt.widgets.DeviceDetailsWidgets.BaseDeviceDetailsWidget import BaseDeviceDetailsWidget
 from pyqt.widgets.ProjectViewWidget import ProjectViewWidget
 from pyqt.widgets.ProjectsWidget import ProjectsWidget
 from pyqt.widgets.RegistrationLoginForm import RegistrationLoginForm
@@ -24,11 +28,14 @@ class MainWindow(QMainWindow):
         self.is_exit = False
 
         self.thread_manager = thread_manager
+
+        self.projects_widget = None
         self.project_view_widget = None
+        self.device_details_widget = None
 
         self.isAdmin = False
 
-        self.setWindowTitle("EON EMS v0.3.3")
+        self.setWindowTitle("EON EMS v0.4.0")
         self.setGeometry(100, 100, 1200, 800)
         self.setMinimumWidth(800)
         self.setMinimumHeight(600)
@@ -116,7 +123,13 @@ class MainWindow(QMainWindow):
         self.stacked_widget.setCurrentIndex(2)
 
     def open_device_details(self, device):
-        self.device_details_widget = DeviceDetailsWidget(self, device)
+        widget_class = {
+            "SDM120": SDM120DeviceDetailsWidget,
+            "SDM630": SDM630DeviceDetailsWidget,
+            "SDM72": SDM72DeviceDetailsWidget,
+        }.get(device.model, BaseDeviceDetailsWidget)
+
+        self.device_details_widget = widget_class(self, device)
         self.stacked_widget.addWidget(self.device_details_widget)
         self.stacked_widget.setCurrentIndex(3)
 

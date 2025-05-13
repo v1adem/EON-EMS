@@ -8,42 +8,49 @@ logger = logging.getLogger(__name__)
 import pyqtgraph as pg
 import xlsxwriter
 from AsyncioPySide6 import AsyncioPySide6
-from PySide6.QtCore import QTimer, QDate, Qt, QSortFilterProxyModel, QTime
+from PySide6.QtCore import QTimer, QDate, Qt, QTime
 from PySide6.QtGui import QStandardItemModel, QFont, QStandardItem, QIcon
 from PySide6.QtWidgets import QToolTip
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QSplitter, QLabel, QDateEdit, QTableView, QTabWidget, QHBoxLayout, \
     QCheckBox, QGridLayout, QLCDNumber, QDialog, QMessageBox, QFileDialog, QPushButton
 
 from tools.config import resource_path
-from models.Report import SDM630Report, SDM630ReportTmp, SDM120Report, SDM120ReportTmp, SDM72Report, SDM72ReportTmp
 from pyqt.widgets.ConsoleWidget import ConsoleWidget, ConsoleOutputDuplicator
 from pyqt.widgets.DateAxisItem import DateAxisItem
 from register_maps.RegisterMaps import RegisterMap
 
 
-class DeviceDetailsWidget(QWidget):
+class BaseDeviceDetailsWidget(QWidget):
     def __init__(self, main_window, device):
         super().__init__(main_window)
+        self.report_model = None
+        self.tmp_report_model = None
         self.auto_update_checkbox = None
         self.device = device
         self.device_model = self.device.model
         self.main_window = main_window
 
+        self.column_labels, self.column_labels_for_excel = {}, {}
+        self.phases = []
+
+        self.phase_data = {}
         self.report_data = None
 
-        self.init_column_labels()
+        self.initUi()
+        self.init_timers()
 
+    def initUi(self):
         layout = QVBoxLayout(self)
 
         main_splitter = QSplitter(Qt.Orientation.Horizontal)
         main_splitter.setChildrenCollapsible(False)
         layout.addWidget(main_splitter)
 
-        # Ліва частина - таблиця
+        # Left side
         left_widget = QWidget()
         left_layout = QVBoxLayout(left_widget)
 
-        self.label = QLabel(f"Ім'я пристрою: {device.name} | Модель пристрою: {device.manufacturer} {device.model}")
+        self.label = QLabel(f"Ім'я пристрою: {self.device.name} | Модель пристрою: {self.device.manufacturer} {self.device.model}")
         self.label.setStyleSheet("font-size: 16px;")
         left_layout.addWidget(self.label)
 
@@ -56,26 +63,17 @@ class DeviceDetailsWidget(QWidget):
 
         main_splitter.addWidget(left_widget)
 
-        # Права частина - вкладки
+        # Right side (Tabs)
         self.tabs = QTabWidget()
         self.tabs.setStyleSheet("font-size: 16px;")
         main_splitter.addWidget(self.tabs)
 
-        self.phase_data = {}
-        self.phases = []
-        if self.device_model == "SDM120":
-            self.phases = ["Фаза 1"]
-        elif self.device_model == "SDM630" or self.device_model == "SDM72":
-            self.phases = ["Фаза 1", "Фаза 2", "Фаза 3", "Загальне"]
-
         for phase_name in self.phases:
-            if self.device_model == "SDM72":
-                self.create_phase_tab_sdm72(phase_name)
-            else:
-                self.create_phase_tab(phase_name)
+            self.create_phase_tab(phase_name)
 
         self.set_light_theme()
 
+    def init_timers(self):
         self.timer_clock_indicator = QTimer(self)
         self.timer_clock_indicator.timeout.connect(self.update_clock_indicators)
         self.timer_clock_indicator.setInterval(1000)
@@ -87,7 +85,7 @@ class DeviceDetailsWidget(QWidget):
 
         self.timer_update_all_tabs_graphs = QTimer(self)
         self.timer_update_all_tabs_graphs.timeout.connect(self.auto_update)
-        self.timer_update_all_tabs_graphs.setInterval(device.reading_interval * 1000)
+        self.timer_update_all_tabs_graphs.setInterval(self.device.reading_interval * 1000)
         self.timer_update_all_tabs_graphs.start()
 
     def create_filter_buttons(self, layout):
@@ -274,145 +272,7 @@ class DeviceDetailsWidget(QWidget):
         self.tabs.addTab(tab, phase_name)
 
         sys.stdout = ConsoleOutputDuplicator(console_widget, sys.__stdout__)
-        logger.info("Console initialized")
-
-    def create_phase_tab_sdm72(self, phase_name):
-        tab = QWidget()
-        layout = QVBoxLayout(tab)
-        top_layout = QVBoxLayout()
-        bottom_layout = QHBoxLayout()
-
-        voltage_graph = pg.PlotWidget()
-        current_graph = pg.PlotWidget()
-        power_graph = pg.PlotWidget()
-        energy_graph = pg.PlotWidget()
-
-        voltage_graph.showGrid(x=True, y=True, alpha=0.5)
-        current_graph.showGrid(x=True, y=True, alpha=0.5)
-        power_graph.showGrid(x=True, y=True, alpha=0.5)
-        voltage_graph.setAxisItems({'bottom': DateAxisItem(orientation='bottom')})
-        current_graph.setAxisItems({'bottom': DateAxisItem(orientation='bottom')})
-        power_graph.setAxisItems({'bottom': DateAxisItem(orientation='bottom')})
-        voltage_graph.setLabel('left', 'Напруга', units='V')
-        current_graph.setLabel('left', 'Струм', units='А')
-        power_graph.setLabel('left', 'Потуж.', units='W')
-        top_layout.addWidget(voltage_graph)
-        top_layout.addWidget(current_graph)
-        top_layout.addWidget(power_graph)
-
-        if phase_name == "Загальне":
-            energy_graph.showGrid(x=True, y=True, alpha=0.5)
-            energy_graph.setAxisItems({'bottom': DateAxisItem(orientation='bottom')})
-            energy_graph.setLabel('left', 'Спожито', units='kWh')
-            top_layout.addWidget(energy_graph)
-
-        current_graph.setXLink(voltage_graph)
-        energy_graph.setXLink(voltage_graph)
-        power_graph.setXLink(voltage_graph)
-
-        layout.addLayout(top_layout)
-
-        bottom_left_layout = QGridLayout()
-
-        console_widget = ConsoleWidget()
-        bottom_left_layout.addWidget(console_widget, 0, 0, 2, 1)
-
-        clock_title = QLabel("Поточний час")
-        clock_title.setStyleSheet("font-size: 16pt; font-weight: bold;")
-        clock_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        bottom_left_layout.addWidget(clock_title, 0, 1)
-
-        clock_label = QLabel()
-        clock_label.setStyleSheet("font-size: 16pt;")
-        clock_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        bottom_left_layout.addWidget(clock_label, 1, 1)
-
-        layout.addStretch()
-
-        indicators_layout = QGridLayout()
-
-        voltage_label = QLabel("Напруга (V)")
-        voltage_label.setStyleSheet("font-size: 14pt; font-weight: bold;")
-        voltage_lcd = QLCDNumber()
-        voltage_lcd.setStyleSheet("font-size: 18pt;")
-        voltage_lcd.setSegmentStyle(QLCDNumber.SegmentStyle.Flat)
-        voltage_lcd.setDigitCount(10)
-
-        current_label = QLabel("Струм (A)")
-        current_label.setStyleSheet("font-size: 14pt; font-weight: bold;")
-        current_lcd = QLCDNumber()
-        current_lcd.setStyleSheet("font-size: 18pt;")
-        current_lcd.setSegmentStyle(QLCDNumber.SegmentStyle.Flat)
-        current_lcd.setDigitCount(10)
-
-        power_label = QLabel("Потужність (W)")
-        power_label.setStyleSheet("font-size: 14pt; font-weight: bold;")
-        power_lcd = QLCDNumber()
-        power_lcd.setStyleSheet("font-size: 18pt;")
-        power_lcd.setSegmentStyle(QLCDNumber.SegmentStyle.Flat)
-        power_lcd.setDigitCount(10)
-
-        energy_label = QLabel("Спожито (kWh)")
-        energy_label.setStyleSheet("font-size: 14pt; font-weight: bold;")
-        energy_lcd = QLCDNumber()
-        energy_lcd.setStyleSheet("font-size: 18pt;")
-        energy_lcd.setSegmentStyle(QLCDNumber.SegmentStyle.Flat)
-        energy_lcd.setDigitCount(10)
-
-        if phase_name != "Загальне":
-            indicators_layout.addWidget(voltage_label, 0, 0)
-            indicators_layout.addWidget(voltage_lcd, 1, 0)
-            indicators_layout.addWidget(current_label, 0, 1)
-            indicators_layout.addWidget(current_lcd, 1, 1)
-            indicators_layout.addWidget(power_label, 2, 0)
-            indicators_layout.addWidget(power_lcd, 3, 0)
-        indicators_layout.addWidget(energy_label, 2, 1)
-        indicators_layout.addWidget(energy_lcd, 3, 1)
-
-        bottom_layout.addLayout(bottom_left_layout)
-        bottom_layout.addLayout(indicators_layout)
-
-        layout.addLayout(bottom_layout)
-
-        self.phase_data[phase_name] = {
-            "tab": tab,
-            "voltage_graph": voltage_graph,
-            "current_graph": current_graph,
-            "energy_graph": energy_graph,
-            "power_graph": power_graph,
-            "voltage_lcd": voltage_lcd,
-            "current_lcd": current_lcd,
-            "power_lcd": power_lcd,
-            "energy_lcd": energy_lcd,
-            "clock_label": clock_label,
-            "console_widget": console_widget,
-        }
-
-        voltage_plot_item = voltage_graph.plot([], [], pen=pg.mkPen(color=(0, 102, 204), width=2),
-                                               name=f"Напруга {phase_name}")
-        voltage_scatter_item = pg.ScatterPlotItem(pen=None, brush=(0, 102, 204), size=7)
-        voltage_graph.addItem(voltage_scatter_item)
-        setattr(self, f"voltage_plot_item_{phase_name}", voltage_plot_item)
-        setattr(self, f"voltage_scatter_item_{phase_name}", voltage_scatter_item)
-
-        current_plot_item = current_graph.plot([], [], pen=pg.mkPen(color=(204, 51, 0), width=2),
-                                               name=f"Струм {phase_name}")
-        current_scatter_item = pg.ScatterPlotItem(pen=None, brush=(204, 51, 0), size=7)
-        current_graph.addItem(current_scatter_item)
-        setattr(self, f"current_plot_item_{phase_name}", current_plot_item)
-        setattr(self, f"current_scatter_item_{phase_name}", current_scatter_item)
-
-        power_plot_item = power_graph.plot([], [], pen=pg.mkPen(color=(0, 255, 0), width=2),
-                                           name=f"Потуж. {phase_name}")
-        power_scatter_item = pg.ScatterPlotItem(pen=None, brush=(0, 255, 0), size=7)
-        power_graph.addItem(power_scatter_item)
-        setattr(self, f"power_plot_item_{phase_name}", power_plot_item)
-        setattr(self, f"power_scatter_item_{phase_name}", power_scatter_item)
-
-        self.tabs.addTab(tab, phase_name)
-
-        sys.stdout = ConsoleOutputDuplicator(console_widget, sys.__stdout__)
-        logger.info("Console initialized")
+        logger.info(f"Console widget initialized in {self.device.name}")
 
     def auto_update(self):
         if not self.auto_update_checkbox.isChecked():
@@ -420,40 +280,7 @@ class DeviceDetailsWidget(QWidget):
         self.load_report_data()
 
     def load_report_data(self):
-        async def run_load_report_data():
-            start_date = self.start_date_table_filter.date().toPython()
-            end_date = self.end_date_table_filter.date().addDays(1).toPython()
-
-            if self.device_model == "SDM120":
-                report_model = SDM120Report
-            elif self.device_model == "SDM630":
-                report_model = SDM630Report
-            elif self.device_model == "SDM72":
-                report_model = SDM72Report
-            else:
-                return
-
-            self.report_data = await report_model.filter(
-                device_id=self.device.id,
-                timestamp__gte=start_date,
-                timestamp__lte=end_date
-            ).order_by("timestamp").all()
-            model = self.create_table_model(self.report_data, self.device)
-
-            proxy_model = QSortFilterProxyModel()
-            proxy_model.setSourceModel(model)
-            proxy_model.setSortCaseSensitivity(Qt.CaseSensitivity.CaseInsensitive)
-
-            self.report_table.setModel(proxy_model)
-            self.report_table.setSortingEnabled(True)
-            self.report_table.resizeColumnsToContents()
-            self.setup_table_click_handler(self.report_table)
-
-            is_sdm72 = self.device.model == "SDM72"
-            self.update_graphs(is_sdm72=is_sdm72)
-
-        AsyncioPySide6.runTask(run_load_report_data())
-        self.report_table.setEditTriggers(QTableView.EditTrigger.NoEditTriggers)
+        pass
 
     def apply_date_filter(self):
         self.load_report_data()
@@ -525,70 +352,36 @@ class DeviceDetailsWidget(QWidget):
             for phase_name, phase_data in self.phase_data.items():
                 phase_data["clock_label"].setText(current_time)
 
-            if self.device_model == "SDM120":
-                report_model = SDM120ReportTmp
-            elif self.device_model == "SDM630":
-                report_model = SDM630ReportTmp
-            elif self.device_model == "SDM72":
-                report_model = SDM72ReportTmp
-            else:
-                return
-
-            last_report = await report_model.filter(
+            last_report = await self.tmp_report_model.filter(
                 device_id=self.device.id
             ).order_by("-timestamp").first()
 
             if not last_report:
                 return
 
-            if self.device_model == "SDM72":
-                phases = {
-                    "Фаза 1": {
-                        "voltage": getattr(last_report, 'line_voltage_1', 0),
-                        "current": getattr(last_report, 'current_1', 0),
-                        "power": getattr(last_report, 'power_1', 0),
-                        "energy": getattr(last_report, 'total_kWh', 0),
-                    },
-                    "Фаза 2": {
-                        "voltage": getattr(last_report, 'line_voltage_2', 0),
-                        "current": getattr(last_report, 'current_2', 0),
-                        "power": getattr(last_report, 'power_2', 0),
-                        "energy": getattr(last_report, 'total_kWh', 0),
-                    },
-                    "Фаза 3": {
-                        "voltage": getattr(last_report, 'line_voltage_3', 0),
-                        "current": getattr(last_report, 'current_3', 0),
-                        "power": getattr(last_report, 'power_3', 0),
-                        "energy": getattr(last_report, 'total_kWh', 0),
-                    },
-                    "Загальне": {
-                        "energy": getattr(last_report, 'total_kWh', 0),
-                    }
+            phases = {
+                "Фаза 1": {
+                    "voltage": getattr(last_report, 'line_voltage_1', 0),
+                    "current": getattr(last_report, 'current_1', 0),
+                    "power": getattr(last_report, 'power_1', 0),
+                    "energy": getattr(last_report, 'total_kWh_1', 0),
+                },
+                "Фаза 2": {
+                    "voltage": getattr(last_report, 'line_voltage_2', 0),
+                    "current": getattr(last_report, 'current_2', 0),
+                    "power": getattr(last_report, 'power_2', 0),
+                    "energy": getattr(last_report, 'total_kWh_2', 0),
+                },
+                "Фаза 3": {
+                    "voltage": getattr(last_report, 'line_voltage_3', 0),
+                    "current": getattr(last_report, 'current_3', 0),
+                    "power": getattr(last_report, 'power_3', 0),
+                    "energy": getattr(last_report, 'total_kWh_3', 0),
+                },
+                "Загальне": {
+                    "energy": getattr(last_report, 'total_kWh', 0),
                 }
-            else:
-                phases = {
-                    "Фаза 1": {
-                        "voltage": getattr(last_report, 'line_voltage_1', 0),
-                        "current": getattr(last_report, 'current_1', 0),
-                        "power": getattr(last_report, 'power_1', 0),
-                        "energy": getattr(last_report, 'total_kWh_1', 0),
-                    },
-                    "Фаза 2": {
-                        "voltage": getattr(last_report, 'line_voltage_2', 0),
-                        "current": getattr(last_report, 'current_2', 0),
-                        "power": getattr(last_report, 'power_2', 0),
-                        "energy": getattr(last_report, 'total_kWh_2', 0),
-                    },
-                    "Фаза 3": {
-                        "voltage": getattr(last_report, 'line_voltage_3', 0),
-                        "current": getattr(last_report, 'current_3', 0),
-                        "power": getattr(last_report, 'power_3', 0),
-                        "energy": getattr(last_report, 'total_kWh_3', 0),
-                    },
-                    "Загальне": {
-                        "energy": getattr(last_report, 'total_kWh', 0),
-                    }
-                }
+            }
 
             for phase_name, data in phases.items():
                 if phase_name not in self.phase_data:
@@ -827,7 +620,7 @@ class DeviceDetailsWidget(QWidget):
 
         setattr(self, bar_attr, energy_bar_items)
 
-    def update_graphs(self, is_sdm72=False):
+    def update_graphs(self):
         for phase_name in self.phases:
             timestamps = []
             voltages = []
@@ -854,14 +647,12 @@ class DeviceDetailsWidget(QWidget):
                         voltage = getattr(report, f'line_voltage_{self.phases.index(phase_name) + 1}')
                         current = getattr(report, f'current_{self.phases.index(phase_name) + 1}')
                         power = getattr(report, f'power_{self.phases.index(phase_name) + 1}')
+                        energy = getattr(report, f'total_kWh_{self.phases.index(phase_name) + 1}')
 
                         voltages.append(voltage)
                         currents.append(current)
                         powers.append(power)
-
-                        if not is_sdm72:
-                            energy = getattr(report, f'total_kWh_{self.phases.index(phase_name) + 1}')
-                            energies.append(energy)
+                        energies.append(energy)
 
                 except Exception as e:
                     logger.warning(e)
@@ -936,6 +727,7 @@ class DeviceDetailsWidget(QWidget):
                 max_timestamp_numeric = max_time.timestamp()
 
                 graph_widget.setXRange(min_timestamp_numeric, max_timestamp_numeric, padding=0)
+
     def set_light_theme(self):
         for phase_name, phase_data in self.phase_data.items():
             phase_data["voltage_graph"].setBackground('w')
@@ -946,199 +738,6 @@ class DeviceDetailsWidget(QWidget):
             phase_data["power_graph"].plot([], pen=pg.mkPen(color='g', width=2))
             phase_data["energy_graph"].setBackground('w')
             phase_data["energy_graph"].plot([], pen=pg.mkPen(color='g', width=2))
-
-    def init_column_labels(self):
-        if self.device_model == "SDM120":
-            self.column_labels = {
-                "timestamp": "Час",
-                "line_voltage_1": "Напруга\n",
-                "current_1": "Струм\n",
-                "active_power_1": "Активна\nпотужність\n",
-                "power_1": "Повна\nпотужність\n",
-                "reactive_power_1": "Реактивна\nпотужність\n",
-                "power_factor_1": "Коефіцієнт\nпотужності\n",
-                "import_active_energy_1": "Імпортована\nактивна енергія\n",
-                "export_active_energy_1": "Експортована\nактивна енергія\n",
-                "total_active_energy": "Загальна\nактивна енергія\n",
-                "total_reactive_energy": "Загальна\nреактивна енергія\n",
-                "frequency_1": "Частота\n",
-                "total_kWh_1": "Загально спожито\nkWh"
-            }
-            self.column_labels_for_excel = {
-                "line_voltage_1": "Напруга Volts",
-                "current_1": "Струм Amps",
-                "active_power_1": "Активна потужність Watts",
-                "power_1": "Повна потужність VA",
-                "reactive_power_1": "Реактивна потужність VAr",
-                "power_factor_1": "Коефіцієнт потужності",
-                "import_active_energy_1": "Імпортована активна енергія kWh",
-                "export_active_energy_1": "Експортована активна енергія kWh",
-                "total_active_energy": "Загальна активна енергія kWh",
-                "total_reactive_energy": "Загальна реактивна енергія kVArh",
-                "frequency_1": "Частота Hz",
-                "total_kWh_1": "Загально спожито kWh"
-            }
-        elif self.device_model == "SDM630":
-            self.column_labels = {
-                "timestamp": "Час",
-                "line_voltage_1": "Лінійна напруга\n(Фаза 1)\n",
-                "line_voltage_2": "Лінійна напруга\n(Фаза 2)\n",
-                "line_voltage_3": "Лінійна напруга\n(Фаза 3)\n",
-                "current_1": "Струм\n(Фаза 1)\n",
-                "current_2": "Струм\n(Фаза 2)\n",
-                "current_3": "Струм\n(Фаза 3)\n",
-                "power_1": "Потужність\n(Фаза 1)\n",
-                "power_2": "Потужність\n(Фаза 2)\n",
-                "power_3": "Потужність\n(Фаза 3)\n",
-                "power_factor_1": "Коефіцієнт\nпотужності\n(Фаза 1)",
-                "power_factor_2": "Коефіцієнт\nпотужності\n(Фаза 2)",
-                "power_factor_3": "Коефіцієнт\nпотужності\n(Фаза 3)",
-                "total_system_power": "Загальна\nпотужність\nсистеми",
-                # "total_system_VA": "Загальна потужність",
-                # "total_system_VAr": "Загальна реактивна потужність",
-                # "total_system_power_factor": "Коефіцієнт потужності системи",
-                # "total_import_kwh": "Загальне споживання (імпорт)",
-                # "total_export_kwh": "Загальне споживання (експорт)",
-                # "total_import_kVAh": "Загальне споживання (імпорт)",
-                # "total_export_kVAh": "Загальне споживання (експорт)",
-                "total_kVAh": "Загальна енергія\n",
-                "_1_to_2_voltage": "Напруга між\nФазою 1 і Фазою 2\n",
-                "_2_to_3_voltage": "Напруга між\nФазою 2 і Фазою 3\n",
-                "_3_to_1_voltage": "Напруга між\nФазою 3 і Фазою 1\n",
-                "neutral_current": "Струм нейтралі\n",
-                # "line_voltage_THD_1": "THD лінійної напруги (Фаза 1)",
-                # "line_voltage_THD_2": "THD лінійної напруги (Фаза 2)",
-                # "line_voltage_THD_3": "THD лінійної напруги (Фаза 3)",
-                # "line_current_THD_1": "THD лінійного струму (Фаза 1)",
-                # "line_current_THD_2": "THD лінійного струму (Фаза 2)",
-                # "line_current_THD_3": "THD лінійного струму (Фаза 3)",
-                # "current_demand_1": "Струмове навантаження (Фаза 1)",
-                # "current_demand_2": "Струмове навантаження (Фаза 2)",
-                # "current_demand_3": "Струмове навантаження (Фаза 3)",
-                # "phase_voltage_THD_1": "THD фазної напруги (Фаза 1)",
-                # "phase_voltage_THD_2": "THD фазної напруги (Фаза 2)",
-                # "phase_voltage_THD_3": "THD фазної напруги (Фаза 3)",
-                # "average_line_to_line_voltage_THD": "Середній THD лінійної напруги",
-                "total_kWh": "Загальна енергія\n",
-                "total_kVArh": "Загальна реактивна\nенергія\n",
-                # "import_kWh_1": "Імпортована енергія (Фаза 1)",
-                # "import_kWh_2": "Імпортована енергія (Фаза 2)",
-                # "import_kWh_3": "Імпортована енергія (Фаза 3)",
-                # "export_kWh_1": "Експортована енергія (Фаза 1)",
-                # "export_kWh_2": "Експортована енергія (Фаза 2)",
-                # "export_kWh_3": "Експортована енергія (Фаза 3)",
-                "total_kWh_1": "Загальна енергія (Фаза 1)",
-                "total_kWh_2": "Загальна енергія (Фаза 2)",
-                "total_kWh_3": "Загальна енергія (Фаза 3)",
-                # "import_kVArh_1": "Імпортована реактивна енергія (кВАр·год) (Фаза 1)",
-                # "import_kVArh_2": "Імпортована реактивна енергія (кВАр·год) (Фаза 2)",
-                # "import_kVArh_3": "Імпортована реактивна енергія (кВАр·год) (Фаза 3)",
-                # "export_kVArh_1": "Експортована реактивна енергія (кВАр·год) (Фаза 1)",
-                # "export_kVArh_2": "Експортована реактивна енергія (кВАр·год) (Фаза 2)",
-                # "export_kVArh_3": "Експортована реактивна енергія (кВАр·год) (Фаза 3)",
-                # "total_kVArh_1": "Загальна реактивна енергія (кВАр·год) (Фаза 1)",
-                # "total_kVArh_2": "Загальна реактивна енергія (кВАр·год) (Фаза 2)",
-                # "total_kVArh_3": "Загальна реактивна енергія (кВАр·год) (Фаза 3)",
-            }
-            self.column_labels_for_excel = {
-                "line_voltage_1": "Лінійна напруга (Фаза 1) Volts",
-                "line_voltage_2": "Лінійна напруга (Фаза 2) Volts",
-                "line_voltage_3": "Лінійна напруга (Фаза 3) Volts",
-                "current_1": "Струм (Фаза 1) Amps",
-                "current_2": "Струм (Фаза 2) Amps",
-                "current_3": "Струм (Фаза 3) Amps",
-                "power_1": "Потужність (Фаза 1) Watts",
-                "power_2": "Потужність (Фаза 2) Watts",
-                "power_3": "Потужність (Фаза 3) Watts",
-                "power_factor_1": "Коефіцієнт потужності (Фаза 1)",
-                "power_factor_2": "Коефіцієнт потужності (Фаза 2)",
-                "power_factor_3": "Коефіцієнт потужності (Фаза 3)",
-                "total_system_power": "Загальна потужність системи Watts",
-                "total_system_VA": "Загальна потужність VA",
-                "total_system_VAr": "Загальна реактивна потужність VAr",
-                "total_system_power_factor": "Коефіцієнт потужності системи",
-                "total_import_kwh": "Загальне споживання (імпорт) kWh",
-                "total_export_kwh": "Загальне споживання (експорт) kWh",
-                "total_import_kVAh": "Загальне споживання (імпорт) kWh",
-                "total_export_kVAh": "Загальне споживання (експорт) kWh",
-                "total_kVAh": "Загальна енергія kVAh",
-                "_1_to_2_voltage": "Напруга між Фазою 1 і Фазою 2 Volts",
-                "_2_to_3_voltage": "Напруга між Фазою 2 і Фазою 3 Volts",
-                "_3_to_1_voltage": "Напруга між Фазою 3 і Фазою 1 Volts",
-                "neutral_current": "Струм нейтралі Amps",
-                "line_voltage_THD_1": "THD лінійної напруги (Фаза 1) %",
-                "line_voltage_THD_2": "THD лінійної напруги (Фаза 2) %",
-                "line_voltage_THD_3": "THD лінійної напруги (Фаза 3) %",
-                "line_current_THD_1": "THD лінійного струму (Фаза 1) %",
-                "line_current_THD_2": "THD лінійного струму (Фаза 2) %",
-                "line_current_THD_3": "THD лінійного струму (Фаза 3) %",
-                "current_demand_1": "Струмове навантаження (Фаза 1) Amps",
-                "current_demand_2": "Струмове навантаження (Фаза 2) Amps",
-                "current_demand_3": "Струмове навантаження (Фаза 3) Amps",
-                "phase_voltage_THD_1": "THD фазної напруги (Фаза 1) %",
-                "phase_voltage_THD_2": "THD фазної напруги (Фаза 2) %",
-                "phase_voltage_THD_3": "THD фазної напруги (Фаза 3) %",
-                "average_line_to_line_voltage_THD": "Середній THD лінійної напруги",
-                "total_kWh": "Загальна енергія kWh",
-                "total_kVArh": "Загальна реактивна енергія kVArh",
-                "import_kWh_1": "Імпортована енергія (Фаза 1) kWh",
-                "import_kWh_2": "Імпортована енергія (Фаза 2) kWh",
-                "import_kWh_3": "Імпортована енергія (Фаза 3) kWh",
-                "export_kWh_1": "Експортована енергія (Фаза 1) kWh",
-                "export_kWh_2": "Експортована енергія (Фаза 2) kWh",
-                "export_kWh_3": "Експортована енергія (Фаза 3) kWh",
-                "total_kWh_1": "Загальна енергія (Фаза 1) kWh",
-                "total_kWh_2": "Загальна енергія (Фаза 2) kWh",
-                "total_kWh_3": "Загальна енергія (Фаза 3) kWh",
-                "import_kVArh_1": "Імпортована реактивна енергія (кВАр·год) (Фаза 1)",
-                "import_kVArh_2": "Імпортована реактивна енергія (кВАр·год) (Фаза 2)",
-                "import_kVArh_3": "Імпортована реактивна енергія (кВАр·год) (Фаза 3)",
-                "export_kVArh_1": "Експортована реактивна енергія (кВАр·год) (Фаза 1)",
-                "export_kVArh_2": "Експортована реактивна енергія (кВАр·год) (Фаза 2)",
-                "export_kVArh_3": "Експортована реактивна енергія (кВАр·год) (Фаза 3)",
-                "total_kVArh_1": "Загальна реактивна енергія (кВАр·год) (Фаза 1)",
-                "total_kVArh_2": "Загальна реактивна енергія (кВАр·год) (Фаза 2)",
-                "total_kVArh_3": "Загальна реактивна енергія (кВАр·год) (Фаза 3)",
-            }
-        elif self.device_model == "SDM72":
-            self.column_labels = {
-                "timestamp": "Час",
-                "line_voltage_1": "Лінійна напруга\n(Фаза 1)\n",
-                "line_voltage_2": "Лінійна напруга\n(Фаза 2)\n",
-                "line_voltage_3": "Лінійна напруга\n(Фаза 3)\n",
-                "current_1": "Струм\n(Фаза 1)\n",
-                "current_2": "Струм\n(Фаза 2)\n",
-                "current_3": "Струм\n(Фаза 3)\n",
-                "power_1": "Потужність\n(Фаза 1)\n",
-                "power_2": "Потужність\n(Фаза 2)\n",
-                "power_3": "Потужність\n(Фаза 3)\n",
-                "active_power_1": "Активна потужність\n(Фаза 1)\n)",
-                "active_power_2": "Активна потужність\n(Фаза 2)\n)",
-                "active_power_3": "Активна потужність\n(Фаза 3)\n)",
-                "reactive_power_1": "Активна потужність\n(Фаза 1)\n)",
-                "reactive_power_2": "Активна потужність\n(Фаза 2)\n)",
-                "reactive_power_3": "Активна потужність\n(Фаза 3)\n)",
-                "power_factor_1": "Коефіцієнт\nпотужності\n(Фаза 1)",
-                "power_factor_2": "Коефіцієнт\nпотужності\n(Фаза 2)",
-                "power_factor_3": "Коефіцієнт\nпотужності\n(Фаза 3)",
-                "total_system_power": "Загальна\nпотужність\nсистеми",
-                "total_system_VA": "Загальна потужність",
-                "total_system_VAr": "Загальна реактивна потужність",
-                "total_system_power_factor": "Коефіцієнт потужності системи",
-                "total_import_kwh": "Загальне споживання (імпорт)",
-                "total_export_kwh": "Загальне споживання (експорт)",
-                "_1_to_2_voltage": "Напруга між\nФазою 1 і Фазою 2\n",
-                "_2_to_3_voltage": "Напруга між\nФазою 2 і Фазою 3\n",
-                "_3_to_1_voltage": "Напруга між\nФазою 3 і Фазою 1\n",
-                "neutral_current": "Струм нейтралі\n",
-                "total_kWh": "Загальна енергія\n",
-                "total_kVArh": "Загальна реактивна\nенергія\n",
-                "total_import_active_power": "Загальна імпортована\nактивна потужність\n",
-                "total_export_active_power": "Загальна експортована\nактивна потужність\n"
-            }
-            self.column_labels_for_excel = self.column_labels.copy()
-        else:
-            self.column_labels = {}
 
     def open_export_dialog(self):
         self.dialog = QDialog(self)
@@ -1163,6 +762,8 @@ class DeviceDetailsWidget(QWidget):
 
         self.include_charts = QCheckBox("Додати графіки")
         self.include_charts.setChecked(False)
+
+        # Remove when charts will be for all models
         if self.device_model == "SDM120":
             layout.addWidget(self.include_charts)
 
@@ -1179,16 +780,7 @@ class DeviceDetailsWidget(QWidget):
         end_datetime = self.end_export_date.dateTime().addDays(1).toPython()
 
         async def run_export_to_excel():
-            if self.device_model == "SDM120":
-                report_model = SDM120Report
-            elif self.device_model == "SDM630":
-                report_model = SDM630Report
-            elif self.device_model == "SDM72":
-                report_model = SDM72Report
-            else:
-                return
-
-            report_data = await report_model.filter(
+            report_data = await self.report_model.filter(
                 device_id=self.device.id,
                 timestamp__gte=start_datetime,
                 timestamp__lte=end_datetime
@@ -1294,3 +886,5 @@ class DeviceDetailsWidget(QWidget):
                 QMessageBox.warning(self, "Помилка", f"Сталася помилка при експорті даних: {e}")
 
         AsyncioPySide6.runTask(run_export_to_excel())
+
+
