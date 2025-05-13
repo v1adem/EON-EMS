@@ -146,11 +146,12 @@ class DataCollectorRunnable(QRunnable):
         if not device.actual_status:
             await self.update_device_status(device, True)
 
+        phases = self.get_phases(device)
         immediate_record = any(
             is_voltage_out_of_range(new_data, device, phase) or
             is_current_over_limit(new_data, device, phase) or
             is_power_over_limit(new_data, device, phase)
-            for phase in self.phases
+            for phase in phases
         )
 
         if not immediate_record:
@@ -272,5 +273,15 @@ class DataCollectorRunnable(QRunnable):
         elif device.model == "SDM72":
             self.phases = ['1', '2', '3']
             return SDM72Report, SDM72ReportTmp
+        else:
+            logger.error("Unknown device model")
+
+    def get_phases(self, device):
+        if device.model == "SDM120":
+            return ['1']
+        elif device.model == "SDM630":
+            return ['1', '2', '3']
+        elif device.model == "SDM72":
+            return ['1', '2', '3']
         else:
             logger.error("Unknown device model")
