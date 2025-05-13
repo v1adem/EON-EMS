@@ -101,12 +101,14 @@ class DataCollectorRunnable(QRunnable):
         try:
             local_tz = get_timezone()
             now_local = datetime.now(local_tz)
+            if device.reading_status is False:
+                return
             if device.wait_time and device.wait_time > now_local:
                 return
 
             new_data = await get_data_from_device(device, self.project, self.main_window)
 
-            if not new_data:
+            if not new_data or new_data == {}:
                 await self.handle_read_error(device)
                 return
 
@@ -271,6 +273,4 @@ class DataCollectorRunnable(QRunnable):
             self.phases = ['1', '2', '3']
             return SDM72Report, SDM72ReportTmp
         else:
-            QMessageBox.warning(
-                self.main_window, f"{device.name}", f"{device.model} - Unknown model", QMessageBox.StandardButton.Ok,
-                QMessageBox.StandardButton.Cancel)
+            logger.error("Unknown device model")
