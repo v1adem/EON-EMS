@@ -511,9 +511,9 @@ class BaseDeviceDetailsWidget(QWidget):
                 if not hasattr(self, plot_attr):
                     pen = pg.mkPen(color=color, width=2)
                     plot_item = graph_widget.plot(timestamps_numeric, phase_values, pen=pen,
-                                                  name=f"{y_label} {self.phases[i]}")
+                                                  name=f"{y_label} {self.phases[i + 1]}")
                     setattr(self, plot_attr, plot_item)
-                    legend.addItem(plot_item, f"{self.phases[i]}")
+                    legend.addItem(plot_item, f"{self.phases[i + 1]}")
 
                     scatter = pg.ScatterPlotItem(pen=None, brush=color, size=7)
                     scatter.setData([
