@@ -1,9 +1,10 @@
-from datetime import datetime, timedelta
-
 import logging
+import os
+from datetime import datetime, timedelta
 
 import xlsxwriter
 
+from pyqt.SafeButton import SafeButton
 from register_maps.RegisterMaps import RegisterMap
 
 logger = logging.getLogger(__name__)
@@ -11,10 +12,10 @@ logger = logging.getLogger(__name__)
 import pytz
 from AsyncioPySide6 import AsyncioPySide6
 from PySide6.QtCore import Qt, QSize, QTime, QDate
-from PySide6.QtGui import QStandardItemModel, QStandardItem, QIcon, QMovie
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QLabel, QListView, QPushButton, QHBoxLayout, QMessageBox, QDialog, \
+from PySide6.QtGui import QStandardItemModel, QStandardItem, QIcon
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QLabel, QListView, QHBoxLayout, QMessageBox, QDialog, \
     QFormLayout, QLineEdit, QComboBox, QSpinBox, QDialogButtonBox, QRadioButton, QTimeEdit, QSpacerItem, QSizePolicy, \
-    QFileDialog, QDateEdit
+    QFileDialog, QDateEdit, QPushButton
 from tortoise.exceptions import DoesNotExist
 
 from tools.config import resource_path, get_timezone
@@ -26,6 +27,7 @@ class ProjectViewWidget(QWidget):
     def __init__(self, main_window, project):
         super().__init__(main_window)
         self.main_window = main_window
+        self.main_window.hide_loading()
         self.project = project
         self.isAdmin = main_window.isAdmin
 
@@ -33,10 +35,11 @@ class ProjectViewWidget(QWidget):
 
         self.loading_indicator = QLabel(self)
         self.loading_indicator.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.loading_indicator.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+        self.loading_indicator.setStyleSheet("background: transparent;")
         self.loading_indicator.hide()
-        layout.addWidget(self.loading_indicator)
 
-        top_layout = QHBoxLayout(self)
+        top_layout = QHBoxLayout()
 
         self.label = QLabel(f"Деталі проєкту: {project.name}")
         self.label.setStyleSheet("font-size: 18px;")
@@ -74,6 +77,8 @@ class ProjectViewWidget(QWidget):
         self.devices_list.doubleClicked.connect(self.open_device_details)
 
     def load_devices(self):
+        self.main_window.show_loading()
+
         async def run_load_devices():
             self.devices = await Device.filter(project_id=self.project.id).all()
             for index, device in enumerate(self.devices, start=1):
@@ -107,7 +112,8 @@ class ProjectViewWidget(QWidget):
                     else:
                         actual_status_label.setText(f"Відключено.")
                         local_tz = get_timezone()
-                        time_label.setText(f"Наступна спроба - {device.wait_time.astimezone(local_tz).strftime('%H:%M')}")
+                        time_label.setText(
+                            f"Наступна спроба - {device.wait_time.astimezone(local_tz).strftime('%H:%M')}")
                         actual_status_label.setStyleSheet("font-size: 18px; color: #aa0000;")
 
                 actual_status_label = QLabel()
@@ -121,16 +127,17 @@ class ProjectViewWidget(QWidget):
                 item_layout.addWidget(actual_status_label)
                 item_layout.addWidget(time_label)
 
-                toggle_status_button = QPushButton("Увімкнути" if not device.get_reading_status() else "Вимкнути")
+                toggle_status_button = SafeButton("Увімкнути" if not device.get_reading_status() else "Вимкнути")
                 toggle_status_button.setFixedSize(100, 36)
                 toggle_status_button.clicked.connect(
                     lambda _, d=device, btn=toggle_status_button: AsyncioPySide6.runTask(
                         self.toggle_device_status(d, btn)))
 
-                force_try_button = QPushButton("Примусова спроба")
+                force_try_button = SafeButton("Примусова спроба")
                 force_try_button.setFixedSize(150, 36)
                 force_try_button.clicked.connect(
-                    lambda _, d=device: AsyncioPySide6.runTask(self.force_device_try(d)))
+                    lambda _, d=device, tl=time_label, b=force_try_button: AsyncioPySide6.runTask(
+                        self.force_device_try(d, tl, b)))
 
                 edit_button = QPushButton()
                 edit_button.setIcon(QIcon(resource_path("pyqt/icons/edit.png")))
@@ -158,12 +165,12 @@ class ProjectViewWidget(QWidget):
                 item_layout.setContentsMargins(0, 0, 0, 0)
 
                 self.devices_list.setIndexWidget(item.index(), item_widget)
+
         try:
-            self.show_loading_indicator()
             self.devices_model.clear()
             AsyncioPySide6.runTask(run_load_devices())
         finally:
-            self.hide_loading_indicator()
+            self.main_window.hide_loading()
 
     async def toggle_device_status(self, device, button):
         try:
@@ -176,20 +183,21 @@ class ProjectViewWidget(QWidget):
                                  QMessageBox.StandardButton.Ok, QMessageBox.StandardButton.Cancel)
             logger.error(e)
 
-    async def force_device_try(self, device):
+    async def force_device_try(self, device, time_label, button):
         try:
+            time_label.setText("Відбувається спроба...")
             tz = get_timezone()
             now_utc = datetime.utcnow().replace(tzinfo=pytz.utc)
             wait_time_local = now_utc - timedelta(seconds=600)
-
             device.wait_time = wait_time_local.astimezone(tz)
             await device.save(update_fields=['wait_time'])
-            self.load_devices()
+            button.setEnabled(True)
         except Exception as e:
             logger.error(e)
 
     def add_new_device(self):
         self.new_device = None
+
         async def run_add_device():
             dialog = QDialog(self)
             dialog.setWindowTitle("Додати новий пристрій")
@@ -240,11 +248,9 @@ class ProjectViewWidget(QWidget):
                                          device_address=device_address, project_id=self.project.id)
                 await self.new_device.save()
                 self.edit_device(self.new_device)
-        try:
-            self.show_loading_indicator()
-            AsyncioPySide6.runTask(run_add_device())
-        finally:
-            self.hide_loading_indicator()
+
+        AsyncioPySide6.runTask(run_add_device())
+
 
     def edit_device(self, device):
         async def run_save_changes():
@@ -256,17 +262,11 @@ class ProjectViewWidget(QWidget):
             device_name_input.setText(device.name)
             form_layout.addRow("Назва пристрою:", device_name_input)
 
-            manufacturer_input = QComboBox(dialog)
-            manufacturer_input.addItem("Eastron")
-            manufacturer_input.setCurrentText(device.manufacturer)
-            manufacturer_input.setEditable(False)
-            form_layout.addRow("Виробник:", manufacturer_input)
+            manufacturer = QLabel(device.manufacturer)
+            form_layout.addRow("Виробник:", manufacturer)
 
-            model_input = QComboBox(dialog)
-            model_input.addItems(["SDM120", "SDM630", "SDM72"])
-            model_input.setCurrentText(device.model)
-            model_input.setEditable(False)
-            form_layout.addRow("Модель:", model_input)
+            model = QLabel(device.model)
+            form_layout.addRow("Модель:", model)
 
             device_address_input = QSpinBox(dialog)
             device_address_input.setRange(1, 255)
@@ -298,7 +298,6 @@ class ProjectViewWidget(QWidget):
                 lambda: reading_interval_input.setEnabled(reading_type_interval.isChecked()))
             reading_type_time.toggled.connect(lambda: reading_time_input.setEnabled(reading_type_time.isChecked()))
 
-            # Додавання полів для налаштування граничних значень
             minV_input = QSpinBox(dialog)
             minV_input.setRange(1, 99999)
             minV_input.setValue(device.minV)
@@ -315,7 +314,7 @@ class ProjectViewWidget(QWidget):
             form_layout.addRow("Максимальний струм (A):", maxA_input)
 
             maxW_input = QSpinBox(dialog)
-            maxW_input.setRange(1, 99999)  # Потужність у межах 10-10000W
+            maxW_input.setRange(1, 99999)
             maxW_input.setValue(device.maxW)
             form_layout.addRow("Максимальна потужність (W):", maxW_input)
 
@@ -328,8 +327,6 @@ class ProjectViewWidget(QWidget):
 
             if dialog.exec() == QDialog.DialogCode.Accepted:
                 new_name = device_name_input.text().strip()
-                new_manufacturer = manufacturer_input.currentText()
-                new_model = model_input.currentText()
                 new_device_address = device_address_input.value()
 
                 if reading_type_interval.isChecked():
@@ -345,16 +342,12 @@ class ProjectViewWidget(QWidget):
                     new_reading_interval = device.reading_interval
                     new_reading_time = device.reading_time
 
-                # Отримання нових граничних значень
                 new_minV = minV_input.value()
                 new_maxV = maxV_input.value()
                 new_maxA = maxA_input.value()
                 new_maxW = maxW_input.value()
 
-                # Оновлення параметрів пристрою
                 device.name = new_name
-                device.manufacturer = new_manufacturer
-                device.model = new_model
                 device.device_address = new_device_address
                 device.reading_type = new_reading_type
                 device.reading_interval = new_reading_interval
@@ -367,13 +360,13 @@ class ProjectViewWidget(QWidget):
 
                 await device.save(force_update=True)
                 self.load_devices()
-        try:
-            self.show_loading_indicator()
-            AsyncioPySide6.runTask(run_save_changes())
-        finally:
-            self.hide_loading_indicator()
+
+        AsyncioPySide6.runTask(run_save_changes())
+
 
     def delete_device(self, device):
+        self.main_window.show_loading()
+
         async def run_delete_device():
             reply = QMessageBox.question(self, "Підтвердження видалення",
                                          f"Ви впевнені, що хочете видалити пристрій '{device.name}'?",
@@ -396,13 +389,15 @@ class ProjectViewWidget(QWidget):
 
                 except DoesNotExist:
                     print("Проєкт або пристрої не знайдені в базі даних.")
+
         try:
-            self.show_loading_indicator()
             AsyncioPySide6.runTask(run_delete_device())
         finally:
-            self.hide_loading_indicator()
+            self.main_window.hide_loading()
 
     def open_device_details(self, index):
+        self.main_window.show_loading()
+
         async def run_open_device_details():
             device_name = self.devices_model.itemFromIndex(index).data(Qt.ItemDataRole.UserRole)
             device = await Device.filter(name=device_name, project_id=self.project.id).first()
@@ -410,11 +405,8 @@ class ProjectViewWidget(QWidget):
                 self.main_window.open_device_details(device)
             else:
                 print("Пристрій не знайдено.")
-        try:
-            self.show_loading_indicator()
-            AsyncioPySide6.runTask(run_open_device_details())
-        finally:
-            self.hide_loading_indicator()
+
+        AsyncioPySide6.runTask(run_open_device_details())
 
     def open_project_export_dialog(self):
         self.dialog = QDialog(self)
@@ -445,6 +437,7 @@ class ProjectViewWidget(QWidget):
         self.dialog.exec()
 
     def export_project_to_excel(self):
+        self.main_window.show_loading()
         start_datetime = self.start_export_date.dateTime().toPython()
         end_datetime_for_name = self.end_export_date.dateTime().toPython()
         end_datetime = self.end_export_date.dateTime().addDays(1).toPython()
@@ -455,11 +448,18 @@ class ProjectViewWidget(QWidget):
                 QMessageBox.warning(self, "Експорт", "У проєкті немає пристроїв для експорту.")
                 return
 
+            desktop_reports_path = os.path.join(os.path.expanduser("~"), "Desktop", "Reports")
+            os.makedirs(desktop_reports_path, exist_ok=True)
+
+            default_filename = f"{self.project.name}_{start_datetime.date()}_{end_datetime_for_name.date()}.xlsx"
+            default_path = os.path.join(desktop_reports_path, default_filename)
+
             file_path, _ = QFileDialog.getSaveFileName(
                 self,
                 "Зберегти файл",
-                f"{self.project.name}_{start_datetime.date()}_{end_datetime_for_name.date()}.xlsx",
-                "Excel Files (*.xlsx)")
+                default_path,
+                "Excel Files (*.xlsx)"
+            )
 
             if not file_path:
                 return
@@ -511,29 +511,8 @@ class ProjectViewWidget(QWidget):
 
             except Exception as e:
                 QMessageBox.warning(self, "Помилка", f"Сталася помилка при експорті даних: {e}")
+
         try:
-            self.show_loading_indicator()
             AsyncioPySide6.runTask(run_export_to_excel())
         finally:
-            self.hide_loading_indicator()
-
-    def show_loading_indicator(self):
-        movie = QMovie(resource_path("pyqt/animations/loading.gif"))
-        self.loading_indicator.setMovie(movie)
-        movie.start()
-        self.loading_indicator.raise_()
-        self.loading_indicator.setGeometry(
-            self.width() // 2 - movie.frameRect().width() // 2,
-            self.height() // 2 - movie.frameRect().height() // 2,
-            movie.frameRect().width(),
-            movie.frameRect().height()
-        )
-        self.loading_indicator.show()
-        self.setEnabled(False)  # Вимкнути взаємодію
-
-    def hide_loading_indicator(self):
-        movie = self.loading_indicator.movie()
-        if movie and movie.state() == QMovie.MovieState.Running:
-            movie.stop()
-        self.loading_indicator.hide()
-        self.setEnabled(True)
+            self.main_window.hide_loading()

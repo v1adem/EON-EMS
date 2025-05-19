@@ -1,11 +1,13 @@
 import asyncio
-
 import logging
+
+from pyqt.SafeButton import SafeButton
+
 logger = logging.getLogger(__name__)
 
 from AsyncioPySide6 import AsyncioPySide6
 from PySide6.QtGui import Qt
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit
 from tortoise.exceptions import IntegrityError
 
 from models.Admin import Admin
@@ -40,11 +42,11 @@ class RegistrationLoginForm(QWidget):
         form_layout.addWidget(self.password_label)
         form_layout.addWidget(self.password_input)
 
-        self.login_button = QPushButton("Вхід")
+        self.login_button = SafeButton("Вхід")
         self.login_button.clicked.connect(self.login)
-        self.register_button = QPushButton("Реєстрація")
+        self.register_button = SafeButton("Реєстрація")
         self.register_button.clicked.connect(self.register)
-        self.guest_button = QPushButton("Ввійти як гість")
+        self.guest_button = SafeButton("Ввійти як гість")
         self.guest_button.clicked.connect(self.guest_login)
 
         form_layout.addWidget(self.login_button)
@@ -113,10 +115,13 @@ class RegistrationLoginForm(QWidget):
             if admin:
                 self.main_window.isAdmin = True
                 self.status_label.setText(f"Вітаємо, {username}!")
-                await asyncio.sleep(1)
+                self.main_window.show_loading()
+                await asyncio.sleep(0.5)
                 self.main_window.open_projects_list()
             else:
                 self.status_label.setText("Невірний логін або пароль")
+                self.login_button.setEnabled(True)
+
         AsyncioPySide6.runTask(run_login())
 
     def guest_login(self):

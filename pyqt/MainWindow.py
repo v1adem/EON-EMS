@@ -1,15 +1,20 @@
 import logging
+
+from pyqt.widgets.DeviceDetailsWidgets.SDM120DeviceDetailsWidget import SDM120DeviceDetailsWidget
+from pyqt.widgets.DeviceDetailsWidgets.SDM630DeviceDetailsWidget import SDM630DeviceDetailsWidget
+from pyqt.widgets.DeviceDetailsWidgets.SDM72DeviceDetailsWidget import SDM72DeviceDetailsWidget
+
 logger = logging.getLogger(__name__)
 
-from PySide6 import QtCore
-from PySide6.QtGui import QAction, QIcon
-from PySide6.QtWidgets import QMainWindow, QWidget, QStackedWidget, QVBoxLayout, QDialog, QSystemTrayIcon, QMenu
+from PySide6 import QtCore, QtGui
+from PySide6.QtGui import QAction, QIcon, QMovie
+from PySide6.QtWidgets import QMainWindow, QWidget, QStackedWidget, QVBoxLayout, QDialog, QSystemTrayIcon, QMenu, QLabel
 
 from tools.config import resource_path
 from pyqt.dialogs.LanguageDialog import LanguageDialog
 from pyqt.dialogs.DeletingTimeDialog import DeletingTimeDialog
 from pyqt.dialogs.TimezoneDialog import TimezoneDialog
-from pyqt.widgets.DeviceDetailsWidget import DeviceDetailsWidget
+from pyqt.widgets.DeviceDetailsWidgets.BaseDeviceDetailsWidget import BaseDeviceDetailsWidget
 from pyqt.widgets.ProjectViewWidget import ProjectViewWidget
 from pyqt.widgets.ProjectsWidget import ProjectsWidget
 from pyqt.widgets.RegistrationLoginForm import RegistrationLoginForm
@@ -24,12 +29,21 @@ class MainWindow(QMainWindow):
 
         self.thread_manager = thread_manager
 
+        self.projects_widget = None
+        self.project_view_widget = None
+        self.device_details_widget = None
+
         self.isAdmin = False
 
-        self.setWindowTitle("EON EMS v0.3.2")
+        self.setWindowTitle("EON EMS v0.4.0")
         self.setGeometry(100, 100, 1200, 800)
         self.setMinimumWidth(800)
         self.setMinimumHeight(600)
+
+        screen_geometry = QtCore.QRect(QtGui.QGuiApplication.primaryScreen().geometry())
+        x = (screen_geometry.width() - self.width()) // 2
+        y = (screen_geometry.height() - self.height()) // 2
+        self.move(x, y)
 
         self.menu_bar = self.menuBar()
 
@@ -44,7 +58,7 @@ class MainWindow(QMainWindow):
 
         # settings_icon = QIcon(resource_path("pyqt/icons/settings.png"))
         settings_menu = self.menu_bar.addMenu("Налаштування")
-        settings_action = QAction("Час видалення", self) #(settings_icon, "Час видалення", self)
+        settings_action = QAction("Час видалення", self)  # (settings_icon, "Час видалення", self)
         settings_action.triggered.connect(self.open_deleting_time_dialog)
         settings_menu.addAction(settings_action)
 
@@ -109,10 +123,15 @@ class MainWindow(QMainWindow):
         self.stacked_widget.setCurrentIndex(2)
 
     def open_device_details(self, device):
-        self.device_details_widget = DeviceDetailsWidget(self, device)
+        widget_class = {
+            "SDM120": SDM120DeviceDetailsWidget,
+            "SDM630": SDM630DeviceDetailsWidget,
+            "SDM72": SDM72DeviceDetailsWidget,
+        }.get(device.model, BaseDeviceDetailsWidget)
+
+        self.device_details_widget = widget_class(self, device)
         self.stacked_widget.addWidget(self.device_details_widget)
         self.stacked_widget.setCurrentIndex(3)
-
 
     def go_back(self):
         current_index = self.stacked_widget.currentIndex()
@@ -133,6 +152,26 @@ class MainWindow(QMainWindow):
             self.stacked_widget.addWidget(self.registration_widget)
 
             self.stacked_widget.setCurrentIndex(0)
+
+    def show_loading(self):
+        self.loading_label = QLabel(self)
+        self.loading_label.setStyleSheet("background-color: rgba(255, 255, 255, 200);")
+        self.loading_label.setFixedSize(self.size())
+        self.loading_label.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
+
+        movie = QMovie(resource_path("pyqt/animations/loading.gif"))
+        self.loading_label.setMovie(movie)
+        movie.start()
+
+        self.loading_label.show()
+
+    def hide_loading(self):
+        if hasattr(self, 'loading_label') and self.loading_label is not None:
+            if self.loading_label.movie() is not None:
+                self.loading_label.movie().stop()
+            self.loading_label.hide()
+            self.loading_label.deleteLater()
+            del self.loading_label
 
     def exit_app(self):
         self.is_exit = True

@@ -1,18 +1,20 @@
+import os
+
 import xlsxwriter
 from AsyncioPySide6 import AsyncioPySide6
 from PySide6.QtCore import Qt, QSize, QDate
-from PySide6.QtGui import QStandardItemModel, QIcon, QStandardItem, QMovie
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QListView, QPushButton, QComboBox, QSizePolicy, \
+from PySide6.QtGui import QStandardItemModel, QIcon, QStandardItem
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QListView, QComboBox, QSizePolicy, \
     QInputDialog, QMessageBox, QDialog, QLineEdit, QSpinBox, QDialogButtonBox, QSpacerItem, QFormLayout, QFileDialog, \
-    QDateEdit
+    QDateEdit, QPushButton
 from pymodbus.client import ModbusSerialClient
 from tortoise.exceptions import DoesNotExist
 
-from register_maps.RegisterMaps import RegisterMap
-from tools.config import resource_path
 from models.Device import Device
 from models.Project import Project
 from models.Report import SDM120Report, SDM120ReportTmp, SDM630Report, SDM630ReportTmp, SDM72Report, SDM72ReportTmp
+from register_maps.RegisterMaps import RegisterMap
+from tools.config import resource_path
 
 
 class ProjectsWidget(QWidget):
@@ -20,6 +22,7 @@ class ProjectsWidget(QWidget):
         super().__init__(main_window)
 
         self.main_window = main_window
+        self.main_window.hide_loading()
         self.thread_manager = main_window.thread_manager
         self.isAdmin = main_window.isAdmin
         self.setWindowTitle("Список проєктів")
@@ -31,7 +34,7 @@ class ProjectsWidget(QWidget):
         self.loading_indicator.hide()
         self.layout.addWidget(self.loading_indicator)
 
-        self.top_layout = QHBoxLayout(self)
+        self.top_layout = QHBoxLayout()
 
         self.projects_label = QLabel("Проєкти", self)
         self.projects_label.setStyleSheet("font-size: 18px;")
@@ -131,12 +134,12 @@ class ProjectsWidget(QWidget):
                 item_layout.setContentsMargins(0, 0, 0, 0)
 
                 self.projects_list.setIndexWidget(item.index(), item_widget)
+
         try:
-            self.show_loading_indicator()
             self.projects_model.clear()
             AsyncioPySide6.runTask(run_load_projects())
         finally:
-            self.hide_loading_indicator()
+            self.main_window.hide_loading()
 
     def update_connection_status(self, project, label):
         if self.is_connected(project):
@@ -149,16 +152,17 @@ class ProjectsWidget(QWidget):
                 "color: red; font-size: 18px; alignment: right; margin: 0px; padding: 0px; border: 0px solid #cccccc;")
 
     def change_project_port(self, project, new_port):
-        async def run_change_port():
-            project.port = int(new_port)
-            await project.save(force_update=True)
+        self.main_window.show_loading()
 
+        async def run_change_port():
+            project.port = new_port
+            await project.save(force_update=True)
             self.load_projects()
+
         try:
-            self.show_loading_indicator()
             AsyncioPySide6.runTask(run_change_port())
         finally:
-            self.hide_loading_indicator()
+            self.main_window.hide_loading()
 
     def is_connected(self, project):
         client = ModbusSerialClient(
@@ -174,7 +178,9 @@ class ProjectsWidget(QWidget):
         return False
 
     def add_new_project(self):
+        self.main_window.show_loading()
         self.new_project = None
+
         async def run_add_new_project():
             project_name, ok = QInputDialog.getText(self, "Додати новий проєкт", "Введіть назву проєкту:")
 
@@ -184,20 +190,22 @@ class ProjectsWidget(QWidget):
                     QMessageBox.warning(self, "Помилка", "Проєкт з такою назвою вже існує.")
                     return
 
-                self.new_project = Project(name=project_name, port=1)
+                self.new_project = Project(name=project_name)
                 await self.new_project.save()
 
                 self.thread_manager.add_thread(self.new_project, self.main_window)
                 print(f"Project {self.new_project.name} created and thread started.")
 
                 self.edit_project(self.new_project)
+
         try:
-            self.show_loading_indicator()
             AsyncioPySide6.runTask(run_add_new_project())
         finally:
-            self.hide_loading_indicator()
+            self.main_window.hide_loading()
 
     def delete_project(self, project):
+        self.main_window.show_loading()
+
         async def run_delete_project():
             reply = QMessageBox.question(self, "Підтвердження видалення",
                                          f"Ви впевнені, що хочете видалити проєкт '{project.name}'?",
@@ -228,22 +236,21 @@ class ProjectsWidget(QWidget):
 
                 except DoesNotExist:
                     print("Проєкт або пристрої не знайдені в базі даних.")
+
         try:
-            self.show_loading_indicator()
             AsyncioPySide6.runTask(run_delete_project())
         finally:
-            self.hide_loading_indicator()
+            self.main_window.hide_loading()
 
     def edit_project(self, project):
         dialog = QDialog(self)
         dialog.setWindowTitle("Редагувати проєкт")
         layout = QVBoxLayout(dialog)
 
-        # Інформаційний блок
         info_label = QLabel(
             "Усі параметри проєкту мають збігатися з налаштуваннями на пристроях і з налаштуваннями "
             "серійного порту Вашого ПК до якого підключений перетворювач."
-            "\nНЕ ВИКОРИСТОВУЙТЕ СИСТЕМНІ ПОРТИ (Зазвичай COM3 та COM4), це може призвести до помилок"
+            "\nНЕ ВИКОРИСТОВУЙТЕ СИСТЕМНІ ПОРТИ, це може призвести до помилок"
         )
         info_label.setWordWrap(True)
         layout.addWidget(info_label)
@@ -329,10 +336,10 @@ class ProjectsWidget(QWidget):
                 self.load_projects()
 
             try:
-                self.show_loading_indicator()
+                self.main_window.show_loading()
                 AsyncioPySide6.runTask(run_save_changes())
             finally:
-                self.hide_loading_indicator()
+                self.main_window.hide_loading()
 
     def open_project_details(self, index):
         async def run_open_details():
@@ -342,11 +349,9 @@ class ProjectsWidget(QWidget):
                 self.main_window.open_project_details(project)
             else:
                 print("Couldn't find project")
-        try:
-            self.show_loading_indicator()
-            AsyncioPySide6.runTask(run_open_details())
-        finally:
-            self.hide_loading_indicator()
+
+        self.main_window.show_loading()
+        AsyncioPySide6.runTask(run_open_details())
 
     def open_export_all_projects_dialog(self):
         self.dialog = QDialog(self)
@@ -387,11 +392,18 @@ class ProjectsWidget(QWidget):
                 QMessageBox.warning(self, "Експорт", "Немає проєктів для експорту.")
                 return
 
+            desktop_reports_path = os.path.join(os.path.expanduser("~"), "Desktop", "Reports")
+            os.makedirs(desktop_reports_path, exist_ok=True)
+
+            default_filename = f"Всі_проєкти_{start_datetime.date()}_{end_datetime_for_name.date()}.xlsx"
+            default_path = os.path.join(desktop_reports_path, default_filename)
+
             file_path, _ = QFileDialog.getSaveFileName(
                 self,
                 "Зберегти файл",
-                f"Всі_проєкти_{start_datetime.date()}_{end_datetime_for_name.date()}.xlsx",
-                "Excel Files (*.xlsx)")
+                default_path,
+                "Excel Files (*.xlsx)"
+            )
 
             if not file_path:
                 return
@@ -445,29 +457,9 @@ class ProjectsWidget(QWidget):
 
             except Exception as e:
                 QMessageBox.warning(self, "Помилка", f"Сталася помилка при експорті даних: {e}")
+
         try:
-            self.show_loading_indicator()
+            self.main_window.show_loading()
             AsyncioPySide6.runTask(run_export_to_excel())
         finally:
-            self.hide_loading_indicator()
-
-    def show_loading_indicator(self):
-        movie = QMovie(resource_path("pyqt/animations/loading.gif"))
-        self.loading_indicator.setMovie(movie)
-        movie.start()
-        self.loading_indicator.raise_()
-        self.loading_indicator.setGeometry(
-            self.width() // 2 - movie.frameRect().width() // 2,
-            self.height() // 2 - movie.frameRect().height() // 2,
-            movie.frameRect().width(),
-            movie.frameRect().height()
-        )
-        self.loading_indicator.show()
-        self.setEnabled(False)  # Вимкнути взаємодію
-
-    def hide_loading_indicator(self):
-        movie = self.loading_indicator.movie()
-        if movie and movie.state() == QMovie.MovieState.Running:
-            movie.stop()
-        self.loading_indicator.hide()
-        self.setEnabled(True)
+            self.main_window.hide_loading()

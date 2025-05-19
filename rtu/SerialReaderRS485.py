@@ -1,17 +1,11 @@
-from datetime import datetime, timedelta
 import logging
-
-from tools.config import get_timezone
 
 logger = logging.getLogger(__name__)
 
-import pytz
-from PySide6.QtWidgets import QMessageBox
 from pymodbus.client import ModbusSerialClient
 from pymodbus.constants import Endian
 from pymodbus.payload import BinaryPayloadDecoder
 
-from models.Device import Device
 from register_maps.RegisterMaps import RegisterMap
 
 
@@ -52,24 +46,23 @@ def decode_32bit_float(data):
 
 
 class SerialReaderRS485:
-    def __init__(self, device_custom_name, device_name, port, device_address, baudrate, bytesize, parity, stopbits,
-                 main_window):
-        self.no_response_error_flag = False
-        self.error_flag = False
-
-        self.port = port
-        self.main_window = main_window
-        self.device_custom_name = device_custom_name
-        self.device_address = device_address
-        self.register_map = RegisterMap.get_register_map(device_name)
+    def __init__(self, device, project):
+        self.port = project.port
+        self.device_custom_name = device.name
+        self.device_address = device.device_address
+        self.register_map = RegisterMap.get_register_map(device.model)
 
         self.client = ModbusSerialClient(
-            port=f"COM{port}", baudrate=baudrate, parity=parity,
-            stopbits=stopbits, bytesize=bytesize, timeout=0.5, retries=1
+            port=f"COM{project.port}", baudrate=project.baudrate, parity=project.parity,
+            stopbits=project.stopbits, bytesize=project.bytesize, timeout=3, retries=2
         )
 
     def connect(self):
-        return self.client.connect()
+        try:
+            return self.client.connect()
+        except Exception as e:
+            logger.error(f"{self.device_custom_name} - Connection error on port {self.port}: {str(e)}")
+            return False
 
     def group_registers(self):
         grouped = []
@@ -80,7 +73,7 @@ class SerialReaderRS485:
             start = spec['register']
             length = 2 if spec['format'] in ["float", "UD_WORD", "SD_WORD"] else 1
 
-            if current_group['start'] is None:  # Початок групи
+            if current_group['start'] is None:
                 current_group['start'] = start
                 current_group['length'] = length
                 current_group['items'].append((name, length))
@@ -98,20 +91,24 @@ class SerialReaderRS485:
 
     async def read_all_properties(self):
         result = {}
-        if self.connect():
+        try:
+            if not self.connect():
+                logger.error(f"{self.device_custom_name} - No connection on port {self.port}")
+                return {}
+
             grouped_registers = self.group_registers()
-            try:
-                for group in grouped_registers:
-                    start_address = group['start']
-                    total_length = group['length']
-                    response = self.client.read_input_registers(start_address, count=total_length,
-                                                                slave=self.device_address)
+
+            for group in grouped_registers:
+                start_address = group['start']
+                total_length = group['length']
+                try:
+                    response = self.client.read_input_registers(
+                        start_address, count=total_length, slave=self.device_address
+                    )
 
                     if response.isError():
-                        self.error_text = f"No response from {start_address}"
-                        logger.error(self.error_text)
-                        self.no_response_error_flag = True
-                        continue
+                        logger.error(f"{self.device_custom_name} - No response from {start_address} address")
+                        return {}
 
                     registers = response.registers
                     idx = 0
@@ -121,40 +118,18 @@ class SerialReaderRS485:
                         result[name] = decode_data(data, spec)
                         idx += length
 
-            except Exception as e:
-                self.error_text = f"{e}"
-                logger.error(self.error_text)
-                self.error_flag = True
-            finally:
+                except Exception as e:
+                    logger.error(
+                        f"{self.device_custom_name} - Error reading registers {start_address}-{start_address + total_length}: {str(e)}")
+                    return {}
+
+            return result
+
+        except Exception as e:
+            logger.error(f"{self.device_custom_name} - Unexpected error: {str(e)}")
+            return {}
+        finally:
+            try:
                 self.client.close()
-        else:
-            self.error_text = f"No connection on port - {self.port}"
-            self.error_flag = True
-
-        if self.error_flag or self.no_response_error_flag:
-            await self.update_device_status()
-
-        return result
-
-    async def update_device_status(self):
-        device = await Device.filter(name=self.device_custom_name).first()
-        if device:
-            device.actual_status = False
-            tz = get_timezone()
-            now_utc = datetime.utcnow().replace(tzinfo=pytz.utc)
-            wait_time_local = now_utc + timedelta(seconds=300)
-
-            device.wait_time = wait_time_local.astimezone(tz)
-
-            logger.warning(f'{device.wait_time} | {device.actual_status}')
-            await device.save(update_fields=['actual_status', 'wait_time'])
-
-        msg = "Device is not connected" if self.error_flag else "There is no response from the device"
-        QMessageBox.warning(
-            self.main_window,
-            f"{datetime.now().strftime('%d/%m/%Y %H:%M:%S')}",
-            f"{self.device_custom_name} - {msg} - {self.error_text}",
-            QMessageBox.StandardButton.Ok,
-            QMessageBox.StandardButton.Cancel
-        )
-
+            except Exception as e:
+                logger.error(f"{self.device_custom_name} - Error closing connection: {str(e)}")

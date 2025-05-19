@@ -1,9 +1,10 @@
 import asyncio
-from datetime import datetime, timedelta
 import logging
+from datetime import datetime, timedelta
+
+import pytz
 
 from models.Project import Project
-from rtu.DataCollectorTestingTools import get_test_data
 
 logger = logging.getLogger(__name__)
 
@@ -19,20 +20,19 @@ from rtu.SerialReaderRS485 import SerialReaderRS485
 
 async def get_data_from_device(device, project, main_window):
     try:
-        client = SerialReaderRS485(device.name, device.model, project.port, device.device_address, project.baudrate,
-                                   project.bytesize, project.parity, project.stopbits, main_window)
+        client = SerialReaderRS485(device, project)
+
         if main_window.thread_manager.threads.get(project.id).stop_collecting:
             return {}
+
         return await client.read_all_properties()
+
     except asyncio.CancelledError:
         logger.warning(f"{device.name} - Task cancelled")
         return {}
     except Exception as e:
         logger.warning(f"{device.name} - Task failed: {e}")
-        QMessageBox.warning(main_window, "Reading Error", f"{device.name} - {e}",
-                            QMessageBox.StandardButton.Ok, QMessageBox.StandardButton.Cancel)
         return {}
-
 
 def is_voltage_out_of_range(new_data, device, phase):
     voltage_key = f"line_voltage_{phase}"
@@ -51,7 +51,6 @@ def is_voltage_out_of_range(new_data, device, phase):
             return True
     return False
 
-
 def is_current_over_limit(new_data, device, phase):
     current_key = f"current_{phase}"
     current_value = new_data.get(current_key)
@@ -62,7 +61,6 @@ def is_current_over_limit(new_data, device, phase):
                   f"Current value: {current_value}A. Extra: {current_value - device.maxA}A.")
             return True
     return False
-
 
 def is_power_over_limit(new_data, device, phase):
     power_key = f"power_{phase}"
@@ -80,8 +78,6 @@ class DataCollectorRunnable(QRunnable):
     def __init__(self, project, main_window):
         super().__init__()
         self.project = project
-        self.port = self.project.port
-        self.phases = []
         self.main_window = main_window
         self.stop_collecting = False
 
@@ -90,91 +86,133 @@ class DataCollectorRunnable(QRunnable):
 
     async def collect_data(self):
         while not self.stop_collecting:
-            self.project = await Project.filter(id=self.project.id).first()
-            devices = await Device.filter(project=self.project).all()
-            for device in devices:
-                if self.stop_collecting:
-                    return
-                if not device.reading_status:
-                    continue
-                local_tz = get_timezone()
-                now_local = datetime.now(local_tz)
-                if device.wait_time > now_local:
-                    continue
-                main_db_model, tmp_db_model = self.get_db_model(device)
-                
-                last_report = await main_db_model.filter(device=device).last()
-                new_data = await get_data_from_device(device, self.project, self.main_window)
-                
-                # new_data = get_test_data(device.model, last_report)
+            try:
+                self.project = await Project.filter(id=self.project.id).first()
+                devices = await Device.filter(project=self.project).all()
+                for device in devices:
+                    await self.handle_device_reading(device)
+            except Exception as e:
+                logger.error(f"Error in main collection loop: {e}")
 
-                if self.stop_collecting:  # Перевірка
-                    return
-                if new_data == {}:
-                    continue
+            if not self.stop_collecting:
+                await asyncio.sleep(1)
 
-                if device.actual_status is False:
-                    logger.info(f"Device {device.name} - {device.model} - is now online")
-                    device.actual_status = True
-                    await device.save(force_update=True)
-
-                tmp_report_data = self.get_tmp_data(device, new_data)
-
-                existing_tmp_report = await tmp_db_model.filter(device_id=device.id).first()
-                if existing_tmp_report:
-                    for key, value in tmp_report_data.items():
-                        setattr(existing_tmp_report, key, value)
-                    await existing_tmp_report.save()
-                else:
-                    tmp_report = tmp_db_model(**tmp_report_data)
-                    await tmp_report.save()
-
-                should_record_immediately = False
-                for phase in self.phases:
-                    if (
-                            is_voltage_out_of_range(new_data, device, phase) or
-                            is_current_over_limit(new_data, device, phase) or
-                            is_power_over_limit(new_data, device, phase)
-                    ):
-                        should_record_immediately = True
-                        break
-
-                if not should_record_immediately:
-                    if last_report:
-                        device_reading_interval = device.reading_interval
-                        last_report_time = last_report.timestamp.replace(tzinfo=None)
-                        calculated_time = last_report_time + timedelta(seconds=device_reading_interval)
-                        current_time = datetime.now().replace(tzinfo=None)
-
-                        if device.reading_type == 2:
-                            reading_time = device.reading_time
-                            start_of_day = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
-
-                            if current_time < (
-                                    start_of_day + timedelta(
-                                minutes=reading_time)) or last_report_time >= start_of_day:
-                                continue
-
-                        if calculated_time > current_time:
-                            continue
-
-                report_data = {
-                    "device_id": device.id,
-                }
-                report_data.update({key: value for key, value in new_data.items() if value is not None})
-
-                new_report = main_db_model(**report_data)
-                await new_report.save()
-
-                deleting_time = get_deleting_time()
-                if deleting_time > 0:
-                    delete_before_date = datetime.now().replace(tzinfo=None) - timedelta(days=deleting_time)
-                    first_report = await main_db_model.filter(device=device).first()
-                    if first_report and first_report.timestamp.replace(tzinfo=None) < delete_before_date:
-                        await first_report.delete()
-            if self.stop_collecting:
+    async def handle_device_reading(self, device):
+        try:
+            local_tz = get_timezone()
+            now_local = datetime.now(local_tz)
+            if device.reading_status is False:
                 return
-            await asyncio.sleep(1)
+            if device.wait_time and device.wait_time > now_local:
+                return
+
+            new_data = await get_data_from_device(device, self.project, self.main_window)
+
+            if not new_data or new_data == {}:
+                await self.handle_read_error(device)
+                return
+
+            await self.handle_successful_reading(device, new_data)
+
+        except Exception as e:
+            logger.error(f"Unexpected error handling device {device.name}: {e}")
+            await self.update_device_status(device, False)
+
+    async def update_device_status(self, device, is_online):
+        try:
+            if device.actual_status != is_online:
+                device.actual_status = is_online
+
+                if not is_online:
+                    tz = get_timezone()
+                    now_utc = datetime.utcnow().replace(tzinfo=pytz.utc)
+                    wait_time_local = now_utc + timedelta(seconds=300)
+                    device.wait_time = wait_time_local.astimezone(tz)
+
+                await device.save(update_fields=['actual_status', 'wait_time'])
+
+                if self.main_window.project_view_widget is not None:
+                    self.main_window.project_view_widget.load_devices()
+
+                status_msg = "online" if is_online else "offline"
+                logger.info(f"Device {device.name} - {device.model} is now {status_msg}")
+        except Exception as e:
+            logger.error(f"Error updating device {device.name} status: {e}")
+
+    async def handle_read_error(self, device):
+        await self.update_device_status(device, False)
+
+    async def handle_successful_reading(self, device, new_data):
+        if not device.actual_status:
+            await self.update_device_status(device, True)
+
+        phases = self.get_phases(device)
+        immediate_record = any(
+            is_voltage_out_of_range(new_data, device, phase) or
+            is_current_over_limit(new_data, device, phase) or
+            is_power_over_limit(new_data, device, phase)
+            for phase in phases
+        )
+
+        if not immediate_record:
+            last_report = await self.get_last_report(device)
+            if last_report and not self.should_record_now(device, last_report):
+                return
+
+        await self.save_device_data(device, new_data)
+
+    async def get_last_report(self, device):
+        main_db_model, _ = self.get_db_model(device)
+        return await main_db_model.filter(device=device).last()
+
+    def should_record_now(self, device, last_report):
+        device_reading_interval = device.reading_interval
+        last_report_time = last_report.timestamp.replace(tzinfo=None)
+        calculated_time = last_report_time + timedelta(seconds=device_reading_interval)
+        current_time = datetime.now().replace(tzinfo=None)
+
+        if device.reading_type == 2:
+            reading_time = device.reading_time
+            start_of_day = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+            return current_time >= (start_of_day + timedelta(minutes=reading_time)) and last_report_time < start_of_day
+
+        return current_time >= calculated_time
+
+    async def save_device_data(self, device, new_data):
+        try:
+            main_db_model, tmp_db_model = self.get_db_model(device)
+
+            tmp_report_data = self.get_tmp_data(device, new_data)
+            existing_tmp_report = await tmp_db_model.filter(device_id=device.id).first()
+
+            if existing_tmp_report:
+                for key, value in tmp_report_data.items():
+                    setattr(existing_tmp_report, key, value)
+                await existing_tmp_report.save()
+            else:
+                tmp_report = tmp_db_model(**tmp_report_data)
+                await tmp_report.save()
+
+            report_data = {"device_id": device.id}
+            report_data.update({key: value for key, value in new_data.items() if value is not None})
+
+            new_report = main_db_model(**report_data)
+            await new_report.save()
+
+            logger.info(f"Report saved - {device.name}, {device.model}")
+
+            await self.clean_old_records(device, main_db_model)
+
+        except Exception as e:
+            logger.error(f"Error saving data for device {device.name}: {e}")
+
+    async def clean_old_records(self, device, db_model):
+        deleting_time = get_deleting_time()
+        if deleting_time > 0:
+            delete_before_date = datetime.now().replace(tzinfo=None) - timedelta(days=deleting_time)
+            first_report = await db_model.filter(device=device).first()
+            if first_report and first_report.timestamp.replace(tzinfo=None) < delete_before_date:
+                await first_report.delete()
 
     def get_tmp_data(self, device, new_data):
         if device.model == "SDM120":
@@ -236,6 +274,14 @@ class DataCollectorRunnable(QRunnable):
             self.phases = ['1', '2', '3']
             return SDM72Report, SDM72ReportTmp
         else:
-            QMessageBox.warning(
-                self.main_window, f"{device.name}", f"{device.model} - Unknown model", QMessageBox.StandardButton.Ok,
-                QMessageBox.StandardButton.Cancel)
+            logger.error("Unknown device model")
+
+    def get_phases(self, device):
+        if device.model == "SDM120":
+            return ['1']
+        elif device.model == "SDM630":
+            return ['1', '2', '3']
+        elif device.model == "SDM72":
+            return ['1', '2', '3']
+        else:
+            logger.error("Unknown device model")
