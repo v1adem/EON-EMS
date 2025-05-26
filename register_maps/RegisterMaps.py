@@ -559,10 +559,35 @@ class RegisterMap:
         }
     }
 
+    IME96HDLe = {
+        "line_voltage_1": {
+            "register": 4096,
+            "type": "holding",
+            "format": "UD_WORD",
+            "units": "Volts",
+            "divider": 1000
+        },
+        "line_voltage_2": {
+            "register": 4100,
+            "type": "holding",
+            "format": "UD_WORD",
+            "units": "Volts",
+            "divider": 1000
+        },
+        "line_voltage_3": {
+            "register": 4116,
+            "type": "holding",
+            "format": "UD_WORD",
+            "units": "Volts",
+            "divider": 1000
+        }
+    }
+
     MAPS = {
         "SDM120": SDM120,
         "SDM630": SDM630,
-        "SDM72": SDM72
+        "SDM72": SDM72,
+        "IME96HDLe": IME96HDLe,
     }
 
     @classmethod

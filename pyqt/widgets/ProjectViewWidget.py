@@ -207,16 +207,29 @@ class ProjectViewWidget(QWidget):
             form_layout.addRow("Назва пристрою:", device_name_input)
 
             manufacturer_input = QComboBox(dialog)
-            manufacturer_input.addItem("Eastron")
+            manufacturer_input.addItems(["Eastron", "IME", "Elnet"])
             form_layout.addRow("Виробник:", manufacturer_input)
 
             model_input = QComboBox(dialog)
-            model_input.addItems(["SDM120", "SDM630", "SDM72"])
             form_layout.addRow("Модель:", model_input)
 
             device_address_input = QSpinBox(dialog)
             device_address_input.setRange(1, 255)
             form_layout.addRow("Адреса пристрою:", device_address_input)
+
+            def update_models(manufacturer):
+                model_input.clear()
+                if manufacturer == "Eastron":
+                    model_input.addItems(["SDM120", "SDM630", "SDM72"])
+                elif manufacturer == "IME":
+                    model_input.addItems(["IME96HDLe"])
+                else:
+                    model_input.addItems(["Не підтримується"])
+
+            update_models(manufacturer_input.currentText())
+
+            manufacturer_input.currentIndexChanged.connect(
+                lambda index: update_models(manufacturer_input.itemText(index)))
 
             buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel,
                                        dialog)

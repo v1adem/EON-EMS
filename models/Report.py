@@ -31,7 +31,6 @@ class SDM120Report(Model):
     class Meta:
         table = "sdm120_reports"
 
-
 class SDM120ReportTmp(Model):
     id = fields.IntField(pk=True)
     device_id = fields.IntField()
@@ -52,7 +51,6 @@ class SDM120ReportTmp(Model):
 
     class Meta:
         table = "sdm120_reports_tmp"
-
 
 class SDM630Report(Model):
     id = fields.IntField(pk=True)
@@ -120,7 +118,6 @@ class SDM630Report(Model):
 
     class Meta:
         table = "sdm630_reports"
-
 
 class SDM630ReportTmp(Model):
     id = fields.IntField(pk=True)
@@ -203,3 +200,9 @@ class SDM72ReportTmp(Model):
 
     class Meta:
         table = "sdm72d_reports_tmp"
+
+class IME96HDLeReport(Model):
+    pass
+
+class IME96HDLeReportTmp(Model):
+    pass
