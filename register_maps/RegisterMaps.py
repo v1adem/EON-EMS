@@ -568,19 +568,40 @@ class RegisterMap:
             "divider": 1000
         },
         "line_voltage_2": {
-            "register": 4100,
+            "register": 4098,
             "type": "holding",
             "format": "UD_WORD",
             "units": "Volts",
             "divider": 1000
         },
         "line_voltage_3": {
-            "register": 4116,
+            "register": 4100,
             "type": "holding",
             "format": "UD_WORD",
             "units": "Volts",
             "divider": 1000
-        }
+        },
+        "current_1": {
+            "register": 4102,
+            "type": "holding",
+            "format": "UD_WORD",
+            "units": "Amps",
+            "divider": 1000
+        },
+        "current_2": {
+            "register": 4104,
+            "type": "holding",
+            "format": "UD_WORD",
+            "units": "Amps",
+            "divider": 1000
+        },
+        "current_3": {
+            "register": 4106,
+            "type": "holding",
+            "format": "UD_WORD",
+            "units": "Amps",
+            "divider": 1000
+        },
     }
 
     MAPS = {
