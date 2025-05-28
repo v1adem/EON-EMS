@@ -200,9 +200,3 @@ class SDM72ReportTmp(Model):
 
     class Meta:
         table = "sdm72d_reports_tmp"
-
-class IME96HDLeReport(Model):
-    pass
-
-class IME96HDLeReportTmp(Model):
-    pass

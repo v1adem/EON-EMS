@@ -16,7 +16,7 @@ from tortoise import Tortoise
 def is_already_running():
     count = 0
     for process in psutil.process_iter(['name']):
-        if process.info['name'] == 'EON_EMS.exe':
+        if process.info['name'] == 'EON_EMS_demo.exe':
             count += 1
     return count > 2
 
@@ -61,7 +61,7 @@ def get_database_path():
 
     os.makedirs(app_dir, exist_ok=True)
 
-    return os.path.join(app_dir, 'eon.db')
+    return os.path.join(app_dir, 'eon_demo.db')
 
 
 async def init_database(db_path):

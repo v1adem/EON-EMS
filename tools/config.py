@@ -31,7 +31,7 @@ def get_config_path():
         appdata_dir = os.getenv('APPDATA') if sys.platform == 'win32' else os.path.expanduser('~/.config')
         app_dir = os.path.join(appdata_dir, 'EON')
         os.makedirs(app_dir, exist_ok=True)
-        _CONFIG_PATH = os.path.join(app_dir, 'conf.json')
+        _CONFIG_PATH = os.path.join(app_dir, 'test_conf.json')
     return _CONFIG_PATH
 
 
