@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 import pytz
 
 from models.Project import Project
+from rtu.DataCollectorTestingTools import get_test_data
 
 logger = logging.getLogger(__name__)
 
@@ -15,24 +16,7 @@ from PySide6.QtWidgets import QMessageBox
 from tools.config import get_deleting_time, get_timezone
 from models.Device import Device
 from models.Report import SDM120Report, SDM120ReportTmp, SDM630Report, SDM72Report, SDM630ReportTmp, SDM72ReportTmp
-from rtu.SerialReaderRS485 import SerialReaderRS485
 
-
-async def get_data_from_device(device, project, main_window):
-    try:
-        client = SerialReaderRS485(device, project)
-
-        if main_window.thread_manager.threads.get(project.id).stop_collecting:
-            return {}
-
-        return await client.read_all_properties()
-
-    except asyncio.CancelledError:
-        logger.warning(f"{device.name} - Task cancelled")
-        return {}
-    except Exception as e:
-        logger.warning(f"{device.name} - Task failed: {e}")
-        return {}
 
 def is_voltage_out_of_range(new_data, device, phase):
     voltage_key = f"line_voltage_{phase}"
@@ -106,7 +90,8 @@ class DataCollectorRunnable(QRunnable):
             if device.wait_time and device.wait_time > now_local:
                 return
 
-            new_data = await get_data_from_device(device, self.project, self.main_window)
+            last_report = await self.get_last_report(device)
+            new_data = await get_test_data(device.model, last_report)
 
             if not new_data or new_data == {}:
                 await self.handle_read_error(device)
