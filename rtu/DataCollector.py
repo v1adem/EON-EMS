@@ -91,7 +91,7 @@ class DataCollectorRunnable(QRunnable):
                 return
 
             last_report = await self.get_last_report(device)
-            new_data = await get_test_data(device.model, last_report)
+            new_data = get_test_data(device.model, last_report)
 
             if not new_data or new_data == {}:
                 await self.handle_read_error(device)

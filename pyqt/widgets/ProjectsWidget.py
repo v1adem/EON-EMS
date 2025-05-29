@@ -14,7 +14,7 @@ from models.Device import Device
 from models.Project import Project
 from models.Report import SDM120Report, SDM120ReportTmp, SDM630Report, SDM630ReportTmp, SDM72Report, SDM72ReportTmp
 from register_maps.RegisterMaps import RegisterMap
-from tools.config import resource_path
+from tools.config import resource_path, get_demo_port_status
 
 
 class ProjectsWidget(QWidget):
@@ -52,7 +52,7 @@ class ProjectsWidget(QWidget):
         refresh_button = QPushButton()
         refresh_button.setIcon(QIcon(resource_path("pyqt/icons/refresh.png")))
         refresh_button.setFixedSize(36, 36)
-        refresh_button.clicked.connect(self.load_projects())
+        refresh_button.clicked.connect(self.load_projects)
         self.top_layout.addWidget(refresh_button)
 
         self.layout.addLayout(self.top_layout)
@@ -69,6 +69,8 @@ class ProjectsWidget(QWidget):
             self.add_project_button.setDisabled(True)
 
         self.add_project_button.clicked.connect(self.add_new_project)
+
+        self.load_projects()
 
     def load_projects(self):
         async def run_load_projects():
@@ -165,17 +167,7 @@ class ProjectsWidget(QWidget):
             self.main_window.hide_loading()
 
     def is_connected(self, project):
-        client = ModbusSerialClient(
-            port=f"COM{project.port}",
-            baudrate=project.baudrate,
-            parity=project.parity,
-            stopbits=project.stopbits,
-            bytesize=project.bytesize,
-        )
-        if client.connect():
-            client.close()
-            return True
-        return False
+        return get_demo_port_status()
 
     def add_new_project(self):
         self.main_window.show_loading()

@@ -1,10 +1,16 @@
 import random
 
+from tools.config import get_demo_port_status
+
+
 def rand_variation(value, variation_percent=5):
     delta = value * (variation_percent / 100)
     return round(random.uniform(value - delta, value + delta), 2)
 
 def get_test_data(device_model, last_data):
+    if get_demo_port_status() is False:
+        return {}
+
     if device_model == "SDM120":
         voltage_1 = rand_variation(230)
         current_1 = rand_variation(10)

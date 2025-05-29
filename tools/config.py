@@ -85,7 +85,9 @@ def init_config():
     config_path = get_config_path()
     default_config = {
         "deleting_time": 180,
-        "timezone": "Europe/Kyiv"
+        "timezone": "Europe/Kyiv",
+        "demo_port_status": True,
+        "peak_power": False,
     }
     try:
         with open(config_path, "r", encoding="utf-8") as file:
@@ -138,3 +140,29 @@ def set_timezone(new_timezone_str):
     _CONFIG['timezone'] = new_timezone_str
     _save_config()
 
+
+def get_demo_port_status():
+    if not _CONFIG:
+        init_config()
+    return _CONFIG.get("demo_port_status", True)
+
+
+def get_peak_power():
+    if not _CONFIG:
+        init_config()
+    return _CONFIG.get("peak_power", False)
+
+
+def toggle_demo_port_status():
+    if not _CONFIG:
+        init_config()
+    _CONFIG["demo_port_status"] = not _CONFIG["demo_port_status"]
+    _save_config()
+    logger.info(f"demo_port_status set to: {_CONFIG['demo_port_status']}")
+
+def toggle_peak_power():
+    if not _CONFIG:
+        init_config()
+    _CONFIG["peak_power"] = not _CONFIG["peak_power"]
+    _save_config()
+    logger.info(f"peak_power set to: {_CONFIG['peak_power']}")

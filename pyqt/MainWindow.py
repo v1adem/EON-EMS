@@ -8,9 +8,10 @@ logger = logging.getLogger(__name__)
 
 from PySide6 import QtCore, QtGui
 from PySide6.QtGui import QAction, QIcon, QMovie
-from PySide6.QtWidgets import QMainWindow, QWidget, QStackedWidget, QVBoxLayout, QDialog, QSystemTrayIcon, QMenu, QLabel
+from PySide6.QtWidgets import QMainWindow, QWidget, QStackedWidget, QVBoxLayout, QDialog, QSystemTrayIcon, QMenu, \
+    QLabel, QPushButton, QWidgetAction
 
-from tools.config import resource_path
+from tools.config import resource_path, toggle_demo_port_status, toggle_peak_power
 from pyqt.dialogs.LanguageDialog import LanguageDialog
 from pyqt.dialogs.DeletingTimeDialog import DeletingTimeDialog
 from pyqt.dialogs.TimezoneDialog import TimezoneDialog
@@ -66,6 +67,39 @@ class MainWindow(QMainWindow):
         settings_action_timezone.triggered.connect(self.open_timezone_dialog)
         settings_menu.addAction(settings_action_timezone)
 
+        testing_menu = self.menu_bar.addMenu("🛠 Тестування")
+        testing_menu.setStyleSheet("""
+            QMenu {
+                font-weight: bold;
+                color: red;
+            }
+        """)
+        toggle_ports_button = QPushButton("Перемкнути доступність портів")
+        toggle_ports_button.setStyleSheet("""
+            QPushButton {
+                font-weight: bold;
+                color: red;
+            }
+        """)
+        toggle_ports_button.clicked.connect(self.toggle_ports)
+
+        toggle_ports_action = QWidgetAction(self)
+        toggle_ports_action.setDefaultWidget(toggle_ports_button)
+        testing_menu.addAction(toggle_ports_action)
+
+        toggle_peaks_button = QPushButton("Увімкнути/Вимкнути пікові значення")
+        toggle_peaks_button.setStyleSheet("""
+            QPushButton {
+                font-weight: bold;
+                color: red;
+            }
+        """)
+        toggle_peaks_button.clicked.connect(self.toggle_peak_values)
+
+        toggle_peaks_action = QWidgetAction(self)
+        toggle_peaks_action.setDefaultWidget(toggle_peaks_button)
+        testing_menu.addAction(toggle_peaks_action)
+
         self.central_widget = QWidget(self)
         self.setCentralWidget(self.central_widget)
 
@@ -79,6 +113,14 @@ class MainWindow(QMainWindow):
         self.stacked_widget.setCurrentIndex(0)
 
         self.showMaximized()
+
+    def toggle_ports(self):
+        toggle_demo_port_status()
+        if self.projects_widget is not None:
+            self.projects_widget.load_projects()
+
+    def toggle_peak_values(self):
+        toggle_peak_power()
 
     def initTrayIcon(self):
         self.tray_icon = QSystemTrayIcon(self)
