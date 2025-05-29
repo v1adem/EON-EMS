@@ -219,3 +219,71 @@ class SDM120DeviceDetailsWidget(BaseDeviceDetailsWidget):
 
         AsyncioPySide6.runTask(run_load_report_data())
         self.report_table.setEditTriggers(QTableView.EditTrigger.NoEditTriggers)
+
+    def update_graphs(self):
+        for phase_name in self.phases:
+            timestamps = []
+            voltages = []
+            currents = []
+            powers = []
+            energies = []
+
+            for report in self.report_data:
+                try:
+                    timestamps.append(report.timestamp)
+
+                    voltage = getattr(report, f'line_voltage_{self.phases.index(phase_name) + 1}')
+                    current = getattr(report, f'current_{self.phases.index(phase_name) + 1}')
+                    power = getattr(report, f'power_{self.phases.index(phase_name) + 1}')
+                    energy = getattr(report, f'total_kWh_{self.phases.index(phase_name) + 1}')
+
+                    voltages.append(voltage)
+                    currents.append(current)
+                    powers.append(power)
+                    energies.append(energy)
+
+                except Exception as e:
+                    logger.warning(e)
+                    continue
+            try:
+                self._update_single_phase_line_graph(timestamps, voltages, phase_name, "voltage")
+                self._update_single_phase_line_graph(timestamps, currents, phase_name, "current")
+                self._update_single_phase_line_graph(timestamps, powers, phase_name, "power")
+                self.add_tooltips(self.phase_data[phase_name]["voltage_graph"], timestamps, voltages)
+                self.add_tooltips(self.phase_data[phase_name]["current_graph"], timestamps, currents)
+                self.add_tooltips(self.phase_data[phase_name]["power_graph"], timestamps, powers)
+
+            except Exception as e:
+                logger.error(e)
+
+            hourly_energy = []
+            hourly_timestamps = []
+
+            last_energy = None
+            current_hour_start = None
+            current_hour_energy = 0.0
+
+            for report in self.report_data:
+                current_hour = report.timestamp.replace(minute=0, second=0, microsecond=0)
+
+                if current_hour_start is None:
+                    current_hour_start = current_hour
+
+                if current_hour != current_hour_start:
+                    if last_energy is not None:
+                        hourly_energy.append(current_hour_energy)
+                        hourly_timestamps.append(current_hour_start)
+                    current_hour_start = current_hour
+                    current_hour_energy = 0.0
+                energy_value = getattr(report, f'total_kWh')
+
+                if last_energy is not None:
+                    current_hour_energy += abs(energy_value - last_energy)
+
+                last_energy = energy_value
+
+            if last_energy is not None:
+                hourly_energy.append(current_hour_energy)
+                hourly_timestamps.append(current_hour_start)
+
+            self.update_energy_graph(hourly_timestamps, hourly_energy, phase_name)
