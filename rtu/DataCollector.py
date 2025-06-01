@@ -270,3 +270,4 @@ class DataCollectorRunnable(QRunnable):
             return ['1', '2', '3']
         else:
             logger.error("Unknown device model")
+
