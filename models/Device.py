@@ -27,7 +27,7 @@ class Device(Model):
 
     reading_type = fields.IntField(default=1)  # 1 for interval, 2 for time
     reading_interval = fields.IntField(default=1800)  # Seconds
-    reading_time = fields.IntField(default=0)  # Minutes
+    reading_time = fields.IntField(default=30)  # Minutes
 
     reading_status = fields.BooleanField(default=False)  # True = needs reading
     actual_status = fields.BooleanField(default=False)  # True = connected

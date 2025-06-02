@@ -11,7 +11,6 @@ logger = logging.getLogger(__name__)
 
 from AsyncioPySide6 import AsyncioPySide6
 from PySide6.QtCore import QRunnable
-from PySide6.QtWidgets import QMessageBox
 
 from tools.config import get_deleting_time, get_timezone
 from models.Device import Device

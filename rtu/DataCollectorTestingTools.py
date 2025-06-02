@@ -1,8 +1,11 @@
+import logging
 import random
 from datetime import datetime, timedelta, timezone
 
-from models.Report import SDM72Report, SDM72ReportTmp, SDM630ReportTmp, SDM120Report, SDM630Report
-from tools.config import get_demo_port_status  # Припускаємо, що цей імпорт працює
+from models.Report import SDM72Report, SDM120Report, SDM630Report
+from tools.config import get_demo_port_status, get_timezone
+
+logger = logging.getLogger(__name__)
 
 
 def rand_variation(value, variation_percent=5):
@@ -28,7 +31,7 @@ def _calculate_energy_increment(last_power_watts, current_power_watts, last_time
     return energy_increment_kwh
 
 
-def _generate_sdm120_data(last_data, current_timestamp_dt):
+def _generate_sdm120_data(last_data, current_timestamp_dt, is_historical):
     voltage_1 = rand_variation(230)
     current_1 = rand_variation(10)
     power_1 = round(voltage_1 * current_1 * 0.8, 3)
@@ -40,7 +43,7 @@ def _generate_sdm120_data(last_data, current_timestamp_dt):
     energy_increment = _calculate_energy_increment(last_power_1, power_1, last_timestamp_dt, current_timestamp_dt)
     total_active_energy = round(last_total_active_energy + energy_increment, 3)
 
-    return {
+    data = {
         "line_voltage_1": voltage_1,
         "current_1": current_1,
         "power_1": power_1,
@@ -53,9 +56,13 @@ def _generate_sdm120_data(last_data, current_timestamp_dt):
         "import_active_energy_1": total_active_energy,  # Припускаємо, що це імпорт
         "export_active_energy_1": 0.0,
     }
+    if is_historical:
+        data["timestamp"] = current_timestamp_dt
+
+    return data
 
 
-def _generate_sdm630_data(last_data, current_timestamp_dt):
+def _generate_sdm630_data(last_data, current_timestamp_dt, is_historical):
     data = {}
     total_system_power = 0
     total_kWh_sum = 0
@@ -153,10 +160,13 @@ def _generate_sdm630_data(last_data, current_timestamp_dt):
     data["export_kVArh_2"] = 0.0
     data["export_kVArh_3"] = 0.0
 
+    if is_historical:
+        data["timestamp"] = current_timestamp_dt
+
     return data
 
 
-def _generate_sdm72_data(last_data, current_timestamp_dt):
+def _generate_sdm72_data(last_data, current_timestamp_dt, is_historical):
     data = {}
     total_power_sum = 0
     total_va_sum = 0
@@ -210,44 +220,63 @@ def _generate_sdm72_data(last_data, current_timestamp_dt):
     data["total_import_active_power"] = total_power_sum
     data["total_export_active_power"] = 0.0
 
+    if is_historical:
+        data["timestamp"] = current_timestamp_dt
+
     return data
 
 
-def get_test_data(device_model, last_data, current_timestamp_dt=None):
+def get_test_data(device_model, last_data = None, current_timestamp_dt_for_calc=None, is_historical=False):
     if get_demo_port_status() is False:
         return {}
 
-    if current_timestamp_dt is None:
-        current_timestamp_dt = datetime.now(timezone.utc)
+    if current_timestamp_dt_for_calc is None:
+        current_timestamp_dt_for_calc = datetime.now(timezone.utc)
 
     if device_model == "SDM120":
-        return _generate_sdm120_data(last_data, current_timestamp_dt)
+        return _generate_sdm120_data(last_data, current_timestamp_dt_for_calc, is_historical)
     elif device_model == "SDM630":
-        return _generate_sdm630_data(last_data, current_timestamp_dt)
+        return _generate_sdm630_data(last_data, current_timestamp_dt_for_calc, is_historical)
     elif device_model == "SDM72":
-        return _generate_sdm72_data(last_data, current_timestamp_dt)
+        return _generate_sdm72_data(last_data, current_timestamp_dt_for_calc, is_historical)
     else:
         return None
 
 
 async def generate_historical_data(device):
-    start_date = datetime.now().date() - timedelta(days=60)  # Approximately 2 months ago
+    is_historical = True
+    tz = get_timezone()
+    start_date = datetime.now(tz=tz) - timedelta(days=30)
     current_date = datetime(start_date.year, start_date.month, start_date.day,
-                            tzinfo=timezone.utc)  # Convert to datetime with timezone
+                            tzinfo=tz)
 
-    delay = device.reading_time
+    delay = 1800
     db_model = get_db_model(device)
-    
+
     historical_data = []
     last_data = None
 
-    while current_date <= datetime.now(timezone.utc):
-        data = get_test_data(device, last_data, current_date)
-        last_data = data
-        historical_data.append(db_model(**data))
-        current_date += timedelta(minutes=delay)
-    await db_model.bulk_create(historical_data, batch_size=100)
-        
+    logger.info(f"Generating historical data...")
+    try:
+        while current_date <= datetime.now(tz=tz):
+            data = get_test_data(device.model, last_data, current_date, is_historical)
+            data["device_id"] = device.id
+
+            current_date += timedelta(seconds=delay)
+            last_data = data
+
+            converted_data = db_model(**data)
+            historical_data.append(converted_data)
+
+        logger.info("Try to add historical data to DB")
+        await db_model.bulk_create(historical_data, batch_size=100)
+        logger.info("Historical data generated and saved")
+    except Exception as e:
+        logger.error(f"Error generating historical data for {device.name}: {e}")
+
+
+
+
 def get_db_model(device):
     if device.model == "SDM120":
         return SDM120Report

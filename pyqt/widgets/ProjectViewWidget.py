@@ -21,6 +21,7 @@ from tortoise.exceptions import DoesNotExist
 from tools.config import resource_path, get_timezone
 from models.Device import Device
 from models.Report import SDM120Report, SDM120ReportTmp, SDM630Report, SDM630ReportTmp, SDM72Report, SDM72ReportTmp
+from rtu.DataCollectorTestingTools import generate_historical_data
 
 
 class ProjectViewWidget(QWidget):
@@ -260,12 +261,12 @@ class ProjectViewWidget(QWidget):
                 self.new_device = Device(name=device_name, manufacturer=manufacturer, model=model,
                                          device_address=device_address, project_id=self.project.id)
                 await self.new_device.save()
-                self.edit_device(self.new_device)
+                self.edit_device(self.new_device, True)
 
         AsyncioPySide6.runTask(run_add_device())
 
 
-    def edit_device(self, device):
+    def edit_device(self, device, just_added=False):
         async def run_save_changes():
             dialog = QDialog(self)
             dialog.setWindowTitle("Редагувати пристрій")
@@ -373,6 +374,10 @@ class ProjectViewWidget(QWidget):
 
                 await device.save(force_update=True)
                 self.load_devices()
+
+                if just_added:
+                    logger.info("Try to generate historical data")
+                    await generate_historical_data(device)
 
         AsyncioPySide6.runTask(run_save_changes())
 
