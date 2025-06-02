@@ -131,7 +131,7 @@ class DataCollectorRunnable(QRunnable):
         if not device.actual_status:
             await self.update_device_status(device, True)
 
-        phases = self.get_phases(device)
+        phases = get_phases(device)
         immediate_record = any(
             is_voltage_out_of_range(new_data, device, phase) or
             is_current_over_limit(new_data, device, phase) or
@@ -167,7 +167,7 @@ class DataCollectorRunnable(QRunnable):
         try:
             main_db_model, tmp_db_model = self.get_db_model(device)
 
-            tmp_report_data = self.get_tmp_data(device, new_data)
+            tmp_report_data = get_tmp_data(device, new_data)
             existing_tmp_report = await tmp_db_model.filter(device_id=device.id).first()
 
             if existing_tmp_report:
@@ -199,55 +199,6 @@ class DataCollectorRunnable(QRunnable):
             if first_report and first_report.timestamp.replace(tzinfo=None) < delete_before_date:
                 await first_report.delete()
 
-    def get_tmp_data(self, device, new_data):
-        if device.model == "SDM120":
-            tmp_report_data = {
-                "device_id": device.id,
-                "line_voltage_1": new_data.get("line_voltage_1"),
-                "current_1": new_data.get("current_1"),
-                "power_1": new_data.get("power_1"),
-                "total_active_energy": new_data.get("total_active_energy"),
-                "total_reactive_energy": new_data.get("total_reactive_energy")
-            }
-            return tmp_report_data
-        elif device.model == "SDM630":
-            tmp_report_data = {
-                "device_id": device.id,
-                "line_voltage_1": new_data.get("line_voltage_1"),
-                "line_voltage_2": new_data.get("line_voltage_2"),
-                "line_voltage_3": new_data.get("line_voltage_3"),
-                "current_1": new_data.get("current_1"),
-                "current_2": new_data.get("current_2"),
-                "current_3": new_data.get("current_3"),
-                "power_1": new_data.get("power_1"),
-                "power_2": new_data.get("power_2"),
-                "power_3": new_data.get("power_3"),
-                "total_kWh_1": new_data.get("total_kWh_1"),
-                "total_kWh_2": new_data.get("total_kWh_2"),
-                "total_kWh_3": new_data.get("total_kWh_3"),
-                "total_kWh": new_data.get("total_kWh"),
-            }
-            return tmp_report_data
-        elif device.model == "SDM72":
-            tmp_report_data = {
-                "device_id": device.id,
-                "line_voltage_1": new_data.get("line_voltage_1"),
-                "line_voltage_2": new_data.get("line_voltage_2"),
-                "line_voltage_3": new_data.get("line_voltage_3"),
-                "current_1": new_data.get("current_1"),
-                "current_2": new_data.get("current_2"),
-                "current_3": new_data.get("current_3"),
-                "power_1": new_data.get("power_1"),
-                "power_2": new_data.get("power_2"),
-                "power_3": new_data.get("power_3"),
-                "total_kWh": new_data.get("total_kWh"),
-            }
-            return tmp_report_data
-        else:
-            QMessageBox.warning(
-                self.main_window, f"{device.name}", f"{device.model} - Невідома модель", QMessageBox.StandardButton.Ok,
-                QMessageBox.StandardButton.Cancel)
-
     def get_db_model(self, device):
         if device.model == "SDM120":
             self.phases = ['1']
@@ -261,13 +212,61 @@ class DataCollectorRunnable(QRunnable):
         else:
             logger.error("Unknown device model")
 
-    def get_phases(self, device):
-        if device.model == "SDM120":
-            return ['1']
-        elif device.model == "SDM630":
-            return ['1', '2', '3']
-        elif device.model == "SDM72":
-            return ['1', '2', '3']
-        else:
-            logger.error("Unknown device model")
+def get_tmp_data(device, new_data):
+    if device.model == "SDM120":
+        tmp_report_data = {
+            "device_id": device.id,
+            "line_voltage_1": new_data.get("line_voltage_1"),
+            "current_1": new_data.get("current_1"),
+            "power_1": new_data.get("power_1"),
+            "total_active_energy": new_data.get("total_active_energy"),
+            "total_reactive_energy": new_data.get("total_reactive_energy")
+        }
+        return tmp_report_data
+    elif device.model == "SDM630":
+        tmp_report_data = {
+            "device_id": device.id,
+            "line_voltage_1": new_data.get("line_voltage_1"),
+            "line_voltage_2": new_data.get("line_voltage_2"),
+            "line_voltage_3": new_data.get("line_voltage_3"),
+            "current_1": new_data.get("current_1"),
+            "current_2": new_data.get("current_2"),
+            "current_3": new_data.get("current_3"),
+            "power_1": new_data.get("power_1"),
+            "power_2": new_data.get("power_2"),
+            "power_3": new_data.get("power_3"),
+            "total_kWh_1": new_data.get("total_kWh_1"),
+            "total_kWh_2": new_data.get("total_kWh_2"),
+            "total_kWh_3": new_data.get("total_kWh_3"),
+            "total_kWh": new_data.get("total_kWh"),
+        }
+        return tmp_report_data
+    elif device.model == "SDM72":
+        tmp_report_data = {
+            "device_id": device.id,
+            "line_voltage_1": new_data.get("line_voltage_1"),
+            "line_voltage_2": new_data.get("line_voltage_2"),
+            "line_voltage_3": new_data.get("line_voltage_3"),
+            "current_1": new_data.get("current_1"),
+            "current_2": new_data.get("current_2"),
+            "current_3": new_data.get("current_3"),
+            "power_1": new_data.get("power_1"),
+            "power_2": new_data.get("power_2"),
+            "power_3": new_data.get("power_3"),
+            "total_kWh": new_data.get("total_kWh"),
+        }
+        return tmp_report_data
+    else:
+        return {}
+
+
+def get_phases(device):
+    if device.model == "SDM120":
+        return ['1']
+    elif device.model == "SDM630":
+        return ['1', '2', '3']
+    elif device.model == "SDM72":
+        return ['1', '2', '3']
+    else:
+        logger.error("Unknown device model")
 
