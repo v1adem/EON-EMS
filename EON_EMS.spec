@@ -2,7 +2,7 @@
 
 
 a = Analysis(
-    ['EON_EMS.py'],
+    ['EON_EMS_demo.py'],
     pathex=[],
     binaries=[],
     datas=[
