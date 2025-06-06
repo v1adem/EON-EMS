@@ -228,19 +228,46 @@ class SDM120DeviceDetailsWidget(BaseDeviceDetailsWidget):
             powers = []
             energies = []
 
+            hourly_energy = []
+            hourly_timestamps = []
+
+            last_energy = None
+            current_hour_start = None
+            current_hour_energy = 0.0
+
             for report in self.report_data:
                 try:
                     timestamps.append(report.timestamp)
 
-                    voltage = getattr(report, f'line_voltage_{self.phases.index(phase_name) + 1}')
-                    current = getattr(report, f'current_{self.phases.index(phase_name) + 1}')
-                    power = getattr(report, f'power_{self.phases.index(phase_name) + 1}')
-                    energy = getattr(report, f'total_kWh_{self.phases.index(phase_name) + 1}')
+                    voltage = getattr(report, f'line_voltage_1')
+                    current = getattr(report, f'current_1')
+                    power = getattr(report, f'power_1')
 
                     voltages.append(voltage)
                     currents.append(current)
                     powers.append(power)
-                    energies.append(energy)
+
+                    current_hour = report.timestamp.replace(minute=0, second=0, microsecond=0)
+
+                    if current_hour_start is None:
+                        current_hour_start = current_hour
+
+                    if current_hour != current_hour_start:
+                        if last_energy is not None:
+                            hourly_energy.append(current_hour_energy)
+                            hourly_timestamps.append(current_hour_start)
+                        current_hour_start = current_hour
+                        current_hour_energy = 0.0
+                    energy_value = getattr(report, f'total_kWh_1')
+
+                    if last_energy is not None:
+                        current_hour_energy += abs(energy_value - last_energy)
+
+                    last_energy = energy_value
+
+                    if last_energy is not None:
+                        hourly_energy.append(current_hour_energy)
+                        hourly_timestamps.append(current_hour_start)
 
                 except Exception as e:
                     logger.warning(e)
@@ -253,37 +280,6 @@ class SDM120DeviceDetailsWidget(BaseDeviceDetailsWidget):
                 self.add_tooltips(self.phase_data[phase_name]["current_graph"], timestamps, currents)
                 self.add_tooltips(self.phase_data[phase_name]["power_graph"], timestamps, powers)
 
+                self.update_energy_graph(hourly_timestamps, hourly_energy, phase_name)
             except Exception as e:
                 logger.error(e)
-
-            hourly_energy = []
-            hourly_timestamps = []
-
-            last_energy = None
-            current_hour_start = None
-            current_hour_energy = 0.0
-
-            for report in self.report_data:
-                current_hour = report.timestamp.replace(minute=0, second=0, microsecond=0)
-
-                if current_hour_start is None:
-                    current_hour_start = current_hour
-
-                if current_hour != current_hour_start:
-                    if last_energy is not None:
-                        hourly_energy.append(current_hour_energy)
-                        hourly_timestamps.append(current_hour_start)
-                    current_hour_start = current_hour
-                    current_hour_energy = 0.0
-                energy_value = getattr(report, f'total_kWh')
-
-                if last_energy is not None:
-                    current_hour_energy += abs(energy_value - last_energy)
-
-                last_energy = energy_value
-
-            if last_energy is not None:
-                hourly_energy.append(current_hour_energy)
-                hourly_timestamps.append(current_hour_start)
-
-            self.update_energy_graph(hourly_timestamps, hourly_energy, phase_name)

@@ -20,10 +20,10 @@ class Device(Model):
     model = fields.CharField(max_length=255)
     device_address = fields.IntField()
 
-    minV = fields.IntField(default=200)
-    maxV = fields.IntField(default=280)
+    minV = fields.IntField(default=100)
+    maxV = fields.IntField(default=500)
     maxA = fields.IntField(default=100)
-    maxW = fields.IntField(default=2500)
+    maxW = fields.IntField(default=99999)
 
     reading_type = fields.IntField(default=1)  # 1 for interval, 2 for time
     reading_interval = fields.IntField(default=1800)  # Seconds

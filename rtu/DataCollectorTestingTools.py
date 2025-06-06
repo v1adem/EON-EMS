@@ -3,18 +3,18 @@ import random
 from datetime import datetime, timedelta, timezone
 
 from models.Report import SDM72Report, SDM120Report, SDM630Report
-from tools.config import get_demo_port_status, get_timezone
+from tools.config import get_demo_port_status, get_timezone, get_peak_power
 
 logger = logging.getLogger(__name__)
 
 
-def rand_variation(value, variation_percent=5):
+def rand_variation(value, variation_percent=3):
     delta = value * (variation_percent / 100)
     return round(random.uniform(value - delta, value + delta), 2)
 
 
 def _calculate_energy_increment(last_power_watts, current_power_watts, last_timestamp_dt, current_timestamp_dt):
-    if last_timestamp_dt is None or current_timestamp_dt <= last_timestamp_dt:
+    if last_timestamp_dt is None:
         return 0.0
 
     if last_timestamp_dt.tzinfo is None:
@@ -22,23 +22,34 @@ def _calculate_energy_increment(last_power_watts, current_power_watts, last_time
     if current_timestamp_dt.tzinfo is None:
         current_timestamp_dt = current_timestamp_dt.replace(tzinfo=timezone.utc)
 
+    last_timestamp_dt = current_timestamp_dt if last_timestamp_dt is None else last_timestamp_dt
+
     time_diff: timedelta = current_timestamp_dt - last_timestamp_dt
     delta_time_seconds = time_diff.total_seconds()
 
     avg_power_watts = (last_power_watts + current_power_watts) / 2
 
     energy_increment_kwh = (avg_power_watts / 1000) * (delta_time_seconds / 3600)
+
     return energy_increment_kwh
 
 
-def _generate_sdm120_data(last_data, current_timestamp_dt, is_historical):
-    voltage_1 = rand_variation(230)
-    current_1 = rand_variation(10)
+def _generate_sdm120_data(last_data, current_timestamp_dt, is_historical, voltage_peak):
+    last_voltage = getattr(last_data, 'line_voltage_1', 230) if last_data else rand_variation(230)
+    if voltage_peak is True:
+        voltage_1 = rand_variation(9999)
+    elif voltage_peak is False and last_voltage > 500:
+        voltage_1 = 230
+    else:
+        voltage_1 = rand_variation(last_voltage) if last_data else rand_variation(230)
+
+    current_1 = rand_variation(getattr(last_data, 'current_1', 10), 1) if last_data else rand_variation(
+        10, 1)
     power_1 = round(voltage_1 * current_1 * 0.8, 3)
 
     last_power_1 = getattr(last_data, 'power_1', 0.0) if last_data else 0.0
-    last_total_active_energy = getattr(last_data, 'total_active_energy', 0.0) if last_data else 0.0
-    last_timestamp_dt = getattr(last_data, 'timestamp', None) if last_data else None
+    last_total_active_energy = getattr(last_data, 'total_active_energy', 1) if last_data else 1
+    last_timestamp_dt = getattr(last_data, 'timestamp', None)
 
     energy_increment = _calculate_energy_increment(last_power_1, power_1, last_timestamp_dt, current_timestamp_dt)
     total_active_energy = round(last_total_active_energy + energy_increment, 3)
@@ -53,16 +64,15 @@ def _generate_sdm120_data(last_data, current_timestamp_dt, is_historical):
         "reactive_power_1": 0.0,
         "power_factor_1": 1.0,
         "frequency_1": 50.0,
-        "import_active_energy_1": total_active_energy,  # Припускаємо, що це імпорт
+        "import_active_energy_1": total_active_energy,
         "export_active_energy_1": 0.0,
     }
     if is_historical:
         data["timestamp"] = current_timestamp_dt
-
     return data
 
 
-def _generate_sdm630_data(last_data, current_timestamp_dt, is_historical):
+def _generate_sdm630_data(last_data, current_timestamp_dt, is_historical, voltage_peak):
     data = {}
     total_system_power = 0
     total_kWh_sum = 0
@@ -72,11 +82,18 @@ def _generate_sdm630_data(last_data, current_timestamp_dt, is_historical):
     last_timestamp_dt = getattr(last_data, 'timestamp', None) if last_data else None
 
     for i in range(1, 4):
-        voltage = rand_variation(230)
-        current = rand_variation(10)
-        power = round(voltage * current * 0.8, 3)  # Активна потужність у Ваттах
-        va = round(voltage * current, 3)  # Повна потужність у ВА
-        var = round(va * 0.6, 3)  # Реактивна потужність у ВАр (Q = S * sin(phi))
+        last_voltage = getattr(last_data, f'line_voltage_{i}', 230) if last_data else rand_variation(230)
+        if voltage_peak is True:
+            voltage = rand_variation(9999)
+        elif voltage_peak is False and last_voltage > 500:
+            voltage = 230
+        else:
+            voltage = rand_variation(last_voltage) if last_data else rand_variation(230)
+
+        current = rand_variation(getattr(last_data, f'current_{i}', 10)) if last_data else rand_variation(10, 1)
+        power = round(voltage * current * 0.8, 3)
+        va = round(voltage * current, 3)
+        var = round(va * 0.6, 3)
 
         data[f"line_voltage_{i}"] = voltage
         data[f"current_{i}"] = current
@@ -87,50 +104,48 @@ def _generate_sdm630_data(last_data, current_timestamp_dt, is_historical):
 
         total_system_power += power
 
-        # Розрахунок активної енергії по фазах
-        last_power_i = getattr(last_data, f'power_{i}', 0.0) if last_data else 0.0
-        last_kwh_i = getattr(last_data, f'total_kWh_{i}', 0.0) if last_data else 0.0
+        last_power_i = getattr(last_data, f'power_{i}', 0) if last_data else 0
+        last_kwh_i = getattr(last_data, f"total_kWh_{i}", 0) if last_data else 0
 
-        energy_increment_kwh_i = _calculate_energy_increment(last_power_i, power, last_timestamp_dt,
-                                                             current_timestamp_dt)
+        if last_kwh_i == 0:
+            energy_increment_kwh_i = 1
+        else:
+            energy_increment_kwh_i = _calculate_energy_increment(last_power_i, power, last_timestamp_dt,
+                                                                 current_timestamp_dt)
+
         data[f"total_kWh_{i}"] = round(last_kwh_i + energy_increment_kwh_i, 3)
         total_kWh_sum += data[f"total_kWh_{i}"]
 
-        # Розрахунок повної енергії по фазах
-        last_va_i = getattr(last_data, f'total_system_VA_{i}',
-                            0.0) if last_data else 0.0  # Припускаємо, що є такий ключ
+        last_va_i = getattr(last_data, f'total_system_VA', 0) if last_data else 0
         energy_increment_kvah_i = _calculate_energy_increment(last_va_i, va, last_timestamp_dt, current_timestamp_dt)
-        data[f"total_kVAh_{i}"] = round(getattr(last_data, f'total_kVAh_{i}', 0.0) + energy_increment_kvah_i,
+        data[f"total_kVAh_{i}"] = round(getattr(last_data, f"total_kVAh_{i}", 0) if last_data else 0 + energy_increment_kvah_i,
                                         3) if last_data else round(energy_increment_kvah_i, 3)
         total_kVAh_sum += data[f"total_kVAh_{i}"]
 
-        # Розрахунок реактивної енергії по фазах
-        last_var_i = getattr(last_data, f'reactive_power_{i}', 0.0) if last_data else 0.0
+        last_var_i = getattr(last_data, f'reactive_power_{i}', 0) if last_data else 0
         energy_increment_kvarh_i = _calculate_energy_increment(last_var_i, var, last_timestamp_dt, current_timestamp_dt)
-        data[f"total_kVArh_{i}"] = round(getattr(last_data, f'total_kVArh_{i}', 0.0) + energy_increment_kvarh_i,
+        data[f"total_kVArh_{i}"] = round(getattr(last_data, f'total_kVArh_{i}', 0) if last_data else 0 + energy_increment_kvarh_i,
                                          3) if last_data else round(energy_increment_kvarh_i, 3)
         total_kVArh_sum += data[f"total_kVArh_{i}"]
 
-    # Додаємо загальносистемні значення
     data["total_system_power"] = round(total_system_power, 3)
-    data["total_kWh"] = round(total_kWh_sum, 3)  # Сума кВт*год по фазах
+    data["total_kWh"] = round(total_kWh_sum, 3)
 
-    # Додаємо інші значення
     data["total_system_power_factor"] = round(total_system_power / (total_system_power / 0.8),
                                               3) if total_system_power > 0 else 1.0
-    data["total_system_VA"] = round(total_system_power / 0.8, 3)  # S = P / cos(phi)
-    data["total_system_VAr"] = round(total_system_power * 0.6 / 0.8, 3)  # Q = P * tg(phi)
+    data["total_system_VA"] = round(total_system_power / 0.8, 3)
+    data["total_system_VAr"] = round(total_system_power * 0.6 / 0.8, 3)
 
-    data["total_import_kwh"] = data["total_kWh"]  # Припускаємо, що все є імпортом
+    data["total_import_kwh"] = data["total_kWh"]
     data["total_export_kwh"] = 0.0
-    data["total_import_kVAh"] = round(total_kVAh_sum, 3)  # Загальна імпортна повна енергія
+    data["total_import_kVAh"] = round(total_kVAh_sum, 3)
     data["total_export_kVAh"] = 0.0
     data["total_kVAh"] = round(total_kVAh_sum, 3)
 
-    data["_1_to_2_voltage"] = rand_variation(400)  # Міжфазна напруга
+    data["_1_to_2_voltage"] = rand_variation(400)
     data["_2_to_3_voltage"] = rand_variation(400)
     data["_3_to_1_voltage"] = rand_variation(400)
-    data["neutral_current"] = rand_variation(0.5)  # Невеликий струм нейтралі
+    data["neutral_current"] = rand_variation(0.5)
     data["line_voltage_THD_1"] = 1.0
     data["line_voltage_THD_2"] = 1.0
     data["line_voltage_THD_3"] = 1.0
@@ -144,7 +159,7 @@ def _generate_sdm630_data(last_data, current_timestamp_dt, is_historical):
     data["phase_voltage_THD_2"] = 1.0
     data["phase_voltage_THD_3"] = 1.0
     data["average_line_to_line_voltage_THD"] = 1.0
-    data["total_kVArh"] = round(total_kVArh_sum, 3)  # Загальна реактивна енергія
+    data["total_kVArh"] = round(total_kVArh_sum, 3)
 
     data["import_kWh_1"] = data["total_kWh_1"]
     data["import_kWh_2"] = data["total_kWh_2"]
@@ -166,7 +181,7 @@ def _generate_sdm630_data(last_data, current_timestamp_dt, is_historical):
     return data
 
 
-def _generate_sdm72_data(last_data, current_timestamp_dt, is_historical):
+def _generate_sdm72_data(last_data, current_timestamp_dt, is_historical, voltage_peak):
     data = {}
     total_power_sum = 0
     total_va_sum = 0
@@ -175,8 +190,14 @@ def _generate_sdm72_data(last_data, current_timestamp_dt, is_historical):
     last_timestamp_dt = getattr(last_data, 'timestamp', None) if last_data else None
 
     for i in range(1, 4):
-        voltage = rand_variation(230)
-        current = rand_variation(10)
+        last_voltage = getattr(last_data, f'line_voltage_{i}', 230) if last_data else rand_variation(230)
+        if voltage_peak is True:
+            voltage = rand_variation(9999)
+        elif voltage_peak is False and last_voltage > 500:
+            voltage = 230
+        else:
+            voltage = rand_variation(last_voltage) if last_data else rand_variation(230)
+        current = rand_variation(getattr(last_data, f'current_{i}', 10)) if last_data else rand_variation(10, 1)
         power = round(voltage * current * 0.8, 3)
         va = round(voltage * current, 3)
         var = round(va * 0.6, 3)
@@ -192,7 +213,7 @@ def _generate_sdm72_data(last_data, current_timestamp_dt, is_historical):
         total_va_sum += va
         total_var_sum += var
 
-    last_total_kwh = getattr(last_data, "total_kWh", 0.0) if last_data else 0.0
+    last_total_kwh = getattr(last_data, "total_kWh", 2) if last_data else 0.0
     last_total_power_sum = getattr(last_data, "total_system_power", 0.0) if last_data else 0.0
 
     energy_increment_kwh = _calculate_energy_increment(last_total_power_sum, total_power_sum, last_timestamp_dt,
@@ -230,15 +251,20 @@ def get_test_data(device_model, last_data = None, current_timestamp_dt_for_calc=
     if get_demo_port_status() is False:
         return {}
 
+    voltage_peak = get_peak_power()
+    if is_historical:
+        voltage_peak = False
+
     if current_timestamp_dt_for_calc is None:
-        current_timestamp_dt_for_calc = datetime.now(timezone.utc)
+        tz = get_timezone()
+        current_timestamp_dt_for_calc = datetime.now(tz=tz)
 
     if device_model == "SDM120":
-        return _generate_sdm120_data(last_data, current_timestamp_dt_for_calc, is_historical)
+        return _generate_sdm120_data(last_data, current_timestamp_dt_for_calc, is_historical, voltage_peak)
     elif device_model == "SDM630":
-        return _generate_sdm630_data(last_data, current_timestamp_dt_for_calc, is_historical)
+        return _generate_sdm630_data(last_data, current_timestamp_dt_for_calc, is_historical, voltage_peak)
     elif device_model == "SDM72":
-        return _generate_sdm72_data(last_data, current_timestamp_dt_for_calc, is_historical)
+        return _generate_sdm72_data(last_data, current_timestamp_dt_for_calc, is_historical, voltage_peak)
     else:
         return None
 
@@ -246,7 +272,7 @@ def get_test_data(device_model, last_data = None, current_timestamp_dt_for_calc=
 async def generate_historical_data(device):
     is_historical = True
     tz = get_timezone()
-    start_date = datetime.now(tz=tz) - timedelta(days=30)
+    start_date = datetime.now(tz=tz) - timedelta(days=7)
     current_date = datetime(start_date.year, start_date.month, start_date.day,
                             tzinfo=tz)
 
@@ -263,7 +289,7 @@ async def generate_historical_data(device):
             data["device_id"] = device.id
 
             current_date += timedelta(seconds=delay)
-            last_data = data
+            last_data = db_model(**data)
 
             converted_data = db_model(**data)
             historical_data.append(converted_data)

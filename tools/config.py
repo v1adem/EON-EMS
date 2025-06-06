@@ -150,7 +150,7 @@ def get_demo_port_status():
 def get_peak_power():
     if not _CONFIG:
         init_config()
-    return _CONFIG.get("peak_power", False)
+    return _CONFIG.get("peak_power")
 
 
 def toggle_demo_port_status():

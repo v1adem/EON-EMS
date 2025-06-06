@@ -623,6 +623,13 @@ class BaseDeviceDetailsWidget(QWidget):
             powers = []
             energies = []
 
+            hourly_energy = []
+            hourly_timestamps = []
+
+            last_energy = None
+            current_hour_start = None
+            current_hour_energy = 0.0
+
             for report in self.report_data:
                 try:
                     timestamps.append(report.timestamp)
@@ -642,12 +649,37 @@ class BaseDeviceDetailsWidget(QWidget):
                         voltage = getattr(report, f'line_voltage_{self.phases.index(phase_name)}')
                         current = getattr(report, f'current_{self.phases.index(phase_name)}')
                         power = getattr(report, f'power_{self.phases.index(phase_name)}')
-                        energy = getattr(report, f'total_kWh_{self.phases.index(phase_name)}')
 
                         voltages.append(voltage)
                         currents.append(current)
                         powers.append(power)
-                        energies.append(energy)
+
+                    current_hour = report.timestamp.replace(minute=0, second=0, microsecond=0)
+
+                    if current_hour_start is None:
+                        current_hour_start = current_hour
+
+                    if current_hour != current_hour_start:
+                        if last_energy is not None:
+                            hourly_energy.append(current_hour_energy)
+                            hourly_timestamps.append(current_hour_start)
+                        current_hour_start = current_hour
+                        current_hour_energy = 0.0
+
+                    if phase_name == "Загальне":
+                        energy_value = getattr(report, 'total_kWh')
+                    else:
+                        energy_value = getattr(report, f'total_kWh_{self.phases.index(phase_name)}')
+
+
+                    if last_energy is not None:
+                        current_hour_energy += abs(energy_value - last_energy)
+
+                    last_energy = energy_value
+
+                    if last_energy is not None:
+                        hourly_energy.append(current_hour_energy)
+                        hourly_timestamps.append(current_hour_start)
 
                 except Exception as e:
                     logger.warning(e)
@@ -670,40 +702,11 @@ class BaseDeviceDetailsWidget(QWidget):
                                                     color_shades=[(153, 0, 0), (204, 51, 0), (255, 102, 0)])
                     self._update_general_line_graph(timestamps, transposed_powers, "Потуж.", "power",
                                                     color_shades=[(0, 153, 0), (51, 204, 0), (102, 255, 0)])
+
+                self.update_energy_graph(hourly_timestamps, hourly_energy, phase_name)
             except Exception as e:
                 logger.error(e)
 
-            hourly_energy = []
-            hourly_timestamps = []
-
-            last_energy = None
-            current_hour_start = None
-            current_hour_energy = 0.0
-
-            for report in self.report_data:
-                current_hour = report.timestamp.replace(minute=0, second=0, microsecond=0)
-
-                if current_hour_start is None:
-                    current_hour_start = current_hour
-
-                if current_hour != current_hour_start:
-                    if last_energy is not None:
-                        hourly_energy.append(current_hour_energy)
-                        hourly_timestamps.append(current_hour_start)
-                    current_hour_start = current_hour
-                    current_hour_energy = 0.0
-                energy_value = getattr(report, f'total_kWh')
-
-                if last_energy is not None:
-                    current_hour_energy += abs(energy_value - last_energy)
-
-                last_energy = energy_value
-
-            if last_energy is not None:
-                hourly_energy.append(current_hour_energy)
-                hourly_timestamps.append(current_hour_start)
-
-            self.update_energy_graph(hourly_timestamps, hourly_energy, phase_name)
 
     def center_graphs_on_timestamp(self, timestamp):
         for phase_name in self.phases:

@@ -29,7 +29,7 @@ def is_voltage_out_of_range(new_data, device, phase):
         elif voltage_value < device.minV:
             if voltage_value == 0:
                 return False
-            print(f"Voltage of {phase} phase in {device.name} ({device.model}) is less than ({device.minV}V). \n" +
+            logger.warning(f"Voltage of {phase} phase in {device.name} ({device.model}) is less than ({device.minV}V). \n" +
                   f"Current value: {voltage_value}V. Lack: {device.minV - voltage_value}V.")
             return True
     return False
@@ -131,12 +131,21 @@ class DataCollectorRunnable(QRunnable):
             await self.update_device_status(device, True)
 
         phases = get_phases(device)
+        def is_230():
+            if new_data.get('line_voltage_1') == 230:
+                return True
+            else:
+                return False
+
         immediate_record = any(
             is_voltage_out_of_range(new_data, device, phase) or
             is_current_over_limit(new_data, device, phase) or
-            is_power_over_limit(new_data, device, phase)
+            is_power_over_limit(new_data, device, phase) or
+            is_230()
             for phase in phases
         )
+
+        await self.save_tmp_device_data(device, new_data)
 
         if not immediate_record:
             last_report = await self.get_last_report(device)
@@ -164,7 +173,24 @@ class DataCollectorRunnable(QRunnable):
 
     async def save_device_data(self, device, new_data):
         try:
-            main_db_model, tmp_db_model = self.get_db_model(device)
+            main_db_model, _ = self.get_db_model(device)
+
+            report_data = {"device_id": device.id}
+            report_data.update({key: value for key, value in new_data.items() if value is not None})
+
+            new_report = main_db_model(**report_data)
+            await new_report.save()
+
+            logger.info(f"Report saved - {device.name}, {device.model}")
+
+            await self.clean_old_records(device, main_db_model)
+
+        except Exception as e:
+            logger.error(f"Error saving data for device {device.name}: {e}")
+
+    async def save_tmp_device_data(self, device, new_data):
+        try:
+            _, tmp_db_model = self.get_db_model(device)
 
             tmp_report_data = get_tmp_data(device, new_data)
             existing_tmp_report = await tmp_db_model.filter(device_id=device.id).first()
@@ -176,16 +202,6 @@ class DataCollectorRunnable(QRunnable):
             else:
                 tmp_report = tmp_db_model(**tmp_report_data)
                 await tmp_report.save()
-
-            report_data = {"device_id": device.id}
-            report_data.update({key: value for key, value in new_data.items() if value is not None})
-
-            new_report = main_db_model(**report_data)
-            await new_report.save()
-
-            logger.info(f"Report saved - {device.name}, {device.model}")
-
-            await self.clean_old_records(device, main_db_model)
 
         except Exception as e:
             logger.error(f"Error saving data for device {device.name}: {e}")
