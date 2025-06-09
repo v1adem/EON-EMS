@@ -217,11 +217,15 @@ class SDM120DeviceDetailsWidget(BaseDeviceDetailsWidget):
 
             self.update_graphs()
 
+            self.main_window.hide_loading()
+
         AsyncioPySide6.runTask(run_load_report_data())
         self.report_table.setEditTriggers(QTableView.EditTrigger.NoEditTriggers)
 
     def update_graphs(self):
         for phase_name in self.phases:
+            logger.info(f"Loading phase - {phase_name}")
+
             timestamps = []
             voltages = []
             currents = []

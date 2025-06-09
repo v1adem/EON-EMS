@@ -34,7 +34,7 @@ class MainWindow(QMainWindow):
         self.project_view_widget = None
         self.device_details_widget = None
 
-        self.isAdmin = False
+        self.isAdmin = True # Toggle to turn off/on the registration/login stage
 
         self.setWindowTitle("EON EMS DEMO v0.4.0")
         self.setGeometry(100, 100, 1200, 800)
@@ -67,7 +67,7 @@ class MainWindow(QMainWindow):
         settings_action_timezone.triggered.connect(self.open_timezone_dialog)
         settings_menu.addAction(settings_action_timezone)
 
-        testing_menu = self.menu_bar.addMenu("🛠 Тестування")
+        testing_menu = self.menu_bar.addMenu("🛠 Симуляція")
         testing_menu.setStyleSheet("""
             QMenu {
                 font-weight: bold;
@@ -78,7 +78,7 @@ class MainWindow(QMainWindow):
         toggle_ports_button.setStyleSheet("""
             QPushButton {
                 font-weight: bold;
-                color: red;
+                color: white;
             }
         """)
         toggle_ports_button.clicked.connect(self.toggle_ports)
@@ -91,7 +91,7 @@ class MainWindow(QMainWindow):
         toggle_peaks_button.setStyleSheet("""
             QPushButton {
                 font-weight: bold;
-                color: red;
+                color: white;
             }
         """)
         toggle_peaks_button.clicked.connect(self.toggle_peak_values)
@@ -107,10 +107,10 @@ class MainWindow(QMainWindow):
         self.central_layout = QVBoxLayout(self.central_widget)
         self.central_layout.addWidget(self.stacked_widget)
 
-        self.registration_widget = RegistrationLoginForm(self)
-        self.stacked_widget.addWidget(self.registration_widget)
-
-        self.stacked_widget.setCurrentIndex(0)
+        if self.isAdmin is False:
+            self.open_deleting_time_dialog()
+        else:
+            self.open_projects_list()
 
         self.showMaximized()
 
@@ -154,15 +154,20 @@ class MainWindow(QMainWindow):
         if language_dialog.exec_() == QDialog.DialogCode.Accepted:
             current_language = language_dialog.selected_language
 
+    def open_registration_login(self):
+        self.registration_widget = RegistrationLoginForm(self)
+        index = self.stacked_widget.addWidget(self.registration_widget)
+        self.stacked_widget.setCurrentIndex(index)
+
     def open_projects_list(self):
         self.projects_widget = ProjectsWidget(self)
-        self.stacked_widget.addWidget(self.projects_widget)
-        self.stacked_widget.setCurrentIndex(1)
+        index = self.stacked_widget.addWidget(self.projects_widget)
+        self.stacked_widget.setCurrentIndex(index)
 
     def open_project_details(self, project):
         self.project_view_widget = ProjectViewWidget(self, project)
-        self.stacked_widget.addWidget(self.project_view_widget)
-        self.stacked_widget.setCurrentIndex(2)
+        index = self.stacked_widget.addWidget(self.project_view_widget)
+        self.stacked_widget.setCurrentIndex(index)
 
     def open_device_details(self, device):
         widget_class = {
@@ -172,8 +177,8 @@ class MainWindow(QMainWindow):
         }.get(device.model, BaseDeviceDetailsWidget)
 
         self.device_details_widget = widget_class(self, device)
-        self.stacked_widget.addWidget(self.device_details_widget)
-        self.stacked_widget.setCurrentIndex(3)
+        index = self.stacked_widget.addWidget(self.device_details_widget)
+        self.stacked_widget.setCurrentIndex(index)
 
     def go_back(self):
         current_index = self.stacked_widget.currentIndex()
@@ -185,15 +190,15 @@ class MainWindow(QMainWindow):
 
             self.stacked_widget.setCurrentIndex(current_index - 1)
 
-        if current_index == 1:
-            self.isAdmin = False
+        #if current_index == 1:
+        #    self.isAdmin = False
+        #
+        #    self.stacked_widget.removeWidget(self.registration_widget)
 
-            self.stacked_widget.removeWidget(self.registration_widget)
+        #    self.registration_widget = RegistrationLoginForm(self)
+        #    self.stacked_widget.addWidget(self.registration_widget)
 
-            self.registration_widget = RegistrationLoginForm(self)
-            self.stacked_widget.addWidget(self.registration_widget)
-
-            self.stacked_widget.setCurrentIndex(0)
+        #    self.stacked_widget.setCurrentIndex(0)
 
     def show_loading(self):
         self.loading_label = QLabel(self)

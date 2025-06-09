@@ -75,7 +75,8 @@ class DataCollectorRunnable(QRunnable):
                 for device in devices:
                     await self.handle_device_reading(device)
             except Exception as e:
-                logger.error(f"Error in main collection loop: {e}")
+                pass
+                #logger.error(f"Error in main collection loop: {e}")
 
             if not self.stop_collecting:
                 await asyncio.sleep(1)

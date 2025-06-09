@@ -70,6 +70,8 @@ class BaseDeviceDetailsWidget(QWidget):
 
         self.set_light_theme()
 
+        logger.info("Loading data...")
+
     def init_timers(self):
         self.timer_clock_indicator = QTimer(self)
         self.timer_clock_indicator.timeout.connect(self.update_clock_indicators)
@@ -77,8 +79,6 @@ class BaseDeviceDetailsWidget(QWidget):
         self.timer_clock_indicator.start()
 
         self.load_report_data()
-
-        self.main_window.hide_loading()
 
         self.timer_update_all_tabs_graphs = QTimer(self)
         self.timer_update_all_tabs_graphs.timeout.connect(self.auto_update)
@@ -270,9 +270,8 @@ class BaseDeviceDetailsWidget(QWidget):
         self.tabs.addTab(tab, phase_name)
 
     def auto_update(self):
-        if not self.auto_update_checkbox.isChecked():
-            return
-        self.load_report_data()
+        if self.auto_update_checkbox.isChecked():
+            self.load_report_data()
 
     def load_report_data(self):
         pass
@@ -458,38 +457,33 @@ class BaseDeviceDetailsWidget(QWidget):
         plot_item = getattr(self, f"{graph_type}_plot_item_{phase_name}")
         scatter = getattr(self, f"{graph_type}_scatter_item_{phase_name}")
 
+        # Ми не викликаємо graph_widget.clear() тут.
+        # Замість цього, ми завжди передаємо повний набір даних для поточного фільтра.
+        # pyqtgraph ефективно оновлює, якщо дані відрізняються.
+
         if not timestamps_numeric or not values:
             logger.warning(
                 f"[_update_single_phase_line_graph] Skipped update for {phase_name} - {graph_type} due to empty data.")
+            # Якщо даних немає, очищаємо графік.
+            plot_item.setData([], [])
+            scatter.setData([], [])
             return
 
-        current_x = plot_item.xData
-
         try:
-            if current_x is None or timestamps_numeric[-1] > current_x[-1]:
-                new_timestamps = []
-                new_values = []
-                if current_x is not None:
-                    last_ts = current_x[-1]
-                    for i, ts in enumerate(timestamps_numeric):
-                        if ts > last_ts:
-                            new_timestamps.append(ts)
-                            new_values.append(values[i])
-                else:
-                    new_timestamps = timestamps_numeric
-                    new_values = values
+            # Просто встановлюємо новий набір даних.
+            # Якщо діапазон змінився (наприклад, через фільтр), pyqtgraph перемалює графік.
+            # Якщо це нові дані, додані в кінець (наприклад, live оновлення), pyqtgraph це теж обробить.
+            plot_item.setData(timestamps_numeric, values)
+            scatter.setData([
+                {'pos': (x, y), 'data': x}
+                for x, y in zip(timestamps_numeric, values)
+            ])
 
-                if new_timestamps:
-                    updated_x = list(current_x) if current_x is not None else []
-                    updated_y = list(plot_item.yData) if plot_item.yData is not None else []
-                    updated_x.extend(new_timestamps)
-                    updated_y.extend(new_values)
-                    plot_item.setData(updated_x, updated_y)
-                    scatter.setData([
-                        {'pos': (x, y), 'data': x}
-                        for x, y in zip(updated_x, updated_y)
-                    ])
-                    scatter.sigClicked.connect(self.on_graph_point_clicked)
+            # Підключення сигналу, якщо ще не підключено
+            if not hasattr(scatter, '_clicked_connected'):
+                scatter.sigClicked.connect(self.on_graph_point_clicked)
+                scatter._clicked_connected = True
+
         except Exception as e:
             logger.error(f"[_update_single_phase_line_graph] Error updating graph for {phase_name} - {graph_type}: {e}")
 
@@ -497,70 +491,73 @@ class BaseDeviceDetailsWidget(QWidget):
         timestamps_numeric = [ts.timestamp() for ts in timestamps]
         graph_widget = self.phase_data["Загальне"][f"{graph_type}_graph"]
 
-        if not hasattr(graph_widget, 'legend'):
-            legend = self.create_legend(graph_widget)
+        # Очищаємо всі PlotItem та ScatterPlotItem, пов'язані з цим graph_widget,
+        # але не сам graph_widget.clear(), щоб не видаляти осі та інше.
+        # Більш ефективно видаляти існуючі plot_items і створювати нові.
+        # pyqtgraph.PlotWidget.clear() видаляє все, що було додано addItem(), plot()
+        # але не видаляє сам PlotWidget.
+
+        # Видаляємо всі попередні plot_items та scatter_items для цього graph_widget
+        # Це ефективніше, ніж намагатися їх оновити, особливо якщо кількість фаз змінюється
+        # або елементи додаються/видаляються.
+        items_to_remove = []
+        for item in graph_widget.items():
+            if isinstance(item, pg.PlotDataItem) or isinstance(item, pg.ScatterPlotItem):
+                items_to_remove.append(item)
+        for item in items_to_remove:
+            graph_widget.removeItem(item)
+
+        # Очищаємо легенду, якщо вона існує.
+        if hasattr(graph_widget, 'legend') and graph_widget.legend is not None:
+            # Pyqtgraph 0.13.x+ має clear() метод для LegendItem
+            if hasattr(graph_widget.legend, 'clear'):
+                graph_widget.legend.clear()
+            else:  # Старіші версії або інший підхід
+                # Простий спосіб перестворити легенду, якщо clear() недоступний
+                # або якщо ви хочете повністю оновити її.
+                # Якщо ви перестворюєте легенду, переконайтеся, що вона додана до graph_widget
+                # лише один раз.
+                # Зазвичай, краще просто очистити її.
+                if graph_widget.legend is not None:
+                    graph_widget.removeItem(graph_widget.legend)
+                del graph_widget.legend  # Видаляємо старе посилання
+
+        # Створюємо легенду заново або перевіряємо її наявність
+        if not hasattr(graph_widget, 'legend') or graph_widget.legend is None:
+            legend = self.create_legend(graph_widget)  # Ваша функція створення легенди
         else:
-            legend = graph_widget.legend
+            legend = graph_widget.legend  # Використовуємо існуючу легенду
 
         try:
             for i, phase_values in enumerate(all_phase_values):
                 color = color_shades[i % len(color_shades)]
-                plot_attr = f"{graph_type}_plot_item_general_phase_{i}"
-                scatter_attr = f"{graph_type}_scatter_item_general_phase_{i}"
+                # plot_attr = f"{graph_type}_plot_item_general_phase_{i}"
+                # scatter_attr = f"{graph_type}_scatter_item_general_phase_{i}"
 
-                if not hasattr(self, plot_attr):
-                    pen = pg.mkPen(color=color, width=2)
-                    plot_item = graph_widget.plot(timestamps_numeric, phase_values, pen=pen,
-                                                  name=f"{y_label} {self.phases[i+1]}")
-                    setattr(self, plot_attr, plot_item)
-                    legend.addItem(plot_item, f"{self.phases[i+1]}")
+                # Замість перевірки hasattr(self, plot_attr) ми завжди створюємо нові PlotDataItem.
+                # Це простіше, оскільки ми очистили попередні.
+                pen = pg.mkPen(color=color, width=2)
+                plot_item = graph_widget.plot(timestamps_numeric, phase_values, pen=pen,
+                                              name=f"{y_label} {self.phases[i + 1]}")
+                # setattr(self, plot_attr, plot_item) # Можливо, не потрібно зберігати посилання в self, якщо вони створюються заново
 
-                    scatter = pg.ScatterPlotItem(pen=None, brush=color, size=7)
-                    scatter.setData([
-                        {'pos': (x, y), 'data': x}
-                        for x, y in zip(timestamps_numeric, phase_values)
-                    ])
+                # Додаємо елемент до легенди
+                legend.addItem(plot_item,
+                               f"{self.phases[i + 1]}")  # Використовуємо self.phases[i+1] для фаз, якщо 0-й індекс - це "Загальне"
+
+                scatter = pg.ScatterPlotItem(pen=None, brush=color, size=7)
+                scatter.setData([
+                    {'pos': (x, y), 'data': x}
+                    for x, y in zip(timestamps_numeric, phase_values)
+                ])
+                # Підключаємо сигнал sigClicked тільки один раз для кожного ScatterPlotItem
+                # Це безпечніше, якщо scatter створюється кожен раз
+                if not hasattr(scatter, '_clicked_connected'):
                     scatter.sigClicked.connect(self.on_graph_point_clicked)
-                    graph_widget.addItem(scatter)
-                    setattr(self, scatter_attr, scatter)
-                else:
-                    plot_item = getattr(self, plot_attr)
-                    scatter = getattr(self, scatter_attr)
+                    scatter._clicked_connected = True
+                graph_widget.addItem(scatter)
+                # setattr(self, scatter_attr, scatter) # Можливо, не потрібно зберігати посилання в self
 
-                    current_x = plot_item.xData
-                    if current_x is None:
-                        plot_item.setData(timestamps_numeric, phase_values)
-                        scatter.setData([
-                            {'pos': (x, y), 'data': x}
-                            for x, y in zip(timestamps_numeric, phase_values)
-                        ])
-                        legend.addItem(plot_item, f"{self.phases[i]}")
-                    elif timestamps_numeric[-1] > current_x[-1]:
-                        new_timestamps = []
-                        new_values = []
-
-                        last_ts = current_x[-1]
-                        for j, ts in enumerate(timestamps_numeric):
-                            if ts > last_ts:
-                                new_timestamps.append(ts)
-                                new_values.append(phase_values[j])
-
-                        if new_timestamps:
-                            updated_x = list(current_x)
-                            updated_y = list(plot_item.yData)
-                            updated_x.extend(new_timestamps)
-                            updated_y.extend(new_values)
-                            plot_item.setData(updated_x, updated_y)
-                            scatter.setData([
-                                {'pos': (x, y), 'data': x}
-                                for x, y in zip(updated_x, updated_y)
-                            ])
-                    else:
-                        plot_item.setData(timestamps_numeric, phase_values)
-                        scatter.setData([
-                            {'pos': (x, y), 'data': x}
-                            for x, y in zip(timestamps_numeric, phase_values)
-                        ])
         except Exception as e:
             logger.error(f"[_update_general_line_graph] Error updating graph: {e}")
 
@@ -617,6 +614,8 @@ class BaseDeviceDetailsWidget(QWidget):
 
     def update_graphs(self):
         for phase_name in self.phases:
+            logger.info(f"Loading phase - {phase_name}")
+
             timestamps = []
             voltages = []
             currents = []
@@ -718,8 +717,8 @@ class BaseDeviceDetailsWidget(QWidget):
             ]
 
             for graph_widget in graph_widgets:
-                min_time = timestamp - timedelta(minutes=30)
-                max_time = timestamp + timedelta(minutes=30)
+                min_time = timestamp - timedelta(minutes=300)
+                max_time = timestamp + timedelta(minutes=300)
 
                 min_timestamp_numeric = min_time.timestamp()
                 max_timestamp_numeric = max_time.timestamp()
