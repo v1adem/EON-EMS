@@ -147,12 +147,15 @@ class DataCollectorRunnable(QRunnable):
             await self.update_device_status(device, True)
 
         phases = self.get_phases(device)
+
         immediate_record = any(
             is_voltage_out_of_range(new_data, device, phase) or
             is_current_over_limit(new_data, device, phase) or
             is_power_over_limit(new_data, device, phase)
             for phase in phases
         )
+
+        await self.save_tmp_device_data(device, new_data)
 
         if not immediate_record:
             last_report = await self.get_last_report(device)
@@ -180,18 +183,7 @@ class DataCollectorRunnable(QRunnable):
 
     async def save_device_data(self, device, new_data):
         try:
-            main_db_model, tmp_db_model = self.get_db_model(device)
-
-            tmp_report_data = self.get_tmp_data(device, new_data)
-            existing_tmp_report = await tmp_db_model.filter(device_id=device.id).first()
-
-            if existing_tmp_report:
-                for key, value in tmp_report_data.items():
-                    setattr(existing_tmp_report, key, value)
-                await existing_tmp_report.save()
-            else:
-                tmp_report = tmp_db_model(**tmp_report_data)
-                await tmp_report.save()
+            main_db_model, _ = self.get_db_model(device)
 
             report_data = {"device_id": device.id}
             report_data.update({key: value for key, value in new_data.items() if value is not None})
@@ -202,6 +194,24 @@ class DataCollectorRunnable(QRunnable):
             logger.info(f"Report saved - {device.name}, {device.model}")
 
             await self.clean_old_records(device, main_db_model)
+
+        except Exception as e:
+            logger.error(f"Error saving data for device {device.name}: {e}")
+
+    async def save_tmp_device_data(self, device, new_data):
+        try:
+            _, tmp_db_model = self.get_db_model(device)
+
+            tmp_report_data = get_tmp_data(device, new_data)
+            existing_tmp_report = await tmp_db_model.filter(device_id=device.id).first()
+
+            if existing_tmp_report:
+                for key, value in tmp_report_data.items():
+                    setattr(existing_tmp_report, key, value)
+                await existing_tmp_report.save()
+            else:
+                tmp_report = tmp_db_model(**tmp_report_data)
+                await tmp_report.save()
 
         except Exception as e:
             logger.error(f"Error saving data for device {device.name}: {e}")
