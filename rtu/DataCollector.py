@@ -202,7 +202,7 @@ class DataCollectorRunnable(QRunnable):
         try:
             _, tmp_db_model = self.get_db_model(device)
 
-            tmp_report_data = get_tmp_data(device, new_data)
+            tmp_report_data = self.get_tmp_data(device, new_data)
             existing_tmp_report = await tmp_db_model.filter(device_id=device.id).first()
 
             if existing_tmp_report:
