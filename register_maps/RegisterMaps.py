@@ -928,154 +928,126 @@ class RegisterMap:
             "register": 4176,  # 0x1050
             "type": "input",
             "format": "UD_WORD",
-            "units": "mA",
+            "units": "Amps",
             "divider": 1000.0  # mA -> A
         },
         "phase_2_I2_average": {
             "register": 4178,  # 0x1052
             "type": "input",
             "format": "UD_WORD",
-            "units": "mA",
+            "units": "Amps",
             "divider": 1000.0
         },
         "phase_3_I3_average": {
             "register": 4180,  # 0x1054
             "type": "input",
             "format": "UD_WORD",
-            "units": "mA",
+            "units": "Amps",
             "divider": 1000.0
         },
         "phase_1_I1_peak_maximum": {
             "register": 4182,  # 0x1056
             "type": "input",
             "format": "UD_WORD",
-            "units": "mA",
+            "units": "Amps",
             "divider": 1000.0
         },
         "phase_2_I2_peak_maximum": {
             "register": 4184,  # 0x1058
             "type": "input",
             "format": "UD_WORD",
-            "units": "mA",
+            "units": "Amps",
             "divider": 1000.0
         },
         "phase_3_I3_peak_maximum": {
             "register": 4186,  # 0x105a
             "type": "input",
             "format": "UD_WORD",
-            "units": "mA",
+            "units": "Amps",
             "divider": 1000.0
         },
         "I1_I2_I3_average": {
             "register": 4188,  # 0x105c
             "type": "input",
             "format": "UD_WORD",
-            "units": "mA",
+            "units": "Amps",
             "divider": 1000.0
         },
         "phase_1_V1_min": {
             "register": 4190,  # 0x105e
             "type": "input",
             "format": "UD_WORD",
-            "units": "mV",
+            "units": "Volts",
             "divider": 1000.0  # mV -> V
         },
         "phase_2_V2_min": {
             "register": 4192,  # 0x1060
             "type": "input",
             "format": "UD_WORD",
-            "units": "mV",
+            "units": "Volts",
             "divider": 1000.0
         },
         "phase_3_V3_min": {
             "register": 4194,  # 0x1062
             "type": "input",
             "format": "UD_WORD",
-            "units": "mV",
+            "units": "Volts",
             "divider": 1000.0
         },
         "phase_1_V1_max": {
             "register": 4196,  # 0x1064
             "type": "input",
             "format": "UD_WORD",
-            "units": "mV",
+            "units": "Volts",
             "divider": 1000.0
         },
         "phase_2_V2_max": {
             "register": 4198,  # 0x1066
             "type": "input",
             "format": "UD_WORD",
-            "units": "mV",
+            "units": "Volts",
             "divider": 1000.0
         },
         "phase_3_V3_max": {
             "register": 4200,  # 0x1068
             "type": "input",
             "format": "UD_WORD",
-            "units": "mV",
+            "units": "Volts",
             "divider": 1000.0
         },
         "total_active_partial_energy": {
             "register": 4202,  # 0x106a
             "type": "input",
             "format": "UD_WORD",
-            "units": "",  # (4) - припускаємо 0.01 kWh
+            "units": "kWh",  # (4) - припускаємо 0.01 kWh
             "divider": 100.0
         },
         "total_reactive_partial_energy": {
             "register": 4204,  # 0x106c
             "type": "input",
             "format": "UD_WORD",
-            "units": "",  # (4) - припускаємо 0.01 kVArh
+            "units": "kVArh",  # (4) - припускаємо 0.01 kVArh
             "divider": 100.0
-        },
-        "run_hour_meter": {
-            "register": 4206,  # 0x106e
-            "type": "input",
-            "format": "U_WORD",
-            "units": "Hour",
-            "divider": 1.0
         },
         "total_active_average_power": {
             "register": 4208,  # 0x1070
             "type": "input",
             "format": "UD_WORD",
-            "units": "",  # (3) - припускаємо W
+            "units": "Watts",  # (3) - припускаємо W
             "divider": 1.0
         },
         "total_reactive_average_power": {
             "register": 4210,  # 0x1072
             "type": "input",
             "format": "UD_WORD",
-            "units": "",  # (3) - припускаємо VAr
+            "units": "VAr",  # (3) - припускаємо VAr
             "divider": 1.0
         },
         "total_apparent_average_power": {
             "register": 4212,  # 0x1074
             "type": "input",
             "format": "UD_WORD",
-            "units": "",  # (3) - припускаємо VA
-            "divider": 1.0
-        },
-        "total_active_PMD_power": {
-            "register": 4214,  # 0x1076
-            "type": "input",
-            "format": "UD_WORD",
-            "units": "",  # (3) - припускаємо W
-            "divider": 1.0
-        },
-        "total_reactive_PMD_power": {
-            "register": 4216,  # 0x1078
-            "type": "input",
-            "format": "UD_WORD",
-            "units": "",  # (3) - припускаємо VAr
-            "divider": 1.0
-        },
-        "total_apparent_PMD_power": {
-            "register": 4218,  # 0x107a
-            "type": "input",
-            "format": "UD_WORD",
-            "units": "",  # (3) - припускаємо VA
+            "units": "VA",  # (3) - припускаємо VA
             "divider": 1.0
         }
     }
