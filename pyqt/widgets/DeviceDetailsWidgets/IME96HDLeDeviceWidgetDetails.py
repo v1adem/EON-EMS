@@ -1,3 +1,4 @@
+from models.Report import IME96HDLeReport, IME96HDLeReportTmp
 from pyqt.widgets.DeviceDetailsWidgets.BaseDeviceDetailsWidget import BaseDeviceDetailsWidget
 
 
