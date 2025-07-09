@@ -221,8 +221,8 @@ class ProjectViewWidget(QWidget):
                 model_input.clear()
                 if manufacturer == "Eastron":
                     model_input.addItems(["SDM120", "SDM630", "SDM72"])
-                elif manufacturer == "IME":
-                    model_input.addItems(["IME96HDLe"])
+                elif manufacturer == "(In progress) IME":
+                    model_input.addItems(["(In progress) IME96HDLe"])
                 else:
                     model_input.addItems(["Не підтримується"])
 
@@ -260,12 +260,12 @@ class ProjectViewWidget(QWidget):
                 self.new_device = Device(name=device_name, manufacturer=manufacturer, model=model,
                                          device_address=device_address, project_id=self.project.id)
                 await self.new_device.save()
-                self.edit_device(self.new_device)
+                self.edit_device(self.new_device, True)
 
         AsyncioPySide6.runTask(run_add_device())
 
 
-    def edit_device(self, device):
+    def edit_device(self, device, just_added=False):
         async def run_save_changes():
             dialog = QDialog(self)
             dialog.setWindowTitle("Редагувати пристрій")

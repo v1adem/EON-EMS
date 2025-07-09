@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 import pytz
 
 from models.Project import Project
+from rtu.DataCollectorTestingTools import get_test_data
 
 logger = logging.getLogger(__name__)
 
@@ -107,6 +108,7 @@ class DataCollectorRunnable(QRunnable):
                 return
 
             new_data = await get_data_from_device(device, self.project, self.main_window)
+            # new_data = get_test_data(device.model, await self.get_last_report(device)) # For testing
 
             if not new_data or new_data == {}:
                 await self.handle_read_error(device)
@@ -147,12 +149,15 @@ class DataCollectorRunnable(QRunnable):
             await self.update_device_status(device, True)
 
         phases = self.get_phases(device)
+
         immediate_record = any(
             is_voltage_out_of_range(new_data, device, phase) or
             is_current_over_limit(new_data, device, phase) or
             is_power_over_limit(new_data, device, phase)
             for phase in phases
         )
+
+        await self.save_tmp_device_data(device, new_data)
 
         if not immediate_record:
             last_report = await self.get_last_report(device)
@@ -180,7 +185,24 @@ class DataCollectorRunnable(QRunnable):
 
     async def save_device_data(self, device, new_data):
         try:
-            main_db_model, tmp_db_model = self.get_db_model(device)
+            main_db_model, _ = self.get_db_model(device)
+
+            report_data = {"device_id": device.id}
+            report_data.update({key: value for key, value in new_data.items() if value is not None})
+
+            new_report = main_db_model(**report_data)
+            await new_report.save()
+
+            logger.info(f"Report saved - {device.name}, {device.model}")
+
+            await self.clean_old_records(device, main_db_model)
+
+        except Exception as e:
+            logger.error(f"Error saving data for device {device.name}: {e}")
+
+    async def save_tmp_device_data(self, device, new_data):
+        try:
+            _, tmp_db_model = self.get_db_model(device)
 
             tmp_report_data = self.get_tmp_data(device, new_data)
             existing_tmp_report = await tmp_db_model.filter(device_id=device.id).first()
@@ -192,16 +214,6 @@ class DataCollectorRunnable(QRunnable):
             else:
                 tmp_report = tmp_db_model(**tmp_report_data)
                 await tmp_report.save()
-
-            report_data = {"device_id": device.id}
-            report_data.update({key: value for key, value in new_data.items() if value is not None})
-
-            new_report = main_db_model(**report_data)
-            await new_report.save()
-
-            logger.info(f"Report saved - {device.name}, {device.model}")
-
-            await self.clean_old_records(device, main_db_model)
 
         except Exception as e:
             logger.error(f"Error saving data for device {device.name}: {e}")
@@ -259,9 +271,7 @@ class DataCollectorRunnable(QRunnable):
             }
             return tmp_report_data
         else:
-            QMessageBox.warning(
-                self.main_window, f"{device.name}", f"{device.model} - Невідома модель", QMessageBox.StandardButton.Ok,
-                QMessageBox.StandardButton.Cancel)
+            logger.warning("Unknown device model")
 
     def get_db_model(self, device):
         if device.model == "SDM120":

@@ -1,140 +1,256 @@
+import logging
 import random
+from datetime import datetime, timedelta, timezone
+
+import pytz
+
+from models.Report import SDM72Report, SDM120Report, SDM630Report
+from tools.config import get_timezone
+
+logger = logging.getLogger(__name__)
 
 
-def get_test_data(device_model, last_data):
+def rand_variation(value, variation_percent=3):
+    delta = value * (variation_percent / 100)
+    return round(random.uniform(value - delta, value + delta), 2)
+
+
+def _calculate_energy_increment(last_power_watts, current_power_watts, last_timestamp_dt, current_timestamp_dt):
+    if last_timestamp_dt is None:
+        return 0.0
+
+    if last_timestamp_dt.tzinfo is None:
+        last_timestamp_dt = last_timestamp_dt.replace(tzinfo=timezone.utc)
+    if current_timestamp_dt.tzinfo is None:
+        current_timestamp_dt = current_timestamp_dt.replace(tzinfo=timezone.utc)
+
+    last_timestamp_dt = current_timestamp_dt if last_timestamp_dt is None else last_timestamp_dt
+
+    time_diff: timedelta = current_timestamp_dt - last_timestamp_dt
+    delta_time_seconds = time_diff.total_seconds()
+
+    avg_power_watts = (last_power_watts + current_power_watts) / 2
+
+    energy_increment_kwh = (avg_power_watts / 1000) * (delta_time_seconds / 3600)
+
+    return energy_increment_kwh
+
+
+def _generate_sdm120_data(last_data, current_timestamp_dt):
+    last_voltage = getattr(last_data, 'line_voltage_1', 230) if last_data else rand_variation(230)
+
+    voltage_1 = rand_variation(last_voltage) if last_data else rand_variation(230)
+
+    current_1 = rand_variation(getattr(last_data, 'current_1', 10), 1) if last_data else rand_variation(
+        10, 1)
+    power_1 = round(voltage_1 * current_1 * 0.8, 3)
+
+    last_power_1 = getattr(last_data, 'power_1', 0.0) if last_data else 0.0
+    last_total_active_energy = getattr(last_data, 'total_active_energy', 1) if last_data else 1
+    last_timestamp_dt = getattr(last_data, 'timestamp', None)
+
+    energy_increment = _calculate_energy_increment(last_power_1, power_1, last_timestamp_dt, current_timestamp_dt)
+    total_active_energy = round(last_total_active_energy + energy_increment, 3)
+
+    data = {
+        "line_voltage_1": voltage_1,
+        "current_1": current_1,
+        "power_1": power_1,
+        "total_active_energy": total_active_energy,
+        "total_reactive_energy": 0.0,
+        "active_power_1": power_1,
+        "reactive_power_1": 0.0,
+        "power_factor_1": 1.0,
+        "frequency_1": 50.0,
+        "import_active_energy_1": total_active_energy,
+        "export_active_energy_1": 0.0,
+    }
+    return data
+
+
+def _generate_sdm630_data(last_data, current_timestamp_dt):
+    data = {}
+    total_system_power = 0
+    total_kWh_sum = 0
+    total_kVAh_sum = 0
+    total_kVArh_sum = 0
+
+    last_timestamp_dt = getattr(last_data, 'timestamp', None) if last_data else None
+
+    for i in range(1, 4):
+        last_voltage = getattr(last_data, f'line_voltage_{i}', 230) if last_data else rand_variation(230)
+
+        voltage = rand_variation(last_voltage) if last_data else rand_variation(230)
+
+        current = rand_variation(getattr(last_data, f'current_{i}', 10)) if last_data else rand_variation(10, 1)
+        power = round(voltage * current * 0.8, 3)
+        va = round(voltage * current, 3)
+        var = round(va * 0.6, 3)
+
+        data[f"line_voltage_{i}"] = voltage
+        data[f"current_{i}"] = current
+        data[f"power_{i}"] = power
+        data[f"active_power_{i}"] = power
+        data[f"reactive_power_{i}"] = var
+        data[f"power_factor_{i}"] = 0.8
+
+        total_system_power += power
+
+        last_power_i = getattr(last_data, f'power_{i}', 0) if last_data else 0
+        last_kwh_i = getattr(last_data, f"total_kWh_{i}", 0) if last_data else 0
+
+        if last_kwh_i == 0:
+            energy_increment_kwh_i = 1
+        else:
+            energy_increment_kwh_i = _calculate_energy_increment(last_power_i, power, last_timestamp_dt,
+                                                                 current_timestamp_dt)
+
+        data[f"total_kWh_{i}"] = round(last_kwh_i + energy_increment_kwh_i, 3)
+        total_kWh_sum += data[f"total_kWh_{i}"]
+
+        last_va_i = getattr(last_data, f'total_system_VA', 0) if last_data else 0
+        energy_increment_kvah_i = _calculate_energy_increment(last_va_i, va, last_timestamp_dt, current_timestamp_dt)
+        data[f"total_kVAh_{i}"] = round(getattr(last_data, f"total_kVAh_{i}", 0) if last_data else 0 + energy_increment_kvah_i,
+                                        3) if last_data else round(energy_increment_kvah_i, 3)
+        total_kVAh_sum += data[f"total_kVAh_{i}"]
+
+        last_var_i = getattr(last_data, f'reactive_power_{i}', 0) if last_data else 0
+        energy_increment_kvarh_i = _calculate_energy_increment(last_var_i, var, last_timestamp_dt, current_timestamp_dt)
+        data[f"total_kVArh_{i}"] = round(getattr(last_data, f'total_kVArh_{i}', 0) if last_data else 0 + energy_increment_kvarh_i,
+                                         3) if last_data else round(energy_increment_kvarh_i, 3)
+        total_kVArh_sum += data[f"total_kVArh_{i}"]
+
+    data["total_system_power"] = round(total_system_power, 3)
+    data["total_kWh"] = round(total_kWh_sum, 3)
+
+    data["total_system_power_factor"] = round(total_system_power / (total_system_power / 0.8),
+                                              3) if total_system_power > 0 else 1.0
+    data["total_system_VA"] = round(total_system_power / 0.8, 3)
+    data["total_system_VAr"] = round(total_system_power * 0.6 / 0.8, 3)
+
+    data["total_import_kwh"] = data["total_kWh"]
+    data["total_export_kwh"] = 0.0
+    data["total_import_kVAh"] = round(total_kVAh_sum, 3)
+    data["total_export_kVAh"] = 0.0
+    data["total_kVAh"] = round(total_kVAh_sum, 3)
+
+    data["_1_to_2_voltage"] = rand_variation(400)
+    data["_2_to_3_voltage"] = rand_variation(400)
+    data["_3_to_1_voltage"] = rand_variation(400)
+    data["neutral_current"] = rand_variation(0.5)
+    data["line_voltage_THD_1"] = 1.0
+    data["line_voltage_THD_2"] = 1.0
+    data["line_voltage_THD_3"] = 1.0
+    data["line_current_THD_1"] = 1.0
+    data["line_current_THD_2"] = 1.0
+    data["line_current_THD_3"] = 1.0
+    data["current_demand_1"] = data["current_1"]
+    data["current_demand_2"] = data["current_2"]
+    data["current_demand_3"] = data["current_3"]
+    data["phase_voltage_THD_1"] = 1.0
+    data["phase_voltage_THD_2"] = 1.0
+    data["phase_voltage_THD_3"] = 1.0
+    data["average_line_to_line_voltage_THD"] = 1.0
+    data["total_kVArh"] = round(total_kVArh_sum, 3)
+
+    data["import_kWh_1"] = data["total_kWh_1"]
+    data["import_kWh_2"] = data["total_kWh_2"]
+    data["import_kWh_3"] = data["total_kWh_3"]
+    data["export_kWh_1"] = 0.0
+    data["export_kWh_2"] = 0.0
+    data["export_kWh_3"] = 0.0
+
+    data["import_kVArh_1"] = data["total_kVArh_1"]
+    data["import_kVArh_2"] = data["total_kVArh_2"]
+    data["import_kVArh_3"] = data["total_kVArh_3"]
+    data["export_kVArh_1"] = 0.0
+    data["export_kVArh_2"] = 0.0
+    data["export_kVArh_3"] = 0.0
+
+    return data
+
+
+def _generate_sdm72_data(last_data, current_timestamp_dt):
+    data = {}
+    total_power_sum = 0
+    total_va_sum = 0
+    total_var_sum = 0
+
+    last_timestamp_dt = getattr(last_data, 'timestamp', None) if last_data else None
+
+    for i in range(1, 4):
+        last_voltage = getattr(last_data, f'line_voltage_{i}', 230) if last_data else rand_variation(230)
+
+        voltage = rand_variation(last_voltage) if last_data else rand_variation(230)
+        current = rand_variation(getattr(last_data, f'current_{i}', 10)) if last_data else rand_variation(10, 1)
+        power = round(voltage * current * 0.8, 3)
+        va = round(voltage * current, 3)
+        var = round(va * 0.6, 3)
+
+        data[f"line_voltage_{i}"] = voltage
+        data[f"current_{i}"] = current
+        data[f"power_{i}"] = power
+        data[f"active_power_{i}"] = power
+        data[f"reactive_power_{i}"] = var
+        data[f"power_factor_{i}"] = 0.8
+
+        total_power_sum += power
+        total_va_sum += va
+        total_var_sum += var
+
+    last_total_kwh = getattr(last_data, "total_kWh", 2) if last_data else 0.0
+    last_total_power_sum = getattr(last_data, "total_system_power", 0.0) if last_data else 0.0
+
+    energy_increment_kwh = _calculate_energy_increment(last_total_power_sum, total_power_sum, last_timestamp_dt,
+                                                       current_timestamp_dt)
+    total_kwh = round(last_total_kwh + energy_increment_kwh, 3)
+
+    data["total_kWh"] = total_kwh
+    data["total_system_power"] = round(total_power_sum, 3)
+
+    data["total_system_power_factor"] = round(total_power_sum / total_va_sum, 3) if total_va_sum > 0 else 1.0
+    data["total_system_VA"] = round(total_va_sum, 3)
+    data["total_system_VAr"] = round(total_var_sum, 3)
+    data["total_import_kwh"] = total_kwh
+    data["total_export_kwh"] = 0.0
+    data["_1_to_2_voltage"] = rand_variation(400)
+    data["_2_to_3_voltage"] = rand_variation(400)
+    data["_3_to_1_voltage"] = rand_variation(400)
+    data["neutral_current"] = rand_variation(0.5)
+
+    last_total_kvarh = getattr(last_data, "total_kVArh", 0.0) if last_data else 0.0
+    energy_increment_kvarh = _calculate_energy_increment(total_var_sum, total_var_sum, last_timestamp_dt,
+                                                         current_timestamp_dt)
+    data["total_kVArh"] = round(last_total_kvarh + energy_increment_kvarh, 3)
+
+    data["total_import_active_power"] = total_power_sum
+    data["total_export_active_power"] = 0.0
+
+    return data
+
+
+def get_test_data(device_model, last_data = None, current_timestamp_dt_for_calc=None):
+
+    if current_timestamp_dt_for_calc is None:
+        tz = get_timezone()
+        current_timestamp_dt_for_calc = datetime.now(tz=tz)
+
     if device_model == "SDM120":
-        if last_data is None:
-            last_kwh = 0.0
-        else:
-            last_kwh = last_data.total_kWh_1 if last_data.total_kWh_1 else 0.0
-            last_kwh += random.uniform(0.1, 0.5)
-        return {
-            "line_voltage_1": random.randrange(200, 240),
-            "current_1": random.randrange(1, 20),
-            "power_1": 0.22,
-            "total_active_energy": last_kwh,
-            "total_reactive_energy": 0.0,
-
-            "active_power_1": 0.22,
-            "reactive_power_1": 0.22,
-            "power_factor_1": 1,
-            "frequency_1": 50.0,
-            "import_active_energy_1": 0.0,
-            "export_active_energy_1": 0.0,
-        }
+        return _generate_sdm120_data(last_data, current_timestamp_dt_for_calc)
     elif device_model == "SDM630":
-        if last_data is None:
-            last_kwh_1 = 0.0
-            last_kwh_2 = 0.0
-            last_kwh_3 = 0.0
-        else:
-            last_kwh_1 = last_data.total_kWh_1 if last_data.total_kWh_1 else 0.0
-            last_kwh_1 += random.uniform(0.1, 0.5)
-            last_kwh_2 = last_data.total_kWh_2 if last_data.total_kWh_2 else 0.0
-            last_kwh_2 += random.uniform(0.1, 0.5)
-            last_kwh_3 = last_data.total_kWh_3 if last_data.total_kWh_3 else 0.0
-            last_kwh_3 += random.uniform(0.1, 0.5)
-        last_kwh = last_kwh_1 + last_kwh_2 + last_kwh_3
-        return {
-            "line_voltage_1": random.randrange(200, 240),
-            "line_voltage_2": random.randrange(200, 240),
-            "line_voltage_3": random.randrange(200, 240),
-            "current_1": random.randrange(1, 20),
-            "current_2": random.randrange(1, 20),
-            "current_3": random.randrange(1, 20),
-            "power_1": 0.22,
-            "power_2": 0.22,
-            "power_3": 0.22,
-            "total_kWh_1": last_kwh_1,
-            "total_kWh_2": last_kwh_2,
-            "total_kWh_3": last_kwh_3,
-            "total_kWh": last_kwh,
-
-            "power_factor_1": 1,
-            "power_factor_2": 1,
-            "power_factor_3": 1,
-            "total_system_power": 1,
-            "total_system_power_factor": 1,
-            "total_system_VA": 1,
-            "total_system_VAr": 1,
-            "total_import_kwh": 1,
-            "total_export_kwh": 1,
-            "total_import_kVAh": 1,
-            "total_export_kVAh": 1,
-            "total_kVAh": 1,
-            "_1_to_2_voltage": 1,
-            "_2_to_3_voltage": 1,
-            "_3_to_1_voltage": 1,
-            "neutral_current": 1,
-            "line_voltage_THD_1": 1,
-            "line_voltage_THD_2": 1,
-            "line_voltage_THD_3": 1,
-            "line_current_THD_1": 1,
-            "line_current_THD_2": 1,
-            "line_current_THD_3": 1,
-            "current_demand_1": 1,
-            "current_demand_2": 1,
-            "current_demand_3": 1,
-            "phase_voltage_THD_1": 1,
-            "phase_voltage_THD_2": 1,
-            "phase_voltage_THD_3": 1,
-            "average_line_to_line_voltage_THD": 1,
-            "total_kVArh": 1,
-            "import_kWh_1": 1,
-            "import_kWh_2": 1,
-            "import_kWh_3": 1,
-            "export_kWh_1": 1,
-            "export_kWh_2": 1,
-            "export_kWh_3": 1,
-            "import_kVArh_1": 1,
-            "import_kVArh_2": 1,
-            "import_kVArh_3": 1,
-            "export_kVArh_1": 1,
-            "export_kVArh_2": 1,
-            "export_kVArh_3": 1,
-            "total_kVArh_1": 1,
-            "total_kVArh_2": 1,
-            "total_kVArh_3": 1,
-
-        }
+        return _generate_sdm630_data(last_data, current_timestamp_dt_for_calc)
     elif device_model == "SDM72":
-        if last_data is None:
-            last_kwh = 0.0
-        else:
-            last_kwh = last_data.total_kWh if last_data.total_kWh else 0.0
-            last_kwh += random.uniform(0.1, 0.5)
-        return {
-            "line_voltage_1": random.randrange(200, 240),
-            "line_voltage_2": random.randrange(200, 240),
-            "line_voltage_3": random.randrange(200, 240),
-            "current_1": random.randrange(1, 20),
-            "current_2": random.randrange(1, 20),
-            "current_3": random.randrange(1, 20),
-            "power_1": 0.22,
-            "power_2": 0.22,
-            "power_3": 0.22,
-            "total_kWh": last_kwh,
+        return _generate_sdm72_data(last_data, current_timestamp_dt_for_calc)
+    else:
+        return None
 
-            "active_power_1": 0.22,
-            "active_power_2": 0.22,
-            "active_power_3": 0.22,
-            "reactive_power_1": 0.22,
-            "reactive_power_2": 0.22,
-            "reactive_power_3": 0.22,
-            "power_factor_1": 1,
-            "power_factor_2": 1,
-            "power_factor_3": 1,
-            "total_system_power": 1,
-            "total_system_power_factor": 1,
-            "total_system_VA": 1,
-            "total_system_VAr": 1,
-            "total_import_kwh": 1,
-            "total_export_kwh": 1,
-            "_1_to_2_voltage": 1,
-            "_2_to_3_voltage": 1,
-            "_3_to_1_voltage": 1,
-            "neutral_current": 1,
-            "total_kVArh": 1,
-            "total_import_active_power": 1,
-            "total_export_active_power": 1,
-        }
+
+def get_db_model(device):
+    if device.model == "SDM120":
+        return SDM120Report
+    elif device.model == "SDM630":
+        return SDM630Report
+    elif device.model == "SDM72":
+        return SDM72Report
+    else:
+        pass

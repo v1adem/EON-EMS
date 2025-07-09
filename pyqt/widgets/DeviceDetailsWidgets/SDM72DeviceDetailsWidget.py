@@ -27,6 +27,8 @@ class SDM72DeviceDetailsWidget(BaseDeviceDetailsWidget):
         self.initUi()
         self.init_timers()
 
+        self.main_window.hide_loading()
+
     def init_column_labels(self):
         column_labels = {
             "timestamp": "Час",

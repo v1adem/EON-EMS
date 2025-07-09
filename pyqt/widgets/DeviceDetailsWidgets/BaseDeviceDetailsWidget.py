@@ -70,6 +70,8 @@ class BaseDeviceDetailsWidget(QWidget):
 
         self.set_light_theme()
 
+        logger.info("Loading data...")
+
     def init_timers(self):
         self.timer_clock_indicator = QTimer(self)
         self.timer_clock_indicator.timeout.connect(self.update_clock_indicators)
@@ -77,8 +79,6 @@ class BaseDeviceDetailsWidget(QWidget):
         self.timer_clock_indicator.start()
 
         self.load_report_data()
-
-        self.main_window.hide_loading()
 
         self.timer_update_all_tabs_graphs = QTimer(self)
         self.timer_update_all_tabs_graphs.timeout.connect(self.auto_update)
@@ -270,9 +270,8 @@ class BaseDeviceDetailsWidget(QWidget):
         self.tabs.addTab(tab, phase_name)
 
     def auto_update(self):
-        if not self.auto_update_checkbox.isChecked():
-            return
-        self.load_report_data()
+        if self.auto_update_checkbox.isChecked():
+            self.load_report_data()
 
     def load_report_data(self):
         pass
@@ -458,38 +457,23 @@ class BaseDeviceDetailsWidget(QWidget):
         plot_item = getattr(self, f"{graph_type}_plot_item_{phase_name}")
         scatter = getattr(self, f"{graph_type}_scatter_item_{phase_name}")
 
+
         if not timestamps_numeric or not values:
-            logger.warning(
-                f"[_update_single_phase_line_graph] Skipped update for {phase_name} - {graph_type} due to empty data.")
+            plot_item.setData([], [])
+            scatter.setData([], [])
             return
 
-        current_x = plot_item.xData
-
         try:
-            if current_x is None or timestamps_numeric[-1] > current_x[-1]:
-                new_timestamps = []
-                new_values = []
-                if current_x is not None:
-                    last_ts = current_x[-1]
-                    for i, ts in enumerate(timestamps_numeric):
-                        if ts > last_ts:
-                            new_timestamps.append(ts)
-                            new_values.append(values[i])
-                else:
-                    new_timestamps = timestamps_numeric
-                    new_values = values
+            plot_item.setData(timestamps_numeric, values)
+            scatter.setData([
+                {'pos': (x, y), 'data': x}
+                for x, y in zip(timestamps_numeric, values)
+            ])
 
-                if new_timestamps:
-                    updated_x = list(current_x) if current_x is not None else []
-                    updated_y = list(plot_item.yData) if plot_item.yData is not None else []
-                    updated_x.extend(new_timestamps)
-                    updated_y.extend(new_values)
-                    plot_item.setData(updated_x, updated_y)
-                    scatter.setData([
-                        {'pos': (x, y), 'data': x}
-                        for x, y in zip(updated_x, updated_y)
-                    ])
-                    scatter.sigClicked.connect(self.on_graph_point_clicked)
+            if not hasattr(scatter, '_clicked_connected'):
+                scatter.sigClicked.connect(self.on_graph_point_clicked)
+                scatter._clicked_connected = True
+
         except Exception as e:
             logger.error(f"[_update_single_phase_line_graph] Error updating graph for {phase_name} - {graph_type}: {e}")
 
@@ -497,7 +481,22 @@ class BaseDeviceDetailsWidget(QWidget):
         timestamps_numeric = [ts.timestamp() for ts in timestamps]
         graph_widget = self.phase_data["Загальне"][f"{graph_type}_graph"]
 
-        if not hasattr(graph_widget, 'legend'):
+        items_to_remove = []
+        for item in graph_widget.items():
+            if isinstance(item, pg.PlotDataItem) or isinstance(item, pg.ScatterPlotItem):
+                items_to_remove.append(item)
+        for item in items_to_remove:
+            graph_widget.removeItem(item)
+
+        if hasattr(graph_widget, 'legend') and graph_widget.legend is not None:
+            if hasattr(graph_widget.legend, 'clear'):
+                graph_widget.legend.clear()
+            else:
+                if graph_widget.legend is not None:
+                    graph_widget.removeItem(graph_widget.legend)
+                del graph_widget.legend
+
+        if not hasattr(graph_widget, 'legend') or graph_widget.legend is None:
             legend = self.create_legend(graph_widget)
         else:
             legend = graph_widget.legend
@@ -505,62 +504,23 @@ class BaseDeviceDetailsWidget(QWidget):
         try:
             for i, phase_values in enumerate(all_phase_values):
                 color = color_shades[i % len(color_shades)]
-                plot_attr = f"{graph_type}_plot_item_general_phase_{i}"
-                scatter_attr = f"{graph_type}_scatter_item_general_phase_{i}"
 
-                if not hasattr(self, plot_attr):
-                    pen = pg.mkPen(color=color, width=2)
-                    plot_item = graph_widget.plot(timestamps_numeric, phase_values, pen=pen,
-                                                  name=f"{y_label} {self.phases[i+1]}")
-                    setattr(self, plot_attr, plot_item)
-                    legend.addItem(plot_item, f"{self.phases[i+1]}")
+                pen = pg.mkPen(color=color, width=2)
+                plot_item = graph_widget.plot(timestamps_numeric, phase_values, pen=pen,
+                                              name=f"{y_label} {self.phases[i + 1]}")
+                legend.addItem(plot_item,
+                               f"{self.phases[i + 1]}")
 
-                    scatter = pg.ScatterPlotItem(pen=None, brush=color, size=7)
-                    scatter.setData([
-                        {'pos': (x, y), 'data': x}
-                        for x, y in zip(timestamps_numeric, phase_values)
-                    ])
+                scatter = pg.ScatterPlotItem(pen=None, brush=color, size=7)
+                scatter.setData([
+                    {'pos': (x, y), 'data': x}
+                    for x, y in zip(timestamps_numeric, phase_values)
+                ])
+                if not hasattr(scatter, '_clicked_connected'):
                     scatter.sigClicked.connect(self.on_graph_point_clicked)
-                    graph_widget.addItem(scatter)
-                    setattr(self, scatter_attr, scatter)
-                else:
-                    plot_item = getattr(self, plot_attr)
-                    scatter = getattr(self, scatter_attr)
+                    scatter._clicked_connected = True
+                graph_widget.addItem(scatter)
 
-                    current_x = plot_item.xData
-                    if current_x is None:
-                        plot_item.setData(timestamps_numeric, phase_values)
-                        scatter.setData([
-                            {'pos': (x, y), 'data': x}
-                            for x, y in zip(timestamps_numeric, phase_values)
-                        ])
-                        legend.addItem(plot_item, f"{self.phases[i]}")
-                    elif timestamps_numeric[-1] > current_x[-1]:
-                        new_timestamps = []
-                        new_values = []
-
-                        last_ts = current_x[-1]
-                        for j, ts in enumerate(timestamps_numeric):
-                            if ts > last_ts:
-                                new_timestamps.append(ts)
-                                new_values.append(phase_values[j])
-
-                        if new_timestamps:
-                            updated_x = list(current_x)
-                            updated_y = list(plot_item.yData)
-                            updated_x.extend(new_timestamps)
-                            updated_y.extend(new_values)
-                            plot_item.setData(updated_x, updated_y)
-                            scatter.setData([
-                                {'pos': (x, y), 'data': x}
-                                for x, y in zip(updated_x, updated_y)
-                            ])
-                    else:
-                        plot_item.setData(timestamps_numeric, phase_values)
-                        scatter.setData([
-                            {'pos': (x, y), 'data': x}
-                            for x, y in zip(timestamps_numeric, phase_values)
-                        ])
         except Exception as e:
             logger.error(f"[_update_general_line_graph] Error updating graph: {e}")
 
@@ -617,11 +577,20 @@ class BaseDeviceDetailsWidget(QWidget):
 
     def update_graphs(self):
         for phase_name in self.phases:
+            logger.info(f"Loading phase - {phase_name}")
+
             timestamps = []
             voltages = []
             currents = []
             powers = []
             energies = []
+
+            hourly_energy = []
+            hourly_timestamps = []
+
+            last_energy = None
+            current_hour_start = None
+            current_hour_energy = 0.0
 
             for report in self.report_data:
                 try:
@@ -642,12 +611,37 @@ class BaseDeviceDetailsWidget(QWidget):
                         voltage = getattr(report, f'line_voltage_{self.phases.index(phase_name)}')
                         current = getattr(report, f'current_{self.phases.index(phase_name)}')
                         power = getattr(report, f'power_{self.phases.index(phase_name)}')
-                        energy = getattr(report, f'total_kWh_{self.phases.index(phase_name)}')
 
                         voltages.append(voltage)
                         currents.append(current)
                         powers.append(power)
-                        energies.append(energy)
+
+                    current_hour = report.timestamp.replace(minute=0, second=0, microsecond=0)
+
+                    if current_hour_start is None:
+                        current_hour_start = current_hour
+
+                    if current_hour != current_hour_start:
+                        if last_energy is not None:
+                            hourly_energy.append(current_hour_energy)
+                            hourly_timestamps.append(current_hour_start)
+                        current_hour_start = current_hour
+                        current_hour_energy = 0.0
+
+                    if phase_name == "Загальне":
+                        energy_value = getattr(report, 'total_kWh')
+                    else:
+                        energy_value = getattr(report, f'total_kWh_{self.phases.index(phase_name)}')
+
+
+                    if last_energy is not None:
+                        current_hour_energy += abs(energy_value - last_energy)
+
+                    last_energy = energy_value
+
+                    if last_energy is not None:
+                        hourly_energy.append(current_hour_energy)
+                        hourly_timestamps.append(current_hour_start)
 
                 except Exception as e:
                     logger.warning(e)
@@ -670,40 +664,11 @@ class BaseDeviceDetailsWidget(QWidget):
                                                     color_shades=[(153, 0, 0), (204, 51, 0), (255, 102, 0)])
                     self._update_general_line_graph(timestamps, transposed_powers, "Потуж.", "power",
                                                     color_shades=[(0, 153, 0), (51, 204, 0), (102, 255, 0)])
+
+                self.update_energy_graph(hourly_timestamps, hourly_energy, phase_name)
             except Exception as e:
                 logger.error(e)
 
-            hourly_energy = []
-            hourly_timestamps = []
-
-            last_energy = None
-            current_hour_start = None
-            current_hour_energy = 0.0
-
-            for report in self.report_data:
-                current_hour = report.timestamp.replace(minute=0, second=0, microsecond=0)
-
-                if current_hour_start is None:
-                    current_hour_start = current_hour
-
-                if current_hour != current_hour_start:
-                    if last_energy is not None:
-                        hourly_energy.append(current_hour_energy)
-                        hourly_timestamps.append(current_hour_start)
-                    current_hour_start = current_hour
-                    current_hour_energy = 0.0
-                energy_value = getattr(report, f'total_kWh')
-
-                if last_energy is not None:
-                    current_hour_energy += abs(energy_value - last_energy)
-
-                last_energy = energy_value
-
-            if last_energy is not None:
-                hourly_energy.append(current_hour_energy)
-                hourly_timestamps.append(current_hour_start)
-
-            self.update_energy_graph(hourly_timestamps, hourly_energy, phase_name)
 
     def center_graphs_on_timestamp(self, timestamp):
         for phase_name in self.phases:
@@ -715,8 +680,8 @@ class BaseDeviceDetailsWidget(QWidget):
             ]
 
             for graph_widget in graph_widgets:
-                min_time = timestamp - timedelta(minutes=30)
-                max_time = timestamp + timedelta(minutes=30)
+                min_time = timestamp - timedelta(minutes=300)
+                max_time = timestamp + timedelta(minutes=300)
 
                 min_timestamp_numeric = min_time.timestamp()
                 max_timestamp_numeric = max_time.timestamp()
@@ -881,4 +846,3 @@ class BaseDeviceDetailsWidget(QWidget):
                 QMessageBox.warning(self, "Помилка", f"Сталася помилка при експорті даних: {e}")
 
         AsyncioPySide6.runTask(run_export_to_excel())
-
