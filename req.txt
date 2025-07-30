@@ -5,7 +5,6 @@ iso8601==2.1.0
 markdown-it-py==3.0.0
 mdurl==0.1.2
 numpy==2.2.5
-pip==23.0.1
 psutil==7.0.0
 Pygments==2.19.1
 pymodbus==3.7.4
@@ -18,7 +17,7 @@ PySide6_Essentials==6.8.0.2
 pytz==2025.2
 pyudev==0.24.3
 rich==14.0.0
-setuptools==66.1.1
+setuptools==67
 shiboken6==6.8.0.2
 tortoise-orm==0.25.0
 typing-extensions==4.13.2
