@@ -53,7 +53,7 @@ class SerialReaderRS485:
         self.register_map = RegisterMap.get_register_map(device.model)
 
         self.client = ModbusSerialClient(
-            port=f"COM{project.port}", baudrate=project.baudrate, parity=project.parity,
+            port=f"COM{self.port}", baudrate=project.baudrate, parity=project.parity,
             stopbits=project.stopbits, bytesize=project.bytesize, timeout=3, retries=2
         )
 
@@ -91,10 +91,6 @@ class SerialReaderRS485:
 
     async def read_all_properties(self):
         result = {}
-
-        # For IME
-        sign_values = {}
-        power_factor_sector_values = {}
         try:
             if not self.connect():
                 logger.error(f"{self.device_custom_name} - No connection on port {self.port}")
@@ -114,73 +110,26 @@ class SerialReaderRS485:
                         logger.error(f"{self.device_custom_name} - No response from {start_address} address")
                         return {}
 
-                    registers_data = response.registers
-
-                    current_idx_in_group = 0
-                    for name, spec, length_in_registers in group['items']:
-                        data_for_decode = registers_data[
-                                          current_idx_in_group: current_idx_in_group + length_in_registers]
-
-                        decoded_value = decode_data(data_for_decode, spec)
-
-                        if decoded_value is not None:
-                            if "sign_of_active_power" in name:
-                                sign_values[name] = decoded_value
-                            elif "sign_of_reactive_power" in name:
-                                sign_values[name] = decoded_value
-                            elif "power_factor_sector" in name:
-                                power_factor_sector_values[name] = decoded_value
-                            else:
-                                result[name] = decoded_value
-                        else:
-                            result[name] = None
-
-                        current_idx_in_group += length_in_registers
+                    registers = response.registers
+                    idx = 0
+                    for name, length in group['items']:
+                        spec = self.register_map[name]
+                        data = registers[idx: idx + length]
+                        result[name] = decode_data(data, spec)
+                        idx += length
 
                 except Exception as e:
-                    logger.error(f"{self.device_custom_name} - No response from {start_address} address")
+                    logger.error(
+                        f"{self.device_custom_name} - Error reading registers {start_address}-{start_address + total_length}: {str(e)}")
                     return {}
 
-                for i in range(1, 4):
-                    active_power_key = f"phase_{i}_active_power"
-                    sign_key = f"phase_{i}_sign_of_active_power"
-
-                    if active_power_key in result and sign_key in sign_values:
-                        # Згідно з документацією (6): 0: positive, 1: negative
-                        if sign_values[sign_key] == 1:
-                            result[active_power_key] *= -1
-                        del sign_values[sign_key]
-
-                    # Для 3-фазної активної потужності
-                if "3_phase_active_power" in result and "3_phase_sign_of_active_power" in sign_values:
-                    if sign_values["3_phase_sign_of_active_power"] == 1:
-                        result["3_phase_active_power"] *= -1
-                    del sign_values["3_phase_sign_of_active_power"]
-
-                for i in range(1, 4):
-                    reactive_power_key = f"phase_{i}_reactive_power"
-                    sign_key = f"phase_{i}_sign_of_reactive_power"
-
-                    if reactive_power_key in result and sign_key in sign_values:
-                        if sign_values[sign_key] == 1:
-                            result[reactive_power_key] *= -1
-                        del sign_values[sign_key]
-
-                if "3_phase_reactive_power" in result and "3_phase_sign_of_reactive_power" in sign_values:
-                    if sign_values["3_phase_sign_of_reactive_power"] == 1:
-                        result["3_phase_reactive_power"] *= -1
-                    del sign_values["3_phase_sign_of_reactive_power"]
-
-                result.update(sign_values)
-                result.update(power_factor_sector_values)
-
-                return result
+            return result
 
         except Exception as e:
-            logger.error(f"{self.device_custom_name} - Неочікувана помилка при читанні: {str(e)}")
+            logger.error(f"{self.device_custom_name} - Unexpected error: {str(e)}")
             return {}
         finally:
             try:
                 self.client.close()
             except Exception as e:
-                logger.error(f"{self.device_custom_name} - Помилка при закритті з'єднання: {str(e)}")
+                logger.error(f"{self.device_custom_name} - Error closing connection: {str(e)}")
