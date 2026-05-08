@@ -89,7 +89,8 @@ def init_config():
     config_path = get_config_path()
     default_config = {
         "deleting_time": 180,
-        "timezone": "Europe/Kyiv"
+        "timezone": "Europe/Kyiv",
+        "warnings": "False"
     }
     try:
         with open(config_path, "r", encoding="utf-8") as file:
@@ -141,3 +142,18 @@ def get_timezone():
 def set_timezone(new_timezone_str):
     _CONFIG['timezone'] = new_timezone_str
     _save_config()
+
+def get_warnings():
+    if not _CONFIG:
+        init_config()
+    return _CONFIG.get("warnings", "False")
+
+def toggle_warnings():
+    if not _CONFIG:
+        init_config()
+    if _CONFIG.get("warnings", "False") == "True":
+        _CONFIG["warnings"] = "False"
+        _save_config()
+    else:
+        _CONFIG["warnings"] = "True"
+        _save_config()
