@@ -10,7 +10,7 @@ from PySide6 import QtCore, QtGui
 from PySide6.QtGui import QAction, QIcon, QMovie
 from PySide6.QtWidgets import QMainWindow, QWidget, QStackedWidget, QVBoxLayout, QDialog, QSystemTrayIcon, QMenu, QLabel
 
-from tools.config import resource_path
+from tools.config import resource_path, toggle_warnings
 from pyqt.dialogs.LanguageDialog import LanguageDialog
 from pyqt.dialogs.DeletingTimeDialog import DeletingTimeDialog
 from pyqt.dialogs.TimezoneDialog import TimezoneDialog
@@ -63,6 +63,10 @@ class MainWindow(QMainWindow):
         settings_menu.addAction(settings_action)
 
         settings_action_timezone = QAction("Часовий пояс", self)
+        settings_action_timezone.triggered.connect(self.open_timezone_dialog)
+        settings_menu.addAction(settings_action_timezone)
+
+        settings_action_timezone = QAction("Контроль пікових значень", self)
         settings_action_timezone.triggered.connect(self.open_timezone_dialog)
         settings_menu.addAction(settings_action_timezone)
 

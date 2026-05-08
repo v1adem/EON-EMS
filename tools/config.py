@@ -17,6 +17,7 @@ _LOG_DIR = None
 LOG_FILE = 'app.log'
 MAX_LOG_SIZE = 1024 * 1024  # 1 MB
 BACKUP_COUNT = 3
+_WARNINGS = False
 
 
 def resource_path(relative_path):
@@ -146,14 +147,19 @@ def set_timezone(new_timezone_str):
 def get_warnings():
     if not _CONFIG:
         init_config()
-    return _CONFIG.get("warnings", "False")
+    if _CONFIG.get("warnings", "False") == "False":
+        return False
+    else:
+        return True
 
 def toggle_warnings():
     if not _CONFIG:
         init_config()
     if _CONFIG.get("warnings", "False") == "True":
         _CONFIG["warnings"] = "False"
+        _WARNINGS = False
         _save_config()
     else:
         _CONFIG["warnings"] = "True"
+        _WARNINGS = True
         _save_config()
