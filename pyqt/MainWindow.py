@@ -1,5 +1,6 @@
 import logging
 
+from pyqt.dialogs.WarningsDialog import WarningsDialog
 from pyqt.widgets.DeviceDetailsWidgets.SDM120DeviceDetailsWidget import SDM120DeviceDetailsWidget
 from pyqt.widgets.DeviceDetailsWidgets.SDM630DeviceDetailsWidget import SDM630DeviceDetailsWidget
 from pyqt.widgets.DeviceDetailsWidgets.SDM72DeviceDetailsWidget import SDM72DeviceDetailsWidget
@@ -66,9 +67,9 @@ class MainWindow(QMainWindow):
         settings_action_timezone.triggered.connect(self.open_timezone_dialog)
         settings_menu.addAction(settings_action_timezone)
 
-        settings_action_timezone = QAction("Контроль пікових значень", self)
-        settings_action_timezone.triggered.connect(self.open_timezone_dialog)
-        settings_menu.addAction(settings_action_timezone)
+        settings_action_warnings = QAction("Контроль пікових значень", self)
+        settings_action_warnings.triggered.connect(self.open_warnings_dialog)
+        settings_menu.addAction(settings_action_warnings)
 
         self.central_widget = QWidget(self)
         self.setCentralWidget(self.central_widget)
@@ -109,6 +110,10 @@ class MainWindow(QMainWindow):
 
     def open_timezone_dialog(self):
         dialog = TimezoneDialog(self)
+        dialog.exec()
+
+    def open_warnings_dialog(self):
+        dialog = WarningsDialog(self)
         dialog.exec()
 
     def change_language(self):
