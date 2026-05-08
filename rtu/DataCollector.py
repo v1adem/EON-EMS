@@ -12,7 +12,7 @@ from AsyncioPySide6 import AsyncioPySide6
 from PySide6.QtCore import QRunnable
 from PySide6.QtWidgets import QMessageBox
 
-from tools.config import get_deleting_time, get_timezone, _WARNINGS
+from tools.config import get_deleting_time, get_timezone, _WARNINGS, get_warnings
 from models.Device import Device
 from models.Report import SDM120Report, SDM120ReportTmp, SDM630Report, SDM72Report, SDM630ReportTmp, SDM72ReportTmp
 from rtu.SerialReaderRS485 import SerialReaderRS485
@@ -148,7 +148,7 @@ class DataCollectorRunnable(QRunnable):
 
         phases = self.get_phases(device)
         immediate_record = None
-        if _WARNINGS == True:
+        if get_warnings():
             immediate_record = any(
                 is_voltage_out_of_range(new_data, device, phase) or
                 is_current_over_limit(new_data, device, phase) or
