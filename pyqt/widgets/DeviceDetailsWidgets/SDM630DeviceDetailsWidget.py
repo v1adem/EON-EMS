@@ -227,6 +227,8 @@ class SDM630DeviceDetailsWidget(BaseDeviceDetailsWidget):
                     getattr(self, f"c_line_{phase_name}").setData(filtered_ts, c_vals)
                     getattr(self, f"p_line_{phase_name}").setData(filtered_ts, p_vals)
 
+                self._is_initial_load = initial_limit
+
                 for phase_name in self.phases:
                     self.update_energy_graph(phase_name)
 

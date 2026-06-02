@@ -330,12 +330,8 @@ class BaseDeviceDetailsWidget(QWidget):
         )
         graph_widget.addItem(bar_graph)
 
-        y_max = max(heights) if heights else 1.0
-        graph_widget.setYRange(0, max(1.0, y_max * 1.1), padding=0)
-
-        x_min = min(x_coords) - 3600
-        x_max = max(x_coords) + 3600
-        graph_widget.setXRange(x_min, x_max, padding=0)
+        if hasattr(self, '_is_initial_load') and self._is_initial_load:
+            graph_widget.autoRange()
 
     def auto_update_history(self):
         if self.auto_update_checkbox.isChecked():
