@@ -180,6 +180,8 @@ class SDM630DeviceDetailsWidget(BaseDeviceDetailsWidget):
             self.report_table.setSortingEnabled(True)
             self.setup_table_click_handler(self.report_table)
 
+            self.report_table.resizeColumnsToContents()
+
             # Розрахунок кроку Downsampling
             timestamps = [r.timestamp.timestamp() for r in self.report_data]
             step = max(1, len(timestamps) // 1000) if not initial_limit else 1
