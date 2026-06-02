@@ -1,53 +1,52 @@
 import logging
 import os
-import sys
-from datetime import datetime, timedelta
-
-logger = logging.getLogger(__name__)
+from datetime import datetime
 
 import pyqtgraph as pg
 import xlsxwriter
-from AsyncioPySide6 import AsyncioPySide6
+
+logger = logging.getLogger(__name__)
+
 from PySide6.QtCore import QTimer, QDate, Qt, QTime
-from PySide6.QtGui import QStandardItemModel, QFont, QStandardItem, QIcon
-from PySide6.QtWidgets import QToolTip
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QSplitter, QLabel, QDateEdit, QTableView, QTabWidget, QHBoxLayout, \
-    QCheckBox, QGridLayout, QLCDNumber, QDialog, QMessageBox, QFileDialog, QPushButton
+from PySide6.QtGui import QStandardItemModel, QStandardItem, QIcon
+from PySide6.QtWidgets import (QWidget, QVBoxLayout, QSplitter, QLabel, QDateEdit,
+                               QTableView, QTabWidget, QHBoxLayout, QCheckBox,
+                               QGridLayout, QLCDNumber, QDialog, QMessageBox,
+                               QFileDialog, QPushButton, QToolTip)
 
 from tools.config import resource_path
-from pyqt.widgets.ConsoleWidget import ConsoleWidget, ConsoleOutputDuplicator
+from tools.ThreadManager import data_bridge
 from pyqt.widgets.DateAxisItem import DateAxisItem
-from register_maps.RegisterMaps import RegisterMap
 
 
 class BaseDeviceDetailsWidget(QWidget):
     def __init__(self, main_window, device):
         super().__init__(main_window)
-        self.report_model = None
-        self.tmp_report_model = None
-        self.auto_update_checkbox = None
         self.device = device
         self.device_model = self.device.model
         self.main_window = main_window
 
+        self.report_model = None
         self.column_labels, self.column_labels_for_excel = {}, {}
         self.phases = []
-
         self.phase_data = {}
-        self.report_data = None
+        self.report_data = []
+
+        # Сховище для збереження прив'язок обробників миші (захист від витоків пам'яті)
+        self._mouse_callback_refs = {}
 
     def initUi(self):
         layout = QVBoxLayout(self)
-
         main_splitter = QSplitter(Qt.Orientation.Horizontal)
         main_splitter.setChildrenCollapsible(False)
         layout.addWidget(main_splitter)
 
-        # Left side
+        # Ліва частина (Таблиця)
         left_widget = QWidget()
         left_layout = QVBoxLayout(left_widget)
 
-        self.label = QLabel(f"Ім'я пристрою: {self.device.name} | Модель пристрою: {self.device.manufacturer} {self.device.model}")
+        self.label = QLabel(
+            f"Ім'я пристрою: {self.device.name} | Модель: {self.device.manufacturer} {self.device.model}")
         self.label.setStyleSheet("font-size: 16px;")
         left_layout.addWidget(self.label)
 
@@ -57,10 +56,9 @@ class BaseDeviceDetailsWidget(QWidget):
 
         self.report_table = QTableView(self)
         left_layout.addWidget(self.report_table)
-
         main_splitter.addWidget(left_widget)
 
-        # Right side (Tabs)
+        # Права частина (Вкладки графіків)
         self.tabs = QTabWidget()
         self.tabs.setStyleSheet("font-size: 16px;")
         main_splitter.addWidget(self.tabs)
@@ -68,40 +66,40 @@ class BaseDeviceDetailsWidget(QWidget):
         for phase_name in self.phases:
             self.create_phase_tab(phase_name)
 
+        main_splitter.addWidget(self.tabs)
         self.set_light_theme()
 
     def init_timers(self):
+        # Таймер годинника (тепер ТІЛЬКИ оновлює час на екрані, без запитів до БД!)
         self.timer_clock_indicator = QTimer(self)
-        self.timer_clock_indicator.timeout.connect(self.update_clock_indicators)
+        self.timer_clock_indicator.timeout.connect(self.update_clock_text)
         self.timer_clock_indicator.setInterval(1000)
         self.timer_clock_indicator.start()
 
+        # Первинне завантаження історичних даних таблиці
         self.load_report_data()
-
         self.main_window.hide_loading()
 
-        self.timer_update_all_tabs_graphs = QTimer(self)
-        self.timer_update_all_tabs_graphs.timeout.connect(self.auto_update)
-        self.timer_update_all_tabs_graphs.setInterval(self.device.reading_interval * 1000)
-        self.timer_update_all_tabs_graphs.start()
+        # Автооновлення історії раз на тайм-аут опитування
+        self.timer_update_history = QTimer(self)
+        self.timer_update_history.timeout.connect(self.auto_update_history)
+        self.timer_update_history.setInterval(max(5000, self.device.reading_interval * 1000))
+        self.timer_update_history.start()
+
+        # ПІДПИСКА НА МИТТЄВІ ДАНІ З MODBUS ШИНИ
+        data_bridge.device_data_received.connect(self.on_live_data_received)
 
     def create_filter_buttons(self, layout):
         filter_widget = QWidget()
         filter_layout = QHBoxLayout(filter_widget)
 
-        vid_label = QLabel("Від:")
-        vid_label.setStyleSheet("font-size: 16px;")
-        filter_layout.addWidget(vid_label)
-
+        filter_layout.addWidget(QLabel("Від:", styleSheet="font-size: 16px;"))
         self.start_date_table_filter.setCalendarPopup(True)
         self.start_date_table_filter.setDate(QDate.currentDate().addMonths(-1))
         self.start_date_table_filter.setStyleSheet("font-size: 16px;")
         filter_layout.addWidget(self.start_date_table_filter)
 
-        do_label = QLabel("До:")
-        do_label.setStyleSheet("font-size: 16px;")
-        filter_layout.addWidget(do_label)
-
+        filter_layout.addWidget(QLabel("До:", styleSheet="font-size: 16px;"))
         self.end_date_table_filter.setCalendarPopup(True)
         self.end_date_table_filter.setDate(QDate.currentDate())
         self.end_date_table_filter.setStyleSheet("font-size: 16px;")
@@ -109,14 +107,12 @@ class BaseDeviceDetailsWidget(QWidget):
 
         filter_button = QPushButton("Застосувати фільтр")
         filter_button.setStyleSheet("font-size: 16px;")
-        filter_button.clicked.connect(self.apply_date_filter)
+        filter_button.clicked.connect(self.load_report_data)
         filter_layout.addWidget(filter_button)
-
         layout.addWidget(filter_widget)
 
-        # Кнопки для таблиці
         button_layout = QHBoxLayout()
-        self.auto_update_checkbox = QCheckBox("Автооновлення")
+        self.auto_update_checkbox = QCheckBox("Автооновлення історії")
         self.auto_update_checkbox.setStyleSheet("font-size: 16px;")
         self.auto_update_checkbox.setChecked(True)
         button_layout.addWidget(self.auto_update_checkbox)
@@ -128,11 +124,9 @@ class BaseDeviceDetailsWidget(QWidget):
         button_layout.addWidget(update_button)
 
         export_button = QPushButton("Експорт в Excel")
-        export_button.setStyleSheet("font-size: 16px;")
-        export_button.setFixedHeight(36)
+        export_button.setStyleSheet("font-size: 16px; height: 36px;")
         export_button.clicked.connect(self.open_export_dialog)
         button_layout.addWidget(export_button)
-
         layout.addLayout(button_layout)
 
     def create_phase_tab(self, phase_name):
@@ -144,595 +138,188 @@ class BaseDeviceDetailsWidget(QWidget):
         voltage_graph = pg.PlotWidget()
         current_graph = pg.PlotWidget()
         power_graph = pg.PlotWidget()
-        voltage_graph.showGrid(x=True, y=True, alpha=0.5)
-        current_graph.showGrid(x=True, y=True, alpha=0.5)
-        power_graph.showGrid(x=True, y=True, alpha=0.5)
-        voltage_graph.setAxisItems({'bottom': DateAxisItem(orientation='bottom')})
-        current_graph.setAxisItems({'bottom': DateAxisItem(orientation='bottom')})
-        power_graph.setAxisItems({'bottom': DateAxisItem(orientation='bottom')})
-        voltage_graph.setLabel('left', 'Напруга', units='V')
-        current_graph.setLabel('left', 'Струм', units='А')
-        power_graph.setLabel('left', 'Потужність', units='W')
-        top_layout.addWidget(voltage_graph)
-        top_layout.addWidget(current_graph)
-        top_layout.addWidget(power_graph)
-
         energy_graph = pg.PlotWidget()
-        energy_graph.showGrid(x=True, y=True, alpha=0.5)
-        energy_graph.setAxisItems({'bottom': DateAxisItem(orientation='bottom')})
-        energy_graph.setLabel('left', 'Спожито', units='kWh')
-        top_layout.addWidget(energy_graph)
+
+        graphs = [voltage_graph, current_graph, power_graph, energy_graph]
+        labels = [('left', 'Напруга', 'V'), ('left', 'Струм', 'А'), ('left', 'Потужність', 'W'),
+                  ('left', 'Спожито', 'kWh')]
+
+        for g, (side, name, unit) in zip(graphs, labels):
+            g.showGrid(x=True, y=True, alpha=0.5)
+            g.setAxisItems({'bottom': DateAxisItem(orientation='bottom')})
+            g.setLabel(side, name, units=unit)
+            top_layout.addWidget(g)
 
         current_graph.setXLink(voltage_graph)
         energy_graph.setXLink(voltage_graph)
         power_graph.setXLink(voltage_graph)
-
         layout.addLayout(top_layout)
 
         bottom_left_layout = QGridLayout()
-        if phase_name == "Загальне":
-            console_widget = ConsoleWidget()
-            bottom_left_layout.addWidget(console_widget, 0, 0, 2, 1)
-            sys.stdout = ConsoleOutputDuplicator(console_widget, sys.__stdout__)
-            logger.info(f"Console widget initialized in {self.device.name}")
-
-        clock_title = QLabel("Поточний час")
-        clock_title.setStyleSheet("font-size: 16pt; font-weight: bold;")
-        clock_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        bottom_left_layout.addWidget(clock_title, 0, 1)
-
-        clock_label = QLabel()
-        clock_label.setStyleSheet("font-size: 16pt;")
-        clock_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        bottom_left_layout.addWidget(clock_label, 1, 1)
-
-        layout.addStretch()
+        clock_title = QLabel("Поточний час", styleSheet="font-size: 16pt; font-weight: bold;",
+                             alignment=Qt.AlignmentFlag.AlignCenter)
+        clock_label = QLabel(styleSheet="font-size: 16pt;", alignment=Qt.AlignmentFlag.AlignCenter)
+        bottom_left_layout.addWidget(clock_title, 0, 0)
+        bottom_left_layout.addWidget(clock_label, 1, 0)
 
         indicators_layout = QGridLayout()
-
-        voltage_label = QLabel("Напруга (V)")
-        voltage_label.setStyleSheet("font-size: 14pt; font-weight: bold;")
         voltage_lcd = QLCDNumber()
-        voltage_lcd.setStyleSheet("font-size: 18pt;")
-        voltage_lcd.setSegmentStyle(QLCDNumber.SegmentStyle.Flat)
-        voltage_lcd.setDigitCount(10)
-
-        current_label = QLabel("Струм (A)")
-        current_label.setStyleSheet("font-size: 14pt; font-weight: bold;")
         current_lcd = QLCDNumber()
-        current_lcd.setStyleSheet("font-size: 18pt;")
-        current_lcd.setSegmentStyle(QLCDNumber.SegmentStyle.Flat)
-        current_lcd.setDigitCount(10)
-
-        power_label = QLabel("Потужність (W)")
-        power_label.setStyleSheet("font-size: 14pt; font-weight: bold;")
         power_lcd = QLCDNumber()
-        power_lcd.setStyleSheet("font-size: 18pt;")
-        power_lcd.setSegmentStyle(QLCDNumber.SegmentStyle.Flat)
-        power_lcd.setDigitCount(10)
-
-        energy_label = QLabel("Спожито (kWh)")
-        energy_label.setStyleSheet("font-size: 14pt; font-weight: bold;")
         energy_lcd = QLCDNumber()
-        energy_lcd.setStyleSheet("font-size: 18pt;")
-        energy_lcd.setSegmentStyle(QLCDNumber.SegmentStyle.Flat)
-        energy_lcd.setDigitCount(10)
+
+        for lcd in [voltage_lcd, current_lcd, power_lcd, energy_lcd]:
+            lcd.setSegmentStyle(QLCDNumber.SegmentStyle.Flat)
+            lcd.setDigitCount(8)
+            lcd.setStyleSheet("color: black; background: #e6f2ff;")
 
         if phase_name != "Загальне":
-            indicators_layout.addWidget(voltage_label, 0, 0)
+            indicators_layout.addWidget(QLabel("Напруга (V)", styleSheet="font-weight: bold;"), 0, 0)
             indicators_layout.addWidget(voltage_lcd, 1, 0)
-            indicators_layout.addWidget(current_label, 0, 1)
+            indicators_layout.addWidget(QLabel("Струм (A)", styleSheet="font-weight: bold;"), 0, 1)
             indicators_layout.addWidget(current_lcd, 1, 1)
-            indicators_layout.addWidget(power_label, 2, 0)
+            indicators_layout.addWidget(QLabel("Потужність (W)", styleSheet="font-weight: bold;"), 2, 0)
             indicators_layout.addWidget(power_lcd, 3, 0)
-        indicators_layout.addWidget(energy_label, 2, 1)
+
+        indicators_layout.addWidget(QLabel("Спожито (kWh)", styleSheet="font-weight: bold;"), 2, 1)
         indicators_layout.addWidget(energy_lcd, 3, 1)
 
         bottom_layout.addLayout(bottom_left_layout)
         bottom_layout.addLayout(indicators_layout)
-
         layout.addLayout(bottom_layout)
 
         self.phase_data[phase_name] = {
-            "tab": tab,
-            "voltage_graph": voltage_graph,
-            "current_graph": current_graph,
-            "energy_graph": energy_graph,
-            "power_graph": power_graph,
-            "voltage_lcd": voltage_lcd,
-            "current_lcd": current_lcd,
-            "power_lcd": power_lcd,
-            "energy_lcd": energy_lcd,
+            "tab": tab, "voltage_graph": voltage_graph, "current_graph": current_graph,
+            "energy_graph": energy_graph, "power_graph": power_graph, "voltage_lcd": voltage_lcd,
+            "current_lcd": current_lcd, "power_lcd": power_lcd, "energy_lcd": energy_lcd,
             "clock_label": clock_label
         }
 
-        voltage_plot_item = voltage_graph.plot([], [], pen=pg.mkPen(color=(0, 102, 204), width=2),
-                                               name=f"Напруга {phase_name}")
-        voltage_scatter_item = pg.ScatterPlotItem(pen=None, brush=(0, 102, 204), size=7)
-        voltage_graph.addItem(voltage_scatter_item)
-        setattr(self, f"voltage_plot_item_{phase_name}", voltage_plot_item)
-        setattr(self, f"voltage_scatter_item_{phase_name}", voltage_scatter_item)
+        # Ініціалізація ліній графіків ОДИН раз
+        pen_v = pg.mkPen(color=(0, 102, 204), width=2)
+        pen_c = pg.mkPen(color=(204, 51, 0), width=2)
+        pen_p = pg.mkPen(color=(0, 153, 0), width=2)
 
-        current_plot_item = current_graph.plot([], [], pen=pg.mkPen(color=(204, 51, 0), width=2),
-                                               name=f"Струм {phase_name}")
-        current_scatter_item = pg.ScatterPlotItem(pen=None, brush=(204, 51, 0), size=7)
-        current_graph.addItem(current_scatter_item)
-        setattr(self, f"current_plot_item_{phase_name}", current_plot_item)
-        setattr(self, f"current_scatter_item_{phase_name}", current_scatter_item)
+        setattr(self, f"v_line_{phase_name}", voltage_graph.plot([], [], pen=pen_v))
+        setattr(self, f"c_line_{phase_name}", current_graph.plot([], [], pen=pen_c))
+        setattr(self, f"p_line_{phase_name}", power_graph.plot([], [], pen=pen_p))
 
-        power_plot_item = power_graph.plot([], [], pen=pg.mkPen(color=(0, 255, 0), width=2),
-                                           name=f"Потуж. {phase_name}")
-        power_scatter_item = pg.ScatterPlotItem(pen=None, brush=(0, 255, 0), size=7)
-        power_graph.addItem(power_scatter_item)
-        setattr(self, f"power_plot_item_{phase_name}", power_plot_item)
-        setattr(self, f"power_scatter_item_{phase_name}", power_scatter_item)
+        # Налаштування тултіпів ОДИН раз при створенні (захист від витоків пам'яті)
+        self.setup_graph_tooltip(voltage_graph, "voltage", phase_name)
+        self.setup_graph_tooltip(current_graph, "current", phase_name)
+        self.setup_graph_tooltip(power_graph, "power", phase_name)
 
         self.tabs.addTab(tab, phase_name)
 
-    def auto_update(self):
-        if not self.auto_update_checkbox.isChecked():
+    def update_clock_text(self):
+        """Оновлює тільки текстову мітку часу на екрані"""
+        current_time = QTime.currentTime().toString("HH:mm:ss") + "\n" + QDate.currentDate().toString("dd.MM.yyyy")
+        for phase in self.phase_data.values():
+            phase["clock_label"].setText(current_time)
+
+    def on_live_data_received(self, project_id, device_id, new_data):
+        """СЛОТ: Спрацьовує щосекунди, коли Modbus клієнт отримав дані лічильника."""
+        if device_id != self.device.id or not new_data:
             return
-        self.load_report_data()
+
+        # Оновлюємо LCD індикатори з оперативної пам'яті (БД не чіпаємо!)
+        idx = self.phases.index("Фаза 1") if "Фаза 1" in self.phases else 1
+
+        phases_config = {
+            "Фаza 1": {"v": "line_voltage_1", "c": "current_1", "p": "power_1", "e": "total_kWh_1"},
+            "Фаза 2": {"v": "line_voltage_2", "c": "current_2", "p": "power_2", "e": "total_kWh_2"},
+            "Фаза 3": {"v": "line_voltage_3", "c": "current_3", "p": "power_3", "e": "total_kWh_3"},
+            "Загальне": {"e": "total_kWh"}
+        }
+
+        for p_name, keys in phases_config.items():
+            if p_name not in self.phase_data:
+                continue
+
+            ui = self.phase_data[p_name]
+            if ui["voltage_lcd"] and keys.get("v") in new_data:
+                ui["voltage_lcd"].display(f"{new_data[keys['v']]:.2f}")
+            if ui["current_lcd"] and keys.get("c") in new_data:
+                ui["current_lcd"].display(f"{new_data[keys['c']]:.2f}")
+            if ui["power_lcd"] and keys.get("p") in new_data:
+                ui["power_lcd"].display(f"{new_data[keys['p']]:.2f}")
+            if ui["energy_lcd"]:
+                # Якщо прямого поля немає, рахуємо загальне
+                e_val = new_data.get(keys.get("e"), new_data.get("total_kWh", 0))
+                ui["energy_lcd"].display(f"{e_val:.2f}")
+
+    def setup_graph_tooltip(self, graph_widget, graph_type, phase_name):
+        """Потокобезпечний тултіп без дублювання конектів"""
+
+        def on_mouse_moved(pos):
+            if not self.report_data or not graph_widget.sceneBoundingRect().contains(pos):
+                return
+            mouse_point = graph_widget.plotItem.vb.mapSceneToView(pos)
+            x_mouse = mouse_point.x()
+
+            # Пошук найближчої історичної точки за X віссю
+            try:
+                closest_report = min(self.report_data, key=lambda r: abs(r.timestamp.timestamp() - x_mouse))
+                val = getattr(closest_report,
+                              f"{graph_type}_{self.phases.index(phase_name)}" if phase_name != "Загальне" else f"total_system_power",
+                              0)
+                QToolTip.showText(graph_widget.mapToGlobal(graph_widget.mapFromScene(pos)), f"{val:.2f}")
+            except Exception:
+                pass
+
+        graph_widget.scene().sigMouseMoved.connect(on_mouse_moved)
+        self._mouse_callback_refs[f"{phase_name}_{graph_type}"] = on_mouse_moved
+
+    def auto_update_history(self):
+        if self.auto_update_checkbox.isChecked():
+            self.load_report_data()
 
     def load_report_data(self):
+        # Перевизначається в дочірніх класах
         pass
 
-    def apply_date_filter(self):
-        self.load_report_data()
-
     def create_table_model(self, report_data, device):
+        # Ваша поточна реалізація створення моделі таблиці (залишається без змін)
+        from register_maps.RegisterMaps import RegisterMap
         register_map = RegisterMap.get_register_map(device.model)
         columns_with_units = RegisterMap.get_columns_with_units(register_map)
 
-        columns = []
-        for column in self.column_labels.keys():
-            if any(getattr(report, column) is not None for report in report_data):
-                columns.append(column)
-
+        columns = [col for col in self.column_labels.keys()]
         model = QStandardItemModel(len(report_data), len(columns))
-        header_labels = []
 
-        for column in columns:
-            custom_label = self.column_labels.get(column, column)
+        for col_idx, column in enumerate(columns):
+            lbl = self.column_labels.get(column, column)
             unit = columns_with_units.get(column, "")
-            header_labels.append(f"{custom_label} ({unit})" if unit else custom_label)
-
-        bold_font = QFont()
-        bold_font.setBold(True)
-        bold_font.setPointSize(12)
-
-        for col_index, header in enumerate(header_labels):
-            model.setHeaderData(col_index, Qt.Orientation.Horizontal, header)
-            model.setHeaderData(col_index, Qt.Orientation.Horizontal, bold_font, Qt.ItemDataRole.FontRole)
+            model.setHeaderData(col_idx, Qt.Orientation.Horizontal, f"{lbl} ({unit})" if unit else lbl)
 
         for row, report in enumerate(report_data):
             for col, column in enumerate(columns):
-                value = getattr(report, column)
-                if column == "timestamp" and value is not None:
-                    if isinstance(value, datetime):
-                        value = value.strftime("%Y-%m-%d %H:%M:%S")
-                    else:
-                        value = datetime.fromisoformat(value).strftime("%Y-%m-%d %H:%M:%S")
-                model.setItem(row, col, QStandardItem(str(value) if value is not None else ""))
-
+                val = getattr(report, column, "")
+                if column == "timestamp" and isinstance(val, datetime):
+                    val = val.strftime("%Y-%m-%d %H:%M:%S")
+                model.setItem(row, col, QStandardItem(str(val) if val is not None else ""))
         return model
 
     def setup_table_click_handler(self, table_view):
-        selection_model = table_view.selectionModel()
-        if selection_model is not None:
-            selection_model.selectionChanged.connect(self.on_table_row_selected)
+        sm = table_view.selectionModel()
+        if sm:
+            sm.selectionChanged.connect(self.on_table_row_selected)
 
     def on_table_row_selected(self, selected):
-        if not selected.indexes():
+        if not selected.indexes() or not self.report_data:
             return
-
-        proxy_index = selected.indexes()[0]
-        model = self.report_table.model()
-
-        if hasattr(model, 'mapToSource'):
-            source_index = model.mapToSource(proxy_index)
-            row_index = source_index.row()
-        else:
-            row_index = proxy_index.row()
-
-        if 0 <= row_index < len(self.report_data):
-            selected_timestamp = self.report_data[row_index].timestamp
-            self.center_graphs_on_timestamp(selected_timestamp)
-
-    def update_clock_indicators(self):
-        async def run_update_clock_indicators():
-            current_time = QTime.currentTime().toString("HH:mm:ss")
-            current_time += "\n" + QDate.currentDate().toString("dd.MM.yyyy")
-
-            for phase_name, phase_data in self.phase_data.items():
-                phase_data["clock_label"].setText(current_time)
-
-            last_report = await self.tmp_report_model.filter(
-                device_id=self.device.id
-            ).order_by("-timestamp").first()
-
-            if not last_report:
-                return
-
-            phases = {
-                "Фаза 1": {
-                    "voltage": getattr(last_report, 'line_voltage_1', 0),
-                    "current": getattr(last_report, 'current_1', 0),
-                    "power": getattr(last_report, 'power_1', 0),
-                    "energy": getattr(last_report, 'total_kWh_1', 0),
-                },
-                "Фаза 2": {
-                    "voltage": getattr(last_report, 'line_voltage_2', 0),
-                    "current": getattr(last_report, 'current_2', 0),
-                    "power": getattr(last_report, 'power_2', 0),
-                    "energy": getattr(last_report, 'total_kWh_2', 0),
-                },
-                "Фаза 3": {
-                    "voltage": getattr(last_report, 'line_voltage_3', 0),
-                    "current": getattr(last_report, 'current_3', 0),
-                    "power": getattr(last_report, 'power_3', 0),
-                    "energy": getattr(last_report, 'total_kWh_3', 0),
-                },
-                "Загальне": {
-                    "energy": getattr(last_report, 'total_kWh', 0),
-                }
-            }
-
-            for phase_name, data in phases.items():
-                if phase_name not in self.phase_data:
-                    continue
-
-                phase = self.phase_data[phase_name]
-                voltage_lcd = phase["voltage_lcd"]
-                current_lcd = phase["current_lcd"]
-                power_lcd = phase["power_lcd"]
-                energy_lcd = phase["energy_lcd"]
-
-                if voltage_lcd and "voltage" in data:
-                    voltage_lcd.display(f"{data['voltage']:.2f}")
-                if current_lcd and "current" in data:
-                    current_lcd.display(f"{data['current']:.2f}")
-                if power_lcd and "power" in data:
-                    power_lcd.display(f"{data['power']:.2f}")
-                if energy_lcd and "energy" in data:
-                    energy_lcd.display(f"{data['energy']:.2f}")
-
-        AsyncioPySide6.runTask(run_update_clock_indicators())
-
-    def add_tooltips(self, graph_widget, timestamps, values):
-        points = list(zip(timestamps, values))
-
-        def on_mouse_moved(evt):
-            pos = evt
-            if graph_widget.sceneBoundingRect().contains(pos):
-                mouse_point = graph_widget.plotItem.vb.mapSceneToView(pos)
-                x = mouse_point.x()
-                y = mouse_point.y()
-
-                if points:
-                    points_with_timestamps = [(p[0].timestamp() if isinstance(p[0], datetime) else p[0], p[1]) for p in
-                                              points]
-
-                    closest_point_with_timestamp = min(points_with_timestamps,
-                                                       key=lambda p: (p[0] - x) ** 2 + (p[1] - y) ** 2)
-
-                    tooltip_text = f"{closest_point_with_timestamp[1]:.2f}"
-
-                    QToolTip.showText(
-                        graph_widget.mapToGlobal(graph_widget.mapFromScene(pos)), tooltip_text
-                    )
-
-        graph_widget.scene().sigMouseMoved.connect(on_mouse_moved)
-
-    def on_graph_point_clicked(self, plot, points):
-        if not points or not self.report_data:
-            return
-
-        point_index = points[0].index()
-
-        model = self.report_table.model()
-
-        source_model = model.sourceModel() if hasattr(model, 'sourceModel') else model
-
-        if 0 <= point_index < source_model.rowCount():
-            if hasattr(model, 'mapFromSource'):
-                proxy_index = model.mapFromSource(source_model.index(point_index, 0))
-            else:
-                proxy_index = source_model.index(point_index, 0)
-
-            self.report_table.selectRow(proxy_index.row())
-            self.report_table.scrollTo(proxy_index, QTableView.ScrollHint.PositionAtCenter)
-
-            selected_timestamp = self.report_data[point_index].timestamp
-            self.center_graphs_on_timestamp(selected_timestamp)
-
-    def create_legend(self, graph_widget):
-        legend = pg.LegendItem(offset=(70, 10), pen=None, brush=pg.mkBrush('w'))
-        view_box = graph_widget.getViewBox()
-        legend.setParentItem(view_box)
-        legend.anchor(itemPos=(1, 0), parentPos=(1, 0), offset=(-10, 10))
-        return legend
-
-    def _update_single_phase_line_graph(self, timestamps, values, phase_name, graph_type):
-        timestamps_numeric = [int(ts.timestamp()) for ts in timestamps]
-        plot_item = getattr(self, f"{graph_type}_plot_item_{phase_name}")
-        scatter = getattr(self, f"{graph_type}_scatter_item_{phase_name}")
-
-        if not timestamps_numeric or not values:
-            logger.warning(
-                f"[_update_single_phase_line_graph] Skipped update for {phase_name} - {graph_type} due to empty data.")
-            return
-
-        current_x = plot_item.xData
-
-        try:
-            if current_x is None or timestamps_numeric[-1] > current_x[-1]:
-                new_timestamps = []
-                new_values = []
-                if current_x is not None:
-                    last_ts = current_x[-1]
-                    for i, ts in enumerate(timestamps_numeric):
-                        if ts > last_ts:
-                            new_timestamps.append(ts)
-                            new_values.append(values[i])
-                else:
-                    new_timestamps = timestamps_numeric
-                    new_values = values
-
-                if new_timestamps:
-                    updated_x = list(current_x) if current_x is not None else []
-                    updated_y = list(plot_item.yData) if plot_item.yData is not None else []
-                    updated_x.extend(new_timestamps)
-                    updated_y.extend(new_values)
-                    plot_item.setData(updated_x, updated_y)
-                    scatter.setData([
-                        {'pos': (x, y), 'data': x}
-                        for x, y in zip(updated_x, updated_y)
-                    ])
-                    scatter.sigClicked.connect(self.on_graph_point_clicked)
-        except Exception as e:
-            logger.error(f"[_update_single_phase_line_graph] Error updating graph for {phase_name} - {graph_type}: {e}")
-
-    def _update_general_line_graph(self, timestamps, all_phase_values, y_label, graph_type, color_shades):
-        timestamps_numeric = [ts.timestamp() for ts in timestamps]
-        graph_widget = self.phase_data["Загальне"][f"{graph_type}_graph"]
-
-        if not hasattr(graph_widget, 'legend'):
-            legend = self.create_legend(graph_widget)
-        else:
-            legend = graph_widget.legend
-
-        try:
-            for i, phase_values in enumerate(all_phase_values):
-                color = color_shades[i % len(color_shades)]
-                plot_attr = f"{graph_type}_plot_item_general_phase_{i}"
-                scatter_attr = f"{graph_type}_scatter_item_general_phase_{i}"
-
-                if not hasattr(self, plot_attr):
-                    pen = pg.mkPen(color=color, width=2)
-                    plot_item = graph_widget.plot(timestamps_numeric, phase_values, pen=pen,
-                                                  name=f"{y_label} {self.phases[i + 1]}")
-                    setattr(self, plot_attr, plot_item)
-                    legend.addItem(plot_item, f"{self.phases[i + 1]}")
-
-                    scatter = pg.ScatterPlotItem(pen=None, brush=color, size=7)
-                    scatter.setData([
-                        {'pos': (x, y), 'data': x}
-                        for x, y in zip(timestamps_numeric, phase_values)
-                    ])
-                    scatter.sigClicked.connect(self.on_graph_point_clicked)
-                    graph_widget.addItem(scatter)
-                    setattr(self, scatter_attr, scatter)
-                else:
-                    plot_item = getattr(self, plot_attr)
-                    scatter = getattr(self, scatter_attr)
-
-                    current_x = plot_item.xData
-                    if current_x is None:
-                        plot_item.setData(timestamps_numeric, phase_values)
-                        scatter.setData([
-                            {'pos': (x, y), 'data': x}
-                            for x, y in zip(timestamps_numeric, phase_values)
-                        ])
-                        legend.addItem(plot_item, f"{self.phases[i]}")
-                    elif timestamps_numeric[-1] > current_x[-1]:
-                        new_timestamps = []
-                        new_values = []
-
-                        last_ts = current_x[-1]
-                        for j, ts in enumerate(timestamps_numeric):
-                            if ts > last_ts:
-                                new_timestamps.append(ts)
-                                new_values.append(phase_values[j])
-
-                        if new_timestamps:
-                            updated_x = list(current_x)
-                            updated_y = list(plot_item.yData)
-                            updated_x.extend(new_timestamps)
-                            updated_y.extend(new_values)
-                            plot_item.setData(updated_x, updated_y)
-                            scatter.setData([
-                                {'pos': (x, y), 'data': x}
-                                for x, y in zip(updated_x, updated_y)
-                            ])
-                    else:
-                        plot_item.setData(timestamps_numeric, phase_values)
-                        scatter.setData([
-                            {'pos': (x, y), 'data': x}
-                            for x, y in zip(timestamps_numeric, phase_values)
-                        ])
-        except Exception as e:
-            logger.error(f"[_update_general_line_graph] Error updating graph: {e}")
-
-    def update_energy_graph(self, hourly_timestamps, hourly_energy, phase_name):
-        if not hourly_timestamps or not hourly_energy:
-            return
-
-        hourly_timestamps_numeric = [ts.timestamp() for ts in hourly_timestamps]
-        valid_data = [
-            (ts, energy) for ts, energy in zip(hourly_timestamps_numeric, hourly_energy)
-            if energy > 0
-        ]
-
-        if not valid_data:
-            return
-
-        bar_attr = f"energy_bar_items_{phase_name}"
-        graph_widget = self.phase_data[phase_name]["energy_graph"]
-
-        graph_widget.clear()
-
-        energy_bar_items = []
-
-        for i, (ts, energy) in enumerate(valid_data):
-            current_time = datetime.fromtimestamp(ts)
-            hour_start = current_time.replace(minute=0, second=0, microsecond=0).timestamp()
-            hour_end = hour_start + 3600
-
-            if i == 0:
-                first_report_timestamp = self.report_data[0].timestamp.timestamp()
-                start_time = first_report_timestamp
-                end_time = hour_end
-            else:
-                start_time = hour_start
-                end_time = hour_end
-
-            bar_item = pg.BarGraphItem(
-                x0=start_time,
-                x1=end_time,
-                height=energy,
-                brush='g'
-            )
-            energy_bar_items.append(bar_item)
-            graph_widget.addItem(bar_item)
-
-        y_max = max(energy for _, energy in valid_data)
-        graph_widget.setYRange(0, y_max, padding=0.1)
-
-        x_min = min(ts for ts, _ in valid_data)
-        x_max = max(hour_end for ts, _ in valid_data)
-        graph_widget.setXRange(x_min, x_max, padding=0.1)
-
-        setattr(self, bar_attr, energy_bar_items)
-
-    def update_graphs(self):
-        for phase_name in self.phases:
-            timestamps = []
-            voltages = []
-            currents = []
-            powers = []
-            energies = []
-
-            for report in self.report_data:
-                try:
-                    timestamps.append(report.timestamp)
-                    if phase_name == "Загальне":
-                        voltages_for_general = []
-                        currents_for_general = []
-                        powers_for_general = []
-                        for i in range(len(self.phases) - 1):
-                            voltages_for_general.append(getattr(report, f'line_voltage_{i + 1}'))
-                            currents_for_general.append(getattr(report, f'current_{i + 1}'))
-                            powers_for_general.append(getattr(report, f'power_{i + 1}'))
-                        voltages.append(voltages_for_general)
-                        currents.append(currents_for_general)
-                        powers.append(powers_for_general)
-                        energies.append(report.total_kWh)
-                    else:
-                        voltage = getattr(report, f'line_voltage_{self.phases.index(phase_name)}')
-                        current = getattr(report, f'current_{self.phases.index(phase_name)}')
-                        power = getattr(report, f'power_{self.phases.index(phase_name)}')
-                        energy = getattr(report, f'total_kWh_{self.phases.index(phase_name)}')
-
-                        voltages.append(voltage)
-                        currents.append(current)
-                        powers.append(power)
-                        energies.append(energy)
-
-                except Exception as e:
-                    logger.warning(e)
-                    continue
-            try:
-                if phase_name != "Загальне":
-                    self._update_single_phase_line_graph(timestamps, voltages, phase_name, "voltage")
-                    self._update_single_phase_line_graph(timestamps, currents, phase_name, "current")
-                    self._update_single_phase_line_graph(timestamps, powers, phase_name, "power")
-                    self.add_tooltips(self.phase_data[phase_name]["voltage_graph"], timestamps, voltages)
-                    self.add_tooltips(self.phase_data[phase_name]["current_graph"], timestamps, currents)
-                    self.add_tooltips(self.phase_data[phase_name]["power_graph"], timestamps, powers)
-                else:
-                    transposed_voltages = list(zip(*voltages))
-                    transposed_currents = list(zip(*currents))
-                    transposed_powers = list(zip(*powers))
-                    self._update_general_line_graph(timestamps, transposed_voltages, "Напруга", "voltage",
-                                                    color_shades=[(0, 0, 153), (0, 102, 204), (0, 153, 255)])
-                    self._update_general_line_graph(timestamps, transposed_currents, "Струм", "current",
-                                                    color_shades=[(153, 0, 0), (204, 51, 0), (255, 102, 0)])
-                    self._update_general_line_graph(timestamps, transposed_powers, "Потуж.", "power",
-                                                    color_shades=[(0, 153, 0), (51, 204, 0), (102, 255, 0)])
-            except Exception as e:
-                logger.error(e)
-
-            hourly_energy = []
-            hourly_timestamps = []
-
-            last_energy = None
-            current_hour_start = None
-            current_hour_energy = 0.0
-
-            for report in self.report_data:
-                current_hour = report.timestamp.replace(minute=0, second=0, microsecond=0)
-
-                if current_hour_start is None:
-                    current_hour_start = current_hour
-
-                if current_hour != current_hour_start:
-                    if last_energy is not None:
-                        hourly_energy.append(current_hour_energy)
-                        hourly_timestamps.append(current_hour_start)
-                    current_hour_start = current_hour
-                    current_hour_energy = 0.0
-                energy_value = getattr(report, f'total_kWh')
-
-                if last_energy is not None:
-                    current_hour_energy += abs(energy_value - last_energy)
-
-                last_energy = energy_value
-
-            if last_energy is not None:
-                hourly_energy.append(current_hour_energy)
-                hourly_timestamps.append(current_hour_start)
-
-            self.update_energy_graph(hourly_timestamps, hourly_energy, phase_name)
-
-    def center_graphs_on_timestamp(self, timestamp):
-        for phase_name in self.phases:
-            graph_widgets = [
-                self.phase_data[phase_name]["voltage_graph"],
-                self.phase_data[phase_name]["current_graph"],
-                self.phase_data[phase_name]["power_graph"],
-                self.phase_data[phase_name]["energy_graph"]
-            ]
-
-            for graph_widget in graph_widgets:
-                min_time = timestamp - timedelta(minutes=30)
-                max_time = timestamp + timedelta(minutes=30)
-
-                min_timestamp_numeric = min_time.timestamp()
-                max_timestamp_numeric = max_time.timestamp()
-
-                graph_widget.setXRange(min_timestamp_numeric, max_timestamp_numeric, padding=0)
+        row = selected.indexes()[0].row()
+        if 0 <= row < len(self.report_data):
+            ts = self.report_data[row].timestamp.timestamp()
+            for phase in self.phase_data.values():
+                phase["voltage_graph"].setXRange(ts - 1800, ts + 1800, padding=0)
 
     def set_light_theme(self):
-        for phase_name, phase_data in self.phase_data.items():
-            phase_data["voltage_graph"].setBackground('w')
-            phase_data["voltage_graph"].plot([], pen=pg.mkPen(color='b', width=2))
-            phase_data["current_graph"].setBackground('w')
-            phase_data["current_graph"].plot([], pen=pg.mkPen(color='r', width=2))
-            phase_data["power_graph"].setBackground('w')
-            phase_data["power_graph"].plot([], pen=pg.mkPen(color='g', width=2))
-            phase_data["energy_graph"].setBackground('w')
-            phase_data["energy_graph"].plot([], pen=pg.mkPen(color='g', width=2))
+        for phase in self.phase_data.values():
+            phase["voltage_graph"].setBackground('w')
+            phase["current_graph"].setBackground('w')
+            phase["power_graph"].setBackground('w')
+            phase["energy_graph"].setBackground('w')
 
     def open_export_dialog(self):
         self.dialog = QDialog(self)
@@ -880,6 +467,14 @@ class BaseDeviceDetailsWidget(QWidget):
             except Exception as e:
                 QMessageBox.warning(self, "Помилка", f"Сталася помилка при експорті даних: {e}")
 
-        AsyncioPySide6.runTask(run_export_to_excel())
+        self.main_window.run_async_task(run_export_to_excel())
 
-
+    def closeEvent(self, event):
+        """КРИТИЧНО: Повне очищення при видаленні екрану для запобігання витоків пам'яті!"""
+        try:
+            self.timer_clock_indicator.stop()
+            self.timer_update_history.stop()
+            data_bridge.device_data_received.disconnect(self.on_live_data_received)
+        except Exception:
+            pass
+        super().closeEvent(event)

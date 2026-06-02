@@ -1,289 +1,178 @@
-import asyncio
 import logging
+import asyncio
 from datetime import datetime, timedelta
-
 import pytz
+from tortoise.transactions import in_transaction
 
 from models.Project import Project
+from models.Device import Device
+from models.Report import SDM120Report, SDM630Report, SDM72Report
+from rtu.SerialReaderRS485 import SerialReaderRS485
+from tools.config import get_deleting_time, get_timezone, get_warnings
+from tools.ThreadManager import data_bridge
 
 logger = logging.getLogger(__name__)
 
-from AsyncioPySide6 import AsyncioPySide6
-from PySide6.QtCore import QRunnable
-from PySide6.QtWidgets import QMessageBox
-
-from tools.config import get_deleting_time, get_timezone, _WARNINGS, get_warnings
-from models.Device import Device
-from models.Report import SDM120Report, SDM120ReportTmp, SDM630Report, SDM72Report, SDM630ReportTmp, SDM72ReportTmp
-from rtu.SerialReaderRS485 import SerialReaderRS485
-
-
-async def get_data_from_device(device, project, main_window):
-    try:
-        client = SerialReaderRS485(device, project)
-
-        if main_window.thread_manager.threads.get(project.id).stop_collecting:
-            return {}
-
-        return await client.read_all_properties()
-
-    except asyncio.CancelledError:
-        logger.warning(f"{device.name} - Task cancelled")
-        return {}
-    except Exception as e:
-        logger.warning(f"{device.name} - Task failed: {e}")
-        return {}
 
 def is_voltage_out_of_range(new_data, device, phase):
     voltage_key = f"line_voltage_{phase}"
     voltage_value = new_data.get(voltage_key)
-
-    if voltage_key in new_data:
+    if voltage_value is not None:
         if voltage_value > device.maxV:
-            logger.warning(f"Voltage of {phase} phase in {device.name} ({device.model}) is above ({device.maxV}V). \n" +
-                  f"Current value: {voltage_value}V. Extra: {voltage_value - device.maxV}V.")
+            logger.warning(
+                f"Voltage of {phase} phase in {device.name} ({device.model}) is above ({device.maxV}V). Current: {voltage_value}V.")
             return True
         elif voltage_value < device.minV:
             if voltage_value == 0:
                 return False
-            print(f"Voltage of {phase} phase in {device.name} ({device.model}) is less than ({device.minV}V). \n" +
-                  f"Current value: {voltage_value}V. Lack: {device.minV - voltage_value}V.")
+            logger.warning(
+                f"Voltage of {phase} phase in {device.name} ({device.model}) is less than ({device.minV}V). Current: {voltage_value}V.")
             return True
     return False
+
 
 def is_current_over_limit(new_data, device, phase):
     current_key = f"current_{phase}"
     current_value = new_data.get(current_key)
-
-    if current_key in new_data:
-        if current_value > device.maxA:
-            logger.warning(f"Current of {phase} phase in {device.name} ({device.model}) is above ({device.maxA}A). \n" +
-                  f"Current value: {current_value}A. Extra: {current_value - device.maxA}A.")
-            return True
+    if current_value is not None and current_value > device.maxA:
+        logger.warning(
+            f"Current of {phase} phase in {device.name} ({device.model}) is above ({device.maxA}A). Current: {current_value}A.")
+        return True
     return False
+
 
 def is_power_over_limit(new_data, device, phase):
     power_key = f"power_{phase}"
     power_value = new_data.get(power_key)
-
-    if power_key in new_data:
-        if power_value > device.maxW:
-            logger.warning(f"Power of {phase} phase in {device.name} ({device.model}) is above ({device.maxW}W). \n" +
-                  f"Current value: {power_value}W. Extra: {power_value - device.maxW}W.")
-            return True
+    if power_value is not None and power_value > device.maxW:
+        logger.warning(
+            f"Power of {phase} phase in {device.name} ({device.model}) is above ({device.maxW}W). Current: {power_value}W.")
+        return True
     return False
 
 
-class DataCollectorRunnable(QRunnable):
-    def __init__(self, project, main_window):
-        super().__init__()
-        self.project = project
-        self.main_window = main_window
-        self.stop_collecting = False
+def get_phases(model):
+    return ['1'] if model == "SDM120" else ['1', '2', '3']
 
-    def run(self):
-        AsyncioPySide6.runTask(self.collect_data())
 
-    async def collect_data(self):
-        while not self.stop_collecting:
-            try:
-                self.project = await Project.filter(id=self.project.id).first()
-                devices = await Device.filter(project=self.project).all()
-                for device in devices:
-                    await self.handle_device_reading(device)
-            except Exception as e:
-                logger.error(f"Error in main collection loop: {e}")
+def get_db_model(model):
+    if model == "SDM120":
+        return SDM120Report
+    elif model == "SDM630":
+        return SDM630Report
+    elif model == "SDM72":
+        return SDM72Report
+    return None
 
-            if not self.stop_collecting:
-                await asyncio.sleep(1)
 
-    async def handle_device_reading(self, device):
+async def should_record_now(device, last_report):
+    if not last_report:
+        return True
+
+    current_time = datetime.now()
+    last_report_time = last_report.timestamp.replace(tzinfo=None)
+
+    if device.reading_type == 2:  # За часом доби
+        start_of_day = current_time.replace(hour=0, minute=0, second=0, microsecond=0)
+        target_time = start_of_day + timedelta(minutes=device.reading_time)
+        return current_time >= target_time and last_report_time < start_of_day
+
+    # За інтервалом
+    return current_time >= (last_report_time + timedelta(seconds=device.reading_interval))
+
+
+async def clean_old_records(device, db_model):
+    deleting_time = get_deleting_time()
+    if deleting_time > 0:
+        delete_before_date = datetime.now() - timedelta(days=deleting_time)
+        # Оптимальне пакетне видалення замість поштучного
+        await db_model.filter(device=device, timestamp__lt=delete_before_date).delete()
+
+
+async def handle_device_reading(device, project):
+    if not device.reading_status:
+        return
+
+    local_tz = get_timezone()
+    now_local = datetime.now(local_tz)
+    if device.wait_time and device.wait_time > now_local:
+        return
+
+    reader = SerialReaderRS485(device, project)
+    new_data = await reader.read_all_properties()
+
+    if not new_data:
+        # Помилка читання: виставляємо статус offline та тайм-аут на 5 хвилин
+        if device.actual_status:
+            device.actual_status = False
+            now_utc = datetime.utcnow().replace(tzinfo=pytz.utc)
+            device.wait_time = (now_utc + timedelta(seconds=300)).astimezone(local_tz)
+            await device.save(update_fields=['actual_status', 'wait_time'])
+
+            wait_str = device.wait_time.strftime('%H:%M')
+            data_bridge.device_status_changed.emit(device.id, False, wait_str)
+        return
+
+    # Успішне читання: відновлюємо статус online
+    if not device.actual_status:
+        device.actual_status = True
+        device.wait_time = datetime.utcnow().replace(tzinfo=pytz.utc).astimezone(local_tz)
+        await device.save(update_fields=['actual_status', 'wait_time'])
+        data_bridge.device_status_changed.emit(device.id, True, "")
+
+    # Надсилаємо миттєві дані в інтерфейс через сигнал (БД не чіпаємо)
+    data_bridge.device_data_received.emit(project.id, device.id, new_data)
+
+    # Перевірка критичних параметрів
+    phases = get_phases(device.model)
+    immediate_record = False
+    if get_warnings():
+        immediate_record = any(
+            is_voltage_out_of_range(new_data, device, phase) or
+            is_current_over_limit(new_data, device, phase) or
+            is_power_over_limit(new_data, device, phase)
+            for phase in phases
+        )
+
+    db_model = get_db_model(device.model)
+    if not db_model:
+        return
+
+    # Перевірка розкладу для збереження в основну базу даних
+    last_report = await db_model.filter(device=device).order_by("-timestamp").first()
+    if immediate_record or await should_record_now(device, last_report):
         try:
-            local_tz = get_timezone()
-            now_local = datetime.now(local_tz)
-            if device.reading_status is False:
-                return
-            if device.wait_time and device.wait_time > now_local:
-                return
-
-            new_data = await get_data_from_device(device, self.project, self.main_window)
-
-            if not new_data or new_data == {}:
-                await self.handle_read_error(device)
-                return
-
-            await self.handle_successful_reading(device, new_data)
-
-        except Exception as e:
-            logger.error(f"Unexpected error handling device {device.name}: {e}")
-            await self.update_device_status(device, False)
-
-    async def update_device_status(self, device, is_online):
-        try:
-            if device.actual_status != is_online:
-                device.actual_status = is_online
-
-                if not is_online:
-                    tz = get_timezone()
-                    now_utc = datetime.utcnow().replace(tzinfo=pytz.utc)
-                    wait_time_local = now_utc + timedelta(seconds=300)
-                    device.wait_time = wait_time_local.astimezone(tz)
-
-                await device.save(update_fields=['actual_status', 'wait_time'])
-
-                if self.main_window.project_view_widget is not None:
-                    self.main_window.project_view_widget.load_devices()
-
-                status_msg = "online" if is_online else "offline"
-                logger.info(f"Device {device.name} - {device.model} is now {status_msg}")
-        except Exception as e:
-            logger.error(f"Error updating device {device.name} status: {e}")
-
-    async def handle_read_error(self, device):
-        await self.update_device_status(device, False)
-
-    async def handle_successful_reading(self, device, new_data):
-        if not device.actual_status:
-            await self.update_device_status(device, True)
-
-        phases = self.get_phases(device)
-        immediate_record = None
-        if get_warnings():
-            immediate_record = any(
-                is_voltage_out_of_range(new_data, device, phase) or
-                is_current_over_limit(new_data, device, phase) or
-                is_power_over_limit(new_data, device, phase)
-                for phase in phases
-            )
-
-        if not immediate_record:
-            last_report = await self.get_last_report(device)
-            if last_report and not self.should_record_now(device, last_report):
-                return
-
-        await self.save_device_data(device, new_data)
-
-    async def get_last_report(self, device):
-        main_db_model, _ = self.get_db_model(device)
-        return await main_db_model.filter(device=device).last()
-
-    def should_record_now(self, device, last_report):
-        device_reading_interval = device.reading_interval
-        last_report_time = last_report.timestamp.replace(tzinfo=None)
-        calculated_time = last_report_time + timedelta(seconds=device_reading_interval)
-        current_time = datetime.now().replace(tzinfo=None)
-
-        if device.reading_type == 2:
-            reading_time = device.reading_time
-            start_of_day = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
-            return current_time >= (start_of_day + timedelta(minutes=reading_time)) and last_report_time < start_of_day
-
-        return current_time >= calculated_time
-
-    async def save_device_data(self, device, new_data):
-        try:
-            main_db_model, tmp_db_model = self.get_db_model(device)
-
-            tmp_report_data = self.get_tmp_data(device, new_data)
-            existing_tmp_report = await tmp_db_model.filter(device_id=device.id).first()
-
-            if existing_tmp_report:
-                for key, value in tmp_report_data.items():
-                    setattr(existing_tmp_report, key, value)
-                await existing_tmp_report.save()
-            else:
-                tmp_report = tmp_db_model(**tmp_report_data)
-                await tmp_report.save()
-
-            report_data = {"device_id": device.id}
+            report_data = {"device_id": device.id, "timestamp": datetime.now(pytz.utc)}
             report_data.update({key: value for key, value in new_data.items() if value is not None})
 
-            new_report = main_db_model(**report_data)
-            await new_report.save()
+            async with in_transaction():
+                new_report = db_model(**report_data)
+                await new_report.save()
+                await clean_old_records(device, db_model)
 
-            logger.info(f"Report saved - {device.name}, {device.model}")
-
-            await self.clean_old_records(device, main_db_model)
-
+            logger.info(f"Scheduled report saved for {device.name} ({device.model})")
         except Exception as e:
-            logger.error(f"Error saving data for device {device.name}: {e}")
+            logger.error(f"Error saving report for device {device.name}: {e}")
 
-    async def clean_old_records(self, device, db_model):
-        deleting_time = get_deleting_time()
-        if deleting_time > 0:
-            delete_before_date = datetime.now().replace(tzinfo=None) - timedelta(days=deleting_time)
-            first_report = await db_model.filter(device=device).first()
-            if first_report and first_report.timestamp.replace(tzinfo=None) < delete_before_date:
-                await first_report.delete()
 
-    def get_tmp_data(self, device, new_data):
-        if device.model == "SDM120":
-            tmp_report_data = {
-                "device_id": device.id,
-                "line_voltage_1": new_data.get("line_voltage_1"),
-                "current_1": new_data.get("current_1"),
-                "power_1": new_data.get("power_1"),
-                "total_active_energy": new_data.get("total_active_energy"),
-                "total_reactive_energy": new_data.get("total_reactive_energy")
-            }
-            return tmp_report_data
-        elif device.model == "SDM630":
-            tmp_report_data = {
-                "device_id": device.id,
-                "line_voltage_1": new_data.get("line_voltage_1"),
-                "line_voltage_2": new_data.get("line_voltage_2"),
-                "line_voltage_3": new_data.get("line_voltage_3"),
-                "current_1": new_data.get("current_1"),
-                "current_2": new_data.get("current_2"),
-                "current_3": new_data.get("current_3"),
-                "power_1": new_data.get("power_1"),
-                "power_2": new_data.get("power_2"),
-                "power_3": new_data.get("power_3"),
-                "total_kWh_1": new_data.get("total_kWh_1"),
-                "total_kWh_2": new_data.get("total_kWh_2"),
-                "total_kWh_3": new_data.get("total_kWh_3"),
-                "total_kWh": new_data.get("total_kWh"),
-            }
-            return tmp_report_data
-        elif device.model == "SDM72":
-            tmp_report_data = {
-                "device_id": device.id,
-                "line_voltage_1": new_data.get("line_voltage_1"),
-                "line_voltage_2": new_data.get("line_voltage_2"),
-                "line_voltage_3": new_data.get("line_voltage_3"),
-                "current_1": new_data.get("current_1"),
-                "current_2": new_data.get("current_2"),
-                "current_3": new_data.get("current_3"),
-                "power_1": new_data.get("power_1"),
-                "power_2": new_data.get("power_2"),
-                "power_3": new_data.get("power_3"),
-                "total_kWh": new_data.get("total_kWh"),
-            }
-            return tmp_report_data
-        else:
-            QMessageBox.warning(
-                self.main_window, f"{device.name}", f"{device.model} - Невідома модель", QMessageBox.StandardButton.Ok,
-                QMessageBox.StandardButton.Cancel)
+async def collect_data_for_project(project):
+    """Головний асинхронний цикл для конкретної лінії RS485"""
+    logger.info(f"Starting async collector loop for project line: {project.name}")
+    try:
+        while True:
+            # Актуалізуємо конфігурацію лінії порту та список пристроїв
+            active_project = await Project.filter(id=project.id).first()
+            if not active_project:
+                break
 
-    def get_db_model(self, device):
-        if device.model == "SDM120":
-            self.phases = ['1']
-            return SDM120Report, SDM120ReportTmp
-        elif device.model == "SDM630":
-            self.phases = ['1', '2', '3']
-            return SDM630Report, SDM630ReportTmp
-        elif device.model == "SDM72":
-            self.phases = ['1', '2', '3']
-            return SDM72Report, SDM72ReportTmp
-        else:
-            logger.error("Unknown device model")
+            devices = await Device.filter(project=active_project).all()
 
-    def get_phases(self, device):
-        if device.model == "SDM120":
-            return ['1']
-        elif device.model == "SDM630":
-            return ['1', '2', '3']
-        elif device.model == "SDM72":
-            return ['1', '2', '3']
-        else:
-            logger.error("Unknown device model")
+            # Паралельно опитуємо всі пристрої на цій лінії
+            tasks = [handle_device_reading(device, active_project) for device in devices]
+            await asyncio.gather(*tasks, return_exceptions=True)
+
+            await asyncio.sleep(1)
+    except asyncio.CancelledError:
+        logger.info(f"Collector loop for project {project.name} was stopped.")
+    except Exception as e:
+        logger.error(f"Critical error in collector loop {project.name}: {e}")

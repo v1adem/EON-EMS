@@ -1,26 +1,26 @@
 import logging
 import os
 from datetime import datetime, timedelta
-
 import xlsxwriter
 
-from pyqt.SafeButton import SafeButton
 from register_maps.RegisterMaps import RegisterMap
 
 logger = logging.getLogger(__name__)
 
 import pytz
-from AsyncioPySide6 import AsyncioPySide6
 from PySide6.QtCore import Qt, QSize, QTime, QDate
 from PySide6.QtGui import QStandardItemModel, QStandardItem, QIcon
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QLabel, QListView, QHBoxLayout, QMessageBox, QDialog, \
-    QFormLayout, QLineEdit, QComboBox, QSpinBox, QDialogButtonBox, QRadioButton, QTimeEdit, QSpacerItem, QSizePolicy, \
-    QFileDialog, QDateEdit, QPushButton
+from PySide6.QtWidgets import (QWidget, QVBoxLayout, QLabel, QListView, QHBoxLayout,
+                               QMessageBox, QDialog, QFormLayout, QLineEdit, QComboBox,
+                               QSpinBox, QDialogButtonBox, QRadioButton, QTimeEdit,
+                               QSpacerItem, QSizePolicy, QFileDialog, QDateEdit, QPushButton)
 from tortoise.exceptions import DoesNotExist
 
 from tools.config import resource_path, get_timezone
+from tools.ThreadManager import data_bridge
+from pyqt.SafeButton import SafeButton
 from models.Device import Device
-from models.Report import SDM120Report, SDM120ReportTmp, SDM630Report, SDM630ReportTmp, SDM72Report, SDM72ReportTmp
+from models.Report import SDM120Report, SDM630Report, SDM72Report
 
 
 class ProjectViewWidget(QWidget):
@@ -31,16 +31,13 @@ class ProjectViewWidget(QWidget):
         self.project = project
         self.isAdmin = main_window.isAdmin
 
+        # Словник для швидкого доступу до UI-елементів рядків без перезавантаження списку
+        # Схема: {device_id: {"status_label": QLabel, "time_label": QLabel, "force_btn": QPushButton}}
+        self.device_widgets = {}
+
         layout = QVBoxLayout(self)
 
-        self.loading_indicator = QLabel(self)
-        self.loading_indicator.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.loading_indicator.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
-        self.loading_indicator.setStyleSheet("background: transparent;")
-        self.loading_indicator.hide()
-
         top_layout = QHBoxLayout()
-
         self.label = QLabel(f"Деталі проєкту: {project.name}")
         self.label.setStyleSheet("font-size: 18px;")
         top_layout.addWidget(self.label)
@@ -65,8 +62,6 @@ class ProjectViewWidget(QWidget):
         self.devices_model = QStandardItemModel()
         self.devices_list.setModel(self.devices_model)
 
-        self.load_devices()
-
         self.add_device_button = QPushButton("Додати новий пристрій", self)
         self.add_device_button.setStyleSheet("font-size: 18px;")
         layout.addWidget(self.add_device_button)
@@ -76,12 +71,20 @@ class ProjectViewWidget(QWidget):
 
         self.devices_list.doubleClicked.connect(self.open_device_details)
 
+        # Підписка на глобальну шину статусів
+        data_bridge.device_status_changed.connect(self.on_device_status_changed)
+
+        self.load_devices()
+
     def load_devices(self):
         self.main_window.show_loading()
+        self.device_widgets.clear()
+        self.devices_model.clear()
 
         async def run_load_devices():
-            self.devices = await Device.filter(project_id=self.project.id).all()
-            for index, device in enumerate(self.devices, start=1):
+            devices = await Device.filter(project_id=self.project.id).all()
+
+            for index, device in enumerate(devices, start=1):
                 item = QStandardItem()
                 item.setData(device.name, Qt.ItemDataRole.UserRole)
                 item.setSizeHint(QSize(0, 60))
@@ -100,44 +103,41 @@ class ProjectViewWidget(QWidget):
                 name_label.setStyleSheet("font-size: 18px;")
                 item_layout.addWidget(name_label)
 
-                def set_status_label():
-                    if device.actual_status and device.reading_status:
-                        actual_status_label.setText("Підключено")
-                        actual_status_label.setStyleSheet("font-size: 18px; color: #00aa00;")
-                        time_label.setText("")
-                    elif device.reading_status is False:
-                        actual_status_label.setText("Вимкнено")
-                        time_label.setText("")
-                        actual_status_label.setStyleSheet("font-size: 18px; color: #aa0000;")
-                    else:
-                        actual_status_label.setText(f"Відключено.")
-                        local_tz = get_timezone()
-                        time_label.setText(
-                            f"Наступна спроба - {device.wait_time.astimezone(local_tz).strftime('%H:%M')}")
-                        actual_status_label.setStyleSheet("font-size: 18px; color: #aa0000;")
-
                 actual_status_label = QLabel()
+                actual_status_label.setStyleSheet("font-size: 18px;")
                 time_label = QLabel()
                 time_label.setStyleSheet("font-size: 18px;")
-                set_status_label()
+
                 actual_status_label.setSizePolicy(QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Preferred)
                 actual_status_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
                 time_label.setSizePolicy(QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Preferred)
                 time_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+
                 item_layout.addWidget(actual_status_label)
                 item_layout.addWidget(time_label)
 
-                toggle_status_button = SafeButton("Увімкнути" if not device.get_reading_status() else "Вимкнути")
+                toggle_status_button = SafeButton("Увімкнути" if not device.reading_status else "Вимкнути")
                 toggle_status_button.setFixedSize(100, 36)
                 toggle_status_button.clicked.connect(
-                    lambda _, d=device, btn=toggle_status_button: AsyncioPySide6.runTask(
-                        self.toggle_device_status(d, btn)))
+                    lambda _, d=device, btn=toggle_status_button: self.toggle_device_status(d, btn)
+                )
 
                 force_try_button = SafeButton("Примусова спроба")
                 force_try_button.setFixedSize(150, 36)
                 force_try_button.clicked.connect(
-                    lambda _, d=device, tl=time_label, b=force_try_button: AsyncioPySide6.runTask(
-                        self.force_device_try(d, tl, b)))
+                    lambda _, d=device, tl=time_label, b=force_try_button: self.force_device_try(d, tl, b)
+                )
+                item_layout.addWidget(force_try_button)
+
+                # Зберігаємо лінки на UI елементи для динамічного оновлення без ререндерингу
+                self.device_widgets[device.id] = {
+                    "status_label": actual_status_label,
+                    "time_label": time_label,
+                    "force_btn": force_try_button
+                }
+
+                # Ініціалізуємо початковий стан тексту
+                self.update_row_ui_elements(device, actual_status_label, time_label, force_try_button)
 
                 edit_button = QPushButton()
                 edit_button.setIcon(QIcon(resource_path("pyqt/icons/edit.png")))
@@ -149,51 +149,86 @@ class ProjectViewWidget(QWidget):
                 delete_button.setFixedSize(36, 36)
                 delete_button.clicked.connect(lambda _, d=device: self.delete_device(d))
 
-                if not device.actual_status and device.reading_status:
-                    item_layout.addWidget(force_try_button)
-
                 if self.isAdmin:
                     item_layout.addWidget(toggle_status_button)
-                    if not device.actual_status and device.reading_status:
-                        pass
                     item_layout.addWidget(edit_button)
                     item_layout.addWidget(delete_button)
-
-                    spacer = QSpacerItem(5, 0, QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Minimum)
-                    item_layout.addSpacerItem(spacer)
+                    item_layout.addSpacerItem(QSpacerItem(5, 0, QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Minimum))
 
                 item_layout.setContentsMargins(0, 0, 0, 0)
-
                 self.devices_list.setIndexWidget(item.index(), item_widget)
 
         try:
-            self.devices_model.clear()
-            AsyncioPySide6.runTask(run_load_devices())
+            self.main_window.run_async_task(run_load_devices())
         finally:
             self.main_window.hide_loading()
 
-    async def toggle_device_status(self, device, button):
-        try:
-            device.toggle_reading_status()
-            await device.save()
-            button.setText("Увімкнути" if not device.get_reading_status() else "Вимкнути")
-            self.load_devices()
-        except Exception as e:
-            QMessageBox.critical(self, "Помилка", f"Не вдалося змінити статус пристрою: {e}",
-                                 QMessageBox.StandardButton.Ok, QMessageBox.StandardButton.Cancel)
-            logger.error(e)
+    def update_row_ui_elements(self, device, status_label, time_label, force_btn):
+        if device.actual_status and device.reading_status:
+            status_label.setText("Підключено")
+            status_label.setStyleSheet("font-size: 18px; color: #00aa00;")
+            time_label.setText("")
+            force_btn.hide()
+        elif not device.reading_status:
+            status_label.setText("Вимкнено")
+            status_label.setStyleSheet("font-size: 18px; color: #aa0000;")
+            time_label.setText("")
+            force_btn.hide()
+        else:
+            status_label.setText("Відключено.")
+            status_label.setStyleSheet("font-size: 18px; color: #aa0000;")
+            local_tz = get_timezone()
+            wait_str = device.wait_time.astimezone(local_tz).strftime('%H:%M') if device.wait_time else "--:--"
+            time_label.setText(f"Наступна спроба - {wait_str}")
+            force_btn.show()
 
-    async def force_device_try(self, device, time_label, button):
-        try:
+    def on_device_status_changed(self, device_id, is_online, next_retry_time):
+        """Слот обробки сигналу з шини даних. Оновлює UI миттєво і без запитів до БД!"""
+        if device_id in self.device_widgets:
+            widgets = self.device_widgets[device_id]
+            if is_online:
+                widgets["status_label"].setText("Підключено")
+                widgets["status_label"].setStyleSheet("font-size: 18px; color: #00aa00;")
+                widgets["time_label"].setText("")
+                widgets["force_btn"].hide()
+            else:
+                widgets["status_label"].setText("Відключено.")
+                widgets["status_label"].setStyleSheet("font-size: 18px; color: #aa0000;")
+                widgets["time_label"].setText(f"Наступна спроба - {next_retry_time}")
+                widgets["force_btn"].show()
+
+    def toggle_device_status(self, device, button):
+        async def run_toggle():
+            device.reading_status = not device.reading_status
+            await device.save(update_fields=['reading_status'])
+            button.setText("Увімкнути" if not device.reading_status else "Вимкнути")
+
+            # Оновлюємо відображення конкретного рядка
+            widgets = self.device_widgets.get(device.id)
+            if widgets:
+                self.update_row_ui_elements(device, widgets["status_label"], widgets["time_label"],
+                                            widgets["force_btn"])
+
+        self.main_window.run_async_task(run_toggle())
+
+    def force_device_try(self, device, time_label, button):
+        async def run_force():
             time_label.setText("Відбувається спроба...")
             tz = get_timezone()
             now_utc = datetime.utcnow().replace(tzinfo=pytz.utc)
-            wait_time_local = now_utc - timedelta(seconds=600)
-            device.wait_time = wait_time_local.astimezone(tz)
+            device.wait_time = (now_utc - timedelta(seconds=600)).astimezone(tz)
             await device.save(update_fields=['wait_time'])
-            button.setEnabled(True)
-        except Exception as e:
-            logger.error(e)
+
+        self.main_window.run_async_task(run_force())
+
+    def open_device_details(self, index):
+        async def run_open_device_details():
+            device_name = self.devices_model.itemFromIndex(index).data(Qt.ItemDataRole.UserRole)
+            device = await Device.filter(name=device_name, project_id=self.project.id).first()
+            if device:
+                self.main_window.open_device_details(device)
+
+        self.main_window.run_async_task(run_open_device_details())
 
     def add_new_device(self):
         self.new_device = None
@@ -249,7 +284,7 @@ class ProjectViewWidget(QWidget):
                 await self.new_device.save()
                 self.edit_device(self.new_device)
 
-        AsyncioPySide6.runTask(run_add_device())
+        self.main_window.run_async_task(run_add_device())
 
 
     def edit_device(self, device):
@@ -361,7 +396,7 @@ class ProjectViewWidget(QWidget):
                 await device.save(force_update=True)
                 self.load_devices()
 
-        AsyncioPySide6.runTask(run_save_changes())
+        self.main_window.run_async_task(run_save_changes())
 
 
     def delete_device(self, device):
@@ -376,13 +411,10 @@ class ProjectViewWidget(QWidget):
                 try:
                     if device.model == "SDM120":
                         await SDM120Report.filter(device_id=device.id).delete()
-                        await SDM120ReportTmp.filter(device_id=device.id).delete()
                     elif device.model == "SDM630":
                         await SDM630Report.filter(device_id=device.id).delete()
-                        await SDM630ReportTmp.filter(device_id=device.id).delete()
                     elif device.model == "SDM72":
                         await SDM72Report.filter(device_id=device.id).delete()
-                        await SDM72ReportTmp.filter(device_id=device.id).delete()
 
                     await device.delete()
                     self.load_devices()
@@ -391,7 +423,7 @@ class ProjectViewWidget(QWidget):
                     print("Проєкт або пристрої не знайдені в базі даних.")
 
         try:
-            AsyncioPySide6.runTask(run_delete_device())
+            self.main_window.run_async_task(run_delete_device())
         finally:
             self.main_window.hide_loading()
 
@@ -406,7 +438,7 @@ class ProjectViewWidget(QWidget):
             else:
                 print("Пристрій не знайдено.")
 
-        AsyncioPySide6.runTask(run_open_device_details())
+        self.main_window.run_async_task(run_open_device_details())
 
     def open_project_export_dialog(self):
         self.dialog = QDialog(self)
@@ -513,6 +545,13 @@ class ProjectViewWidget(QWidget):
                 QMessageBox.warning(self, "Помилка", f"Сталася помилка при експорті даних: {e}")
 
         try:
-            AsyncioPySide6.runTask(run_export_to_excel())
+            self.main_window.run_async_task(run_export_to_excel())
         finally:
             self.main_window.hide_loading()
+
+    def closeEvent(self, event):
+        try:
+            data_bridge.device_status_changed.disconnect(self.on_device_status_changed)
+        except RuntimeError:
+            pass
+        super().closeEvent(event)

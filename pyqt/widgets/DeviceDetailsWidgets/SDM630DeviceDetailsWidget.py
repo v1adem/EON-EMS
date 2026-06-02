@@ -1,14 +1,12 @@
 import logging
 
+from PySide6.QtCore import QSortFilterProxyModel
+from PySide6.QtWidgets import QTableView
+
+from models.Report import SDM630Report
 from pyqt.widgets.DeviceDetailsWidgets.BaseDeviceDetailsWidget import BaseDeviceDetailsWidget
 
 logger = logging.getLogger(__name__)
-
-from AsyncioPySide6 import AsyncioPySide6
-from PySide6.QtCore import Qt, QSortFilterProxyModel
-from PySide6.QtWidgets import QTableView
-
-from models.Report import SDM630Report, SDM630ReportTmp
 
 
 class SDM630DeviceDetailsWidget(BaseDeviceDetailsWidget):
@@ -17,10 +15,10 @@ class SDM630DeviceDetailsWidget(BaseDeviceDetailsWidget):
         self.column_labels, self.column_labels_for_excel = self.init_column_labels()
         self.phases = ["Загальне", "Фаза 1", "Фаза 2", "Фаза 3"]
         self.report_model = SDM630Report
-        self.tmp_report_model = SDM630ReportTmp
 
         self.initUi()
         self.init_timers()
+
 
     def init_column_labels(self):
         column_labels = {
@@ -147,27 +145,53 @@ class SDM630DeviceDetailsWidget(BaseDeviceDetailsWidget):
         return column_labels, column_labels_for_excel
 
     def load_report_data(self):
+        """Асинхронне стягування історії та відображення на графіках з Downsampling-ом"""
+
         async def run_load_report_data():
             start_date = self.start_date_table_filter.date().toPython()
             end_date = self.end_date_table_filter.date().addDays(1).toPython()
 
+            # Стягуємо тільки потрібні поля для оптимізації RAM
             self.report_data = await SDM630Report.filter(
                 device_id=self.device.id,
                 timestamp__gte=start_date,
                 timestamp__lte=end_date
             ).order_by("timestamp").all()
-            model = self.create_table_model(self.report_data, self.device)
 
+            if not self.report_data:
+                return
+
+            # 1. Оновлюємо таблицю (тут показуємо всі дані, бо QTableView працює через Proxy швидко)
+            model = self.create_table_model(self.report_data, self.device)
             proxy_model = QSortFilterProxyModel()
             proxy_model.setSourceModel(model)
-            proxy_model.setSortCaseSensitivity(Qt.CaseSensitivity.CaseInsensitive)
-
             self.report_table.setModel(proxy_model)
             self.report_table.setSortingEnabled(True)
-            self.report_table.resizeColumnsToContents()
             self.setup_table_click_handler(self.report_table)
 
-            self.update_graphs()
+            # 2. Оновлюємо графіки з оптимізацією об'єму точок (Downsampling)
+            timestamps = [r.timestamp.timestamp() for r in self.report_data]
 
-        AsyncioPySide6.runTask(run_load_report_data())
+            # Визначаємо крок фільтрації точок для графіків
+            step = 1
+            if len(timestamps) > 1000:
+                step = len(timestamps) // 1000  # Відображаємо максимум 1000 точок на екрані
+
+            filtered_timestamps = timestamps[::step]
+
+            for phase_name in self.phases:
+                if phase_name == "Загальне":
+                    p_vals = [r.total_system_power for r in self.report_data][::step]
+                    getattr(self, f"p_line_{phase_name}").setData(filtered_timestamps, p_vals)
+                else:
+                    p_idx = self.phases.index(phase_name)  # Фаза 1 = index 1
+                    v_vals = [getattr(r, f"line_voltage_{p_idx}", 0) for r in self.report_data][::step]
+                    c_vals = [getattr(r, f"current_{p_idx}", 0) for r in self.report_data][::step]
+                    p_vals = [getattr(r, f"power_{p_idx}", 0) for r in self.report_data][::step]
+
+                    getattr(self, f"v_line_{phase_name}").setData(filtered_timestamps, v_vals)
+                    getattr(self, f"c_line_{phase_name}").setData(filtered_timestamps, c_vals)
+                    getattr(self, f"p_line_{phase_name}").setData(filtered_timestamps, p_vals)
+
+        self.main_window.run_async_task(run_load_report_data())
         self.report_table.setEditTriggers(QTableView.EditTrigger.NoEditTriggers)

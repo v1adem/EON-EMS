@@ -11,7 +11,7 @@ from PySide6 import QtCore, QtGui
 from PySide6.QtGui import QAction, QIcon, QMovie
 from PySide6.QtWidgets import QMainWindow, QWidget, QStackedWidget, QVBoxLayout, QDialog, QSystemTrayIcon, QMenu, QLabel
 
-from tools.config import resource_path, toggle_warnings
+from tools.config import resource_path
 from pyqt.dialogs.LanguageDialog import LanguageDialog
 from pyqt.dialogs.DeletingTimeDialog import DeletingTimeDialog
 from pyqt.dialogs.TimezoneDialog import TimezoneDialog
@@ -98,6 +98,10 @@ class MainWindow(QMainWindow):
         self.tray_icon.show()
 
         self.tray_icon.activated.connect(self.tray_icon_clicked)
+
+    def run_async_task(self, coro):
+        from AsyncioPySide6 import AsyncioPySide6
+        return AsyncioPySide6.runTask(coro)
 
     def tray_icon_clicked(self, reason):
         if reason == QSystemTrayIcon.ActivationReason.Trigger:

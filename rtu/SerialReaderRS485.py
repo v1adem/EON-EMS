@@ -1,48 +1,35 @@
 import logging
-
-logger = logging.getLogger(__name__)
-
-from pymodbus.client import ModbusSerialClient
+from pymodbus.client import AsyncModbusSerialClient
 from pymodbus.constants import Endian
 from pymodbus.payload import BinaryPayloadDecoder
-
 from register_maps.RegisterMaps import RegisterMap
+
+logger = logging.getLogger(__name__)
 
 
 def decode_data(data, property_specifications):
     decoded_data = 0
+    if not data:
+        return decoded_data
 
     if property_specifications["format"] == "float":
-        decoded_data = decode_32bit_float(data)
+        decoded_data = BinaryPayloadDecoder.fromRegisters(data, byteorder=Endian.BIG,
+                                                          wordorder=Endian.BIG).decode_32bit_float()
     elif property_specifications["format"] == "U_WORD":
         decoded_data = data[0]
     elif property_specifications["format"] == "UD_WORD":
         decoded_data = (data[0] << 16) + data[1]
     elif property_specifications["format"] == "S_WORD":
-        decoded_data = decode_16bit_signed(data)
+        decoded_data = BinaryPayloadDecoder.fromRegisters(data, byteorder=Endian.BIG,
+                                                          wordorder=Endian.BIG).decode_16bit_int()
     elif property_specifications["format"] == "SD_WORD":
-        decoded_data = decode_32bit_signed(data)
+        decoded_data = BinaryPayloadDecoder.fromRegisters(data, byteorder=Endian.BIG,
+                                                          wordorder=Endian.BIG).decode_32bit_int()
 
     if "divider" in property_specifications:
         decoded_data /= property_specifications["divider"]
 
     return round(decoded_data, 2)
-
-
-def decode_16bit_signed(data):
-    return BinaryPayloadDecoder.fromRegisters(data, byteorder=Endian.BIG,
-                                              wordorder=Endian.BIG).decode_16bit_int()
-
-
-def decode_32bit_signed(data):
-    return BinaryPayloadDecoder.fromRegisters(data, byteorder=Endian.BIG,
-                                              wordorder=Endian.BIG).decode_32bit_int()
-
-
-def decode_32bit_float(data):
-    decoded_data = BinaryPayloadDecoder.fromRegisters(data, byteorder=Endian.BIG,
-                                                      wordorder=Endian.BIG).decode_32bit_float()
-    return decoded_data
 
 
 class SerialReaderRS485:
@@ -52,17 +39,15 @@ class SerialReaderRS485:
         self.device_address = device.device_address
         self.register_map = RegisterMap.get_register_map(device.model)
 
-        self.client = ModbusSerialClient(
-            port=f"{self.port}", baudrate=project.baudrate, parity=project.parity,
-            stopbits=project.stopbits, bytesize=project.bytesize, timeout=3, retries=2
+        self.client = AsyncModbusSerialClient(
+            port=self.port,
+            baudrate=project.baudrate,
+            parity=project.parity,
+            stopbits=project.stopbits,
+            bytesize=project.bytesize,
+            timeout=1,
+            retries=1
         )
-
-    def connect(self):
-        try:
-            return self.client.connect()
-        except Exception as e:
-            logger.error(f"{self.device_custom_name} - Connection error on port {self.port}: {str(e)}")
-            return False
 
     def group_registers(self):
         grouped = []
@@ -92,22 +77,25 @@ class SerialReaderRS485:
     async def read_all_properties(self):
         result = {}
         try:
-            if not self.connect():
-                logger.error(f"{self.device_custom_name} - No connection on port {self.port}")
-                return {}
+            if not self.client.connected:
+                connected = await self.client.connect()
+                if not connected:
+                    logger.error(f"{self.device_custom_name} - Cannot open port {self.port}")
+                    return {}
 
             grouped_registers = self.group_registers()
 
             for group in grouped_registers:
                 start_address = group['start']
                 total_length = group['length']
+
                 try:
-                    response = self.client.read_input_registers(
+                    response = await self.client.read_input_registers(
                         start_address, count=total_length, slave=self.device_address
                     )
 
                     if response.isError():
-                        logger.error(f"{self.device_custom_name} - No response from {start_address} address")
+                        logger.error(f"{self.device_custom_name} - Modbus error on address {start_address}")
                         return {}
 
                     registers = response.registers
@@ -119,17 +107,11 @@ class SerialReaderRS485:
                         idx += length
 
                 except Exception as e:
-                    logger.error(
-                        f"{self.device_custom_name} - Error reading registers {start_address}-{start_address + total_length}: {str(e)}")
+                    logger.error(f"{self.device_custom_name} - Error reading registers {start_address}: {e}")
                     return {}
 
             return result
 
         except Exception as e:
-            logger.error(f"{self.device_custom_name} - Unexpected error: {str(e)}")
+            logger.error(f"{self.device_custom_name} - Unexpected Modbus error: {e}")
             return {}
-        finally:
-            try:
-                self.client.close()
-            except Exception as e:
-                logger.error(f"{self.device_custom_name} - Error closing connection: {str(e)}")
