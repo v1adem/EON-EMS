@@ -145,26 +145,34 @@ class SDM630DeviceDetailsWidget(BaseDeviceDetailsWidget):
         }
         return column_labels, column_labels_for_excel
 
-    def load_report_data(self):
-        """Асинхронне стягування історії та відображення на графіках з Downsampling-ом"""
+    def load_report_data(self, initial_limit=True):
+        """Зчитування історії з БД: останні 1000 записів за замовчуванням або фільтр за період"""
 
         async def run_load_report_data():
-            start_date = self.start_date_table_filter.date().toPython()
-            end_date = self.end_date_table_filter.date().addDays(1).toPython()
+            if initial_limit:
+                # Обмеження на 1000 останніх значень для швидкості інтерфейсу
+                self.report_data = await SDM630Report.filter(
+                    device_id=self.device.id
+                ).order_by("-timestamp").limit(1000)
+                # Перевертаємо назад у хронологічний порядок для графіків
+                self.report_data.reverse()
+            else:
+                # Повний діапазон дат за фільтром користувача
+                start_date = self.start_date_table_filter.date().toPython()
+                end_date = self.end_date_table_filter.date().addDays(1).toPython()
 
-            # Стягуємо тільки потрібні поля для оптимізації RAM
-            self.report_data = await SDM630Report.filter(
-                device_id=self.device.id,
-                timestamp__gte=start_date,
-                timestamp__lte=end_date
-            ).order_by("timestamp").all()
+                self.report_data = await SDM630Report.filter(
+                    device_id=self.device.id,
+                    timestamp__gte=start_date,
+                    timestamp__lte=end_date
+                ).order_by("timestamp").all()
 
             if not self.report_data:
                 return
 
+            # Будуємо таблицю
             model = self.create_table_model(self.report_data, self.device)
-
-            await asyncio.sleep(0)
+            await asyncio.sleep(0)  # Даємо лоадеру прокрутитися
 
             proxy_model = QSortFilterProxyModel()
             proxy_model.setSourceModel(model)
@@ -172,29 +180,52 @@ class SDM630DeviceDetailsWidget(BaseDeviceDetailsWidget):
             self.report_table.setSortingEnabled(True)
             self.setup_table_click_handler(self.report_table)
 
-            # 2. Оновлюємо графіки з оптимізацією об'єму точок (Downsampling)
+            # Розрахунок кроку Downsampling
             timestamps = [r.timestamp.timestamp() for r in self.report_data]
+            step = max(1, len(timestamps) // 1000) if not initial_limit else 1
 
-            # Визначаємо крок фільтрації точок для графіків
-            step = 1
-            if len(timestamps) > 1000:
-                step = len(timestamps) // 1000  # Відображаємо максимум 1000 точок на екрані
+            filtered_ts = timestamps[::step]
 
-            filtered_timestamps = timestamps[::step]
-
+            # Перемальовуємо всі таби графіків
             for phase_name in self.phases:
                 if phase_name == "Загальне":
-                    p_vals = [r.total_system_power for r in self.report_data][::step]
-                    getattr(self, f"p_line_{phase_name}").setData(filtered_timestamps, p_vals)
+                    # Стягуємо масиви для комбінованого відображення на табі "Загальне"
+                    v1 = [r.line_voltage_1 for r in self.report_data][::step]
+                    v2 = [r.line_voltage_2 for r in self.report_data][::step]
+                    v3 = [r.line_voltage_3 for r in self.report_data][::step]
+
+                    c1 = [r.current_1 for r in self.report_data][::step]
+                    c2 = [r.current_2 for r in self.report_data][::step]
+                    c3 = [r.current_3 for r in self.report_data][::step]
+
+                    p1 = [r.power_1 for r in self.report_data][::step]
+                    p2 = [r.power_2 for r in self.report_data][::step]
+                    p3 = [r.power_3 for r in self.report_data][::step]
+                    p_tot = [r.total_system_power for r in self.report_data][::step]
+
+                    # Оновлюємо лінії комбінованого графіка таби "Загальне"
+                    getattr(self, "v_line_general_f1").setData(filtered_ts, v1)
+                    getattr(self, "v_line_general_f2").setData(filtered_ts, v2)
+                    getattr(self, "v_line_general_f3").setData(filtered_ts, v3)
+
+                    getattr(self, "c_line_general_f1").setData(filtered_ts, c1)
+                    getattr(self, "c_line_general_f2").setData(filtered_ts, c2)
+                    getattr(self, "c_line_general_f3").setData(filtered_ts, c3)
+
+                    getattr(self, "p_line_general_f1").setData(filtered_ts, p1)
+                    getattr(self, "p_line_general_f2").setData(filtered_ts, p2)
+                    getattr(self, "p_line_general_f3").setData(filtered_ts, p3)
+                    getattr(self, "p_line_general_total").setData(filtered_ts, p_tot)
                 else:
-                    p_idx = self.phases.index(phase_name)  # Фаза 1 = index 1
+                    # Окремі таби по фазах (Фаза 1, Фаза 2, Фаза 3)
+                    p_idx = phase_name.split(" ")[1]  # Отримуємо "1", "2" або "3"
                     v_vals = [getattr(r, f"line_voltage_{p_idx}", 0) for r in self.report_data][::step]
                     c_vals = [getattr(r, f"current_{p_idx}", 0) for r in self.report_data][::step]
                     p_vals = [getattr(r, f"power_{p_idx}", 0) for r in self.report_data][::step]
 
-                    getattr(self, f"v_line_{phase_name}").setData(filtered_timestamps, v_vals)
-                    getattr(self, f"c_line_{phase_name}").setData(filtered_timestamps, c_vals)
-                    getattr(self, f"p_line_{phase_name}").setData(filtered_timestamps, p_vals)
+                    getattr(self, f"v_line_{phase_name}").setData(filtered_ts, v_vals)
+                    getattr(self, f"c_line_{phase_name}").setData(filtered_ts, c_vals)
+                    getattr(self, f"p_line_{phase_name}").setData(filtered_ts, p_vals)
 
         self.main_window.run_async_task(run_load_report_data())
         self.report_table.setEditTriggers(QTableView.EditTrigger.NoEditTriggers)

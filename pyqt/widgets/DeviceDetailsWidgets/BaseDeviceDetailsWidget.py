@@ -1,20 +1,19 @@
 import logging
 import os
-from datetime import datetime
-
+import sys
+from datetime import datetime, timedelta
 import pyqtgraph as pg
-import xlsxwriter
 
 logger = logging.getLogger(__name__)
 
 from PySide6.QtCore import QTimer, QDate, Qt, QTime
-from PySide6.QtGui import QStandardItemModel, QStandardItem, QIcon
+from PySide6.QtGui import QStandardItemModel, QFont, QStandardItem, QIcon
 from PySide6.QtWidgets import (QWidget, QVBoxLayout, QSplitter, QLabel, QDateEdit,
                                QTableView, QTabWidget, QHBoxLayout, QCheckBox,
                                QGridLayout, QLCDNumber, QDialog, QMessageBox,
                                QFileDialog, QPushButton, QToolTip)
 
-from tools.config import resource_path
+from tools.config import resource_path, get_timezone
 from tools.ThreadManager import data_bridge
 from pyqt.widgets.DateAxisItem import DateAxisItem
 
@@ -32,7 +31,6 @@ class BaseDeviceDetailsWidget(QWidget):
         self.phase_data = {}
         self.report_data = []
 
-        # Сховище для збереження прив'язок обробників миші (захист від витоків пам'яті)
         self._mouse_callback_refs = {}
 
     def initUi(self):
@@ -41,7 +39,6 @@ class BaseDeviceDetailsWidget(QWidget):
         main_splitter.setChildrenCollapsible(False)
         layout.addWidget(main_splitter)
 
-        # Ліва частина (Таблиця)
         left_widget = QWidget()
         left_layout = QVBoxLayout(left_widget)
 
@@ -58,10 +55,8 @@ class BaseDeviceDetailsWidget(QWidget):
         left_layout.addWidget(self.report_table)
         main_splitter.addWidget(left_widget)
 
-        # Права частина (Вкладки графіків)
         self.tabs = QTabWidget()
         self.tabs.setStyleSheet("font-size: 16px;")
-        main_splitter.addWidget(self.tabs)
 
         for phase_name in self.phases:
             self.create_phase_tab(phase_name)
@@ -70,23 +65,19 @@ class BaseDeviceDetailsWidget(QWidget):
         self.set_light_theme()
 
     def init_timers(self):
-        # Таймер годинника (тепер ТІЛЬКИ оновлює час на екрані, без запитів до БД!)
         self.timer_clock_indicator = QTimer(self)
         self.timer_clock_indicator.timeout.connect(self.update_clock_text)
         self.timer_clock_indicator.setInterval(1000)
         self.timer_clock_indicator.start()
 
-        # Первинне завантаження історичних даних таблиці
-        self.load_report_data()
+        self.load_report_data(initial_limit=True)
         self.main_window.hide_loading()
 
-        # Автооновлення історії раз на тайм-аут опитування
         self.timer_update_history = QTimer(self)
         self.timer_update_history.timeout.connect(self.auto_update_history)
         self.timer_update_history.setInterval(max(5000, self.device.reading_interval * 1000))
         self.timer_update_history.start()
 
-        # ПІДПИСКА НА МИТТЄВІ ДАНІ З MODBUS ШИНИ
         data_bridge.device_data_received.connect(self.on_live_data_received)
 
     def create_filter_buttons(self, layout):
@@ -107,7 +98,7 @@ class BaseDeviceDetailsWidget(QWidget):
 
         filter_button = QPushButton("Застосувати фільтр")
         filter_button.setStyleSheet("font-size: 16px;")
-        filter_button.clicked.connect(self.load_report_data)
+        filter_button.clicked.connect(lambda: self.load_report_data(initial_limit=False))
         filter_layout.addWidget(filter_button)
         layout.addWidget(filter_widget)
 
@@ -120,7 +111,7 @@ class BaseDeviceDetailsWidget(QWidget):
         update_button = QPushButton("Оновити")
         update_button.setIcon(QIcon(resource_path("pyqt/icons/refresh.png")))
         update_button.setStyleSheet("font-size: 16px;")
-        update_button.clicked.connect(self.load_report_data)
+        update_button.clicked.connect(lambda: self.load_report_data(initial_limit=True))
         button_layout.addWidget(update_button)
 
         export_button = QPushButton("Експорт в Excel")
@@ -195,16 +186,32 @@ class BaseDeviceDetailsWidget(QWidget):
             "clock_label": clock_label
         }
 
-        # Ініціалізація ліній графіків ОДИН раз
-        pen_v = pg.mkPen(color=(0, 102, 204), width=2)
-        pen_c = pg.mkPen(color=(204, 51, 0), width=2)
-        pen_p = pg.mkPen(color=(0, 153, 0), width=2)
+        # Ініціалізація ліній графіків ОДИН раз для окремих фаз
+        if phase_name != "Загальне":
+            setattr(self, f"v_line_{phase_name}",
+                    voltage_graph.plot([], [], pen=pg.mkPen(color=(0, 102, 204), width=2)))
+            setattr(self, f"c_line_{phase_name}", current_graph.plot([], [], pen=pg.mkPen(color=(204, 51, 0), width=2)))
+            setattr(self, f"p_line_{phase_name}", power_graph.plot([], [], pen=pg.mkPen(color=(0, 153, 0), width=2)))
+        else:
+            # Для таби "Загальне" ініціалізуємо комбіновані лінії для трьох фаз
+            colors_v = [(0, 51, 153), (0, 102, 204), (51, 153, 255)]
+            colors_c = [(153, 0, 0), (204, 51, 0), (255, 102, 0)]
+            colors_p = [(0, 102, 0), (0, 153, 0), (51, 204, 51)]
 
-        setattr(self, f"v_line_{phase_name}", voltage_graph.plot([], [], pen=pen_v))
-        setattr(self, f"c_line_{phase_name}", current_graph.plot([], [], pen=pen_c))
-        setattr(self, f"p_line_{phase_name}", power_graph.plot([], [], pen=pen_p))
+            # Створюємо 3 лінії (по одній на кожну фазу) всередині загального графіка
+            for i in range(1, 4):
+                setattr(self, f"v_line_general_f{i}",
+                        voltage_graph.plot([], [], pen=pg.mkPen(color=colors_v[i - 1], width=2), name=f"Ф{i}"))
+                setattr(self, f"c_line_general_f{i}",
+                        current_graph.plot([], [], pen=pg.mkPen(color=colors_c[i - 1], width=2), name=f"Ф{i}"))
+                setattr(self, f"p_line_general_f{i}",
+                        power_graph.plot([], [], pen=pg.mkPen(color=colors_p[i - 1], width=2), name=f"Ф{i}"))
 
-        # Налаштування тултіпів ОДИН раз при створенні (захист від витоків пам'яті)
+            # Окрема лінія для загальної потужності системи на графіку потужності
+            setattr(self, f"p_line_general_total",
+                    power_graph.plot([], [], pen=pg.mkPen(color=(102, 0, 153), width=2.5, style=Qt.PenStyle.DashLine),
+                                     name="Разом"))
+
         self.setup_graph_tooltip(voltage_graph, "voltage", phase_name)
         self.setup_graph_tooltip(current_graph, "current", phase_name)
         self.setup_graph_tooltip(power_graph, "power", phase_name)
@@ -212,17 +219,14 @@ class BaseDeviceDetailsWidget(QWidget):
         self.tabs.addTab(tab, phase_name)
 
     def update_clock_text(self):
-        """Оновлює тільки текстову мітку часу на екрані"""
         current_time = QTime.currentTime().toString("HH:mm:ss") + "\n" + QDate.currentDate().toString("dd.MM.yyyy")
         for phase in self.phase_data.values():
             phase["clock_label"].setText(current_time)
 
     def on_live_data_received(self, project_id, device_id, new_data):
-        """СЛОТ: Спрацьовує щосекунди при приході нових сигналів з Modbus."""
         if device_id != self.device.id or not new_data:
             return
 
-        # Конфігурація ключів відповідності даних з Modbus
         phases_config = {
             "Фаза 1": {"v": "line_voltage_1", "c": "current_1", "p": "power_1", "e": "total_kWh_1"},
             "Фаза 2": {"v": "line_voltage_2", "c": "current_2", "p": "power_2", "e": "total_kWh_2"},
@@ -246,7 +250,6 @@ class BaseDeviceDetailsWidget(QWidget):
                 ui["power_lcd"].display(f"{new_data[keys['p']]:.2f}")
 
             if ui["energy_lcd"]:
-                # Якщо окремого поля для фази немає (наприклад, для SDM72), беремо загальне значення
                 e_val = new_data.get(keys["e"])
                 if e_val is None and p_name != "Загальне":
                     e_val = new_data.get(f"total_kWh_{self.phases.index(p_name)}")
@@ -254,7 +257,7 @@ class BaseDeviceDetailsWidget(QWidget):
                     ui["energy_lcd"].display(f"{e_val:.2f}")
 
     def setup_graph_tooltip(self, graph_widget, graph_type, phase_name):
-        """Потокобезпечний тултіп без дублювання конектів"""
+        """Оптимізований пошук точок по осях для точного виведення значень у тултіп"""
 
         def on_mouse_moved(pos):
             if not self.report_data or not graph_widget.sceneBoundingRect().contains(pos):
@@ -262,13 +265,27 @@ class BaseDeviceDetailsWidget(QWidget):
             mouse_point = graph_widget.plotItem.vb.mapSceneToView(pos)
             x_mouse = mouse_point.x()
 
-            # Пошук найближчої історичної точки за X віссю
             try:
+                # Шукаємо найближчий по часу запис
                 closest_report = min(self.report_data, key=lambda r: abs(r.timestamp.timestamp() - x_mouse))
-                val = getattr(closest_report,
-                              f"{graph_type}_{self.phases.index(phase_name)}" if phase_name != "Загальне" else f"total_system_power",
-                              0)
-                QToolTip.showText(graph_widget.mapToGlobal(graph_widget.mapFromScene(pos)), f"{val:.2f}")
+
+                if phase_name == "Загальне":
+                    if graph_type == "power":
+                        val_str = f"P1: {closest_report.power_1:.1f}W | P2: {closest_report.power_2:.1f}W | P3: {closest_report.power_3:.1f}W\nРазом: {closest_report.total_system_power:.1f}W"
+                    elif graph_type == "voltage":
+                        val_str = f"V1: {closest_report.line_voltage_1:.1f}V | V2: {closest_report.line_voltage_2:.1f}V | V3: {closest_report.line_voltage_3:.1f}V"
+                    elif graph_type == "current":
+                        val_str = f"A1: {closest_report.current_1:.2f}A | A2: {closest_report.current_2:.2f}A | A3: {closest_report.current_3:.2f}A"
+                else:
+                    # Визначаємо індекс фази з назви таба ("Фаза 1" -> 1)
+                    p_idx = phase_name.split(" ")[1]
+                    field_map = {"voltage": f"line_voltage_{p_idx}", "current": f"current_{p_idx}",
+                                 "power": f"power_{p_idx}"}
+                    val = getattr(closest_report, field_map[graph_type], 0)
+                    unit = "V" if graph_type == "voltage" else "A" if graph_type == "current" else "W"
+                    val_str = f"{val:.2f} {unit}"
+
+                QToolTip.showText(graph_widget.mapToGlobal(graph_widget.mapFromScene(pos)), val_str)
             except Exception:
                 pass
 
@@ -277,14 +294,12 @@ class BaseDeviceDetailsWidget(QWidget):
 
     def auto_update_history(self):
         if self.auto_update_checkbox.isChecked():
-            self.load_report_data()
+            self.load_report_data(initial_limit=True)
 
-    def load_report_data(self):
-        # Перевизначається в дочірніх класах
+    def load_report_data(self, initial_limit=True):
         pass
 
     def create_table_model(self, report_data, device):
-        # Ваша поточна реалізація створення моделі таблиці (залишається без змін)
         from register_maps.RegisterMaps import RegisterMap
         register_map = RegisterMap.get_register_map(device.model)
         columns_with_units = RegisterMap.get_columns_with_units(register_map)
@@ -327,155 +342,9 @@ class BaseDeviceDetailsWidget(QWidget):
             phase["energy_graph"].setBackground('w')
 
     def open_export_dialog(self):
-        self.dialog = QDialog(self)
-        self.dialog.setWindowTitle("Експорт в Excel")
-        self.dialog.setFixedSize(400, 150)
-
-        layout = QVBoxLayout(self.dialog)
-
-        date_range_layout = QHBoxLayout()
-        start_label = QLabel("Початок:")
-        self.start_export_date = QDateEdit(QDate.currentDate().addYears(-1))
-        self.start_export_date.setCalendarPopup(True)
-        end_label = QLabel("Кінець:")
-        self.end_export_date = QDateEdit(QDate.currentDate())
-        self.end_export_date.setCalendarPopup(True)
-        date_range_layout.addWidget(start_label)
-        date_range_layout.addWidget(self.start_export_date)
-        date_range_layout.addWidget(end_label)
-        date_range_layout.addWidget(self.end_export_date)
-
-        layout.addLayout(date_range_layout)
-
-        self.include_charts = QCheckBox("Додати графіки")
-        self.include_charts.setChecked(False)
-
-        # Remove when charts will be for all models
-        if self.device_model == "SDM120":
-            layout.addWidget(self.include_charts)
-
-        save_button = QPushButton("Зберегти в Excel")
-        save_button.clicked.connect(self.export_to_excel)
-        layout.addWidget(save_button)
-
-        self.dialog.setLayout(layout)
-        self.dialog.exec()
-
-    def export_to_excel(self):
-        start_datetime = self.start_export_date.dateTime().toPython()
-        end_datetime_for_name = self.end_export_date.dateTime().toPython()
-        end_datetime = self.end_export_date.dateTime().addDays(1).toPython()
-
-        async def run_export_to_excel():
-            report_data = await self.report_model.filter(
-                device_id=self.device.id,
-                timestamp__gte=start_datetime,
-                timestamp__lte=end_datetime
-            ).order_by("timestamp").all()
-
-            if not report_data:
-                QMessageBox.warning(self, "Експорт", "Дані за вибраний період відсутні.")
-                return
-
-            desktop_reports_path = os.path.join(os.path.expanduser("~"), "Desktop", "Reports")
-            os.makedirs(desktop_reports_path, exist_ok=True)
-
-            default_filename = f"{self.device.name}_{start_datetime.date()}_{end_datetime_for_name.date()}.xlsx"
-            default_path = os.path.join(desktop_reports_path, default_filename)
-
-            file_path, _ = QFileDialog.getSaveFileName(
-                self,
-                "Зберегти файл",
-                default_path,
-                "Excel Files (*.xlsx)"
-            )
-
-            if not file_path:
-                return
-
-            try:
-                workbook = xlsxwriter.Workbook(file_path)
-
-                phases = {1: [], 2: [], 3: [], 'general': []}
-                for column in self.column_labels_for_excel.keys():
-                    if column == "timestamp":
-                        continue
-                    if "_1" in column:
-                        phases[1].append(column)
-                    elif "_2" in column:
-                        phases[2].append(column)
-                    elif "_3" in column:
-                        phases[3].append(column)
-                    else:
-                        phases['general'].append(column)
-
-                def write_sheet(worksheet, data, columns):
-                    worksheet.write(0, 0, self.column_labels["timestamp"])
-                    for col_idx, column in enumerate(columns, start=1):
-                        worksheet.write(0, col_idx, self.column_labels_for_excel.get(column, column))
-
-                    for row_idx, entry in enumerate(data, start=1):
-                        worksheet.write(row_idx, 0, entry.timestamp.strftime('%Y-%m-%d %H:%M:%S'))
-                        for col_idx, column in enumerate(columns, start=1):
-                            value = getattr(entry, column, None)
-                            worksheet.write(row_idx, col_idx, value)
-
-                    worksheet.set_column(0, len(columns), 20)
-
-                for phase, columns in phases.items():
-                    if phase == 'general':
-                        sheet_name = "Загальне"
-                    else:
-                        sheet_name = f"Фаза {phase}"
-
-                    phase_data = [entry for entry in report_data if any(hasattr(entry, col) for col in columns)]
-                    if not phase_data:
-                        continue
-
-                    worksheet = workbook.add_worksheet(sheet_name)
-                    write_sheet(worksheet, phase_data, columns)
-
-                if self.include_charts.isChecked():
-                    parameters = {'line_voltage_1': 'Напруга', 'current_1': 'Струм', 'power_1': 'Потужність'}
-                    for param in parameters.keys():
-                        worksheet_param = workbook.add_worksheet(param)
-
-                        worksheet_param.write('A1', 'Дата/Час')
-                        worksheet_param.write('B1', param)
-
-                        row = 1
-                        for entry in report_data:
-                            worksheet_param.write(row, 0, entry.timestamp.strftime('%Y-%m-%d %H:%M:%S'))
-                            worksheet_param.write(row, 1, getattr(entry, param.lower()))
-                            row += 1
-
-                        worksheet_param.add_table(f'A1:B{row}', {'name': f'{param}_data',
-                                                                 'columns': [{'header': 'Дата/Час'},
-                                                                             {'header': parameters[param]}], })
-
-                        chart = workbook.add_chart({'type': 'line'})
-                        chart.add_series({'values': f'={param}!$B$2:$B${row}', 'name': parameters[param],
-                                          'categories': f'={param}!$A$2:$A${row - 1}'})
-                        chart.set_title({'name': parameters[param]})
-
-                        chart.set_x_axis({'date_axis': True, 'num_format': 'yyyy-mm-dd hh:mm:ss'})
-
-                        worksheet_param.insert_chart('D2', chart)
-
-                        for col in range(4):
-                            worksheet.set_column(col, col, 20)
-
-                workbook.close()
-                QMessageBox.information(self, "Експорт", "Експорт даних в Excel пройшов успішно.")
-                self.dialog.accept()
-
-            except Exception as e:
-                QMessageBox.warning(self, "Помилка", f"Сталася помилка при експорті даних: {e}")
-
-        self.main_window.run_async_task(run_export_to_excel())
+        pass
 
     def closeEvent(self, event):
-        """КРИТИЧНО: Повне очищення при видаленні екрану для запобігання витоків пам'яті!"""
         try:
             self.timer_clock_indicator.stop()
             self.timer_update_history.stop()
