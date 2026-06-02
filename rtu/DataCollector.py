@@ -69,23 +69,29 @@ async def should_record_now(device, last_report):
     if not last_report:
         return True
 
-    current_time = datetime.now()
-    last_report_time = last_report.timestamp.replace(tzinfo=None)
+    # Використовуємоutcnow() для синхронізації з форматом збереження
+    current_time_utc = datetime.utcnow()
+    last_report_time_utc = last_report.timestamp.astimezone(pytz.utc).replace(tzinfo=None)
 
     if device.reading_type == 2:  # За часом доби
-        start_of_day = current_time.replace(hour=0, minute=0, second=0, microsecond=0)
-        target_time = start_of_day + timedelta(minutes=device.reading_time)
-        return current_time >= target_time and last_report_time < start_of_day
+        # Для порівняння часу доби переводимо UTC в локальний час конфігу
+        local_tz = get_timezone()
+        current_local = datetime.now(local_tz)
+        last_report_local = last_report.timestamp.astimezone(local_tz)
 
-    # За інтервалом
-    return current_time >= (last_report_time + timedelta(seconds=device.reading_interval))
+        start_of_day_local = current_local.replace(hour=0, minute=0, second=0, microsecond=0)
+        target_time_local = start_of_day_local + timedelta(minutes=device.reading_time)
+
+        return current_local >= target_time_local and last_report_local < start_of_day_local
+
+    # За інтервалом (чисте порівняння в UTC без зсувів часових поясів)
+    return current_time_utc >= (last_report_time_utc + timedelta(seconds=device.reading_interval))
 
 
 async def clean_old_records(device, db_model):
     deleting_time = get_deleting_time()
     if deleting_time > 0:
-        delete_before_date = datetime.now() - timedelta(days=deleting_time)
-        # Оптимальне пакетне видалення замість поштучного
+        delete_before_date = datetime.now(pytz.utc) - timedelta(days=deleting_time)
         await db_model.filter(device=device, timestamp__lt=delete_before_date).delete()
 
 
@@ -102,7 +108,6 @@ async def handle_device_reading(device, project):
     new_data = await reader.read_all_properties()
 
     if not new_data:
-        # Помилка читання: виставляємо статус offline та тайм-аут на 5 хвилин
         if device.actual_status:
             device.actual_status = False
             now_utc = datetime.utcnow().replace(tzinfo=pytz.utc)
@@ -113,20 +118,17 @@ async def handle_device_reading(device, project):
             data_bridge.device_status_changed.emit(device.id, False, wait_str)
         return
 
-    # Успішне читання: відновлюємо статус online
     if not device.actual_status:
         device.actual_status = True
         device.wait_time = datetime.utcnow().replace(tzinfo=pytz.utc).astimezone(local_tz)
         await device.save(update_fields=['actual_status', 'wait_time'])
         data_bridge.device_status_changed.emit(device.id, True, "")
 
-    # Надсилаємо миттєві дані в інтерфейс через сигнал (БД не чіпаємо)
     data_bridge.device_data_received.emit(project.id, device.id, new_data)
 
-    # Перевірка критичних параметрів
-    phases = get_phases(device.model)
     immediate_record = False
     if get_warnings():
+        phases = get_phases(device.model)
         immediate_record = any(
             is_voltage_out_of_range(new_data, device, phase) or
             is_current_over_limit(new_data, device, phase) or
@@ -138,7 +140,6 @@ async def handle_device_reading(device, project):
     if not db_model:
         return
 
-    # Перевірка розкладу для збереження в основну базу даних
     last_report = await db_model.filter(device=device).order_by("-timestamp").first()
     if immediate_record or await should_record_now(device, last_report):
         try:
@@ -156,18 +157,15 @@ async def handle_device_reading(device, project):
 
 
 async def collect_data_for_project(project):
-    """Головний асинхронний цикл для конкретної лінії RS485"""
     logger.info(f"Starting async collector loop for project line: {project.name}")
     try:
         while True:
-            # Актуалізуємо конфігурацію лінії порту та список пристроїв
             active_project = await Project.filter(id=project.id).first()
             if not active_project:
                 break
 
             devices = await Device.filter(project=active_project).all()
 
-            # Паралельно опитуємо всі пристрої на цій лінії
             tasks = [handle_device_reading(device, active_project) for device in devices]
             await asyncio.gather(*tasks, return_exceptions=True)
 
