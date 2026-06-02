@@ -167,16 +167,22 @@ class MainWindow(QMainWindow):
             self.stacked_widget.setCurrentIndex(0)
 
     def show_loading(self):
+        if hasattr(self, 'loading_label'):
+            return
+
         self.loading_label = QLabel(self)
-        self.loading_label.setStyleSheet("background-color: rgba(255, 255, 255, 200);")
+        self.loading_label.setStyleSheet("background-color: rgba(53, 53, 53, 180);")
         self.loading_label.setFixedSize(self.size())
         self.loading_label.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
 
         movie = QMovie(resource_path("pyqt/animations/loading.gif"))
         self.loading_label.setMovie(movie)
         movie.start()
-
         self.loading_label.show()
+        self.loading_label.raise_()
+
+        # Проштовхуємо подію малювання в чергу Qt, щоб кадр GIF відразу з'явився
+        QtCore.QCoreApplication.processEvents()
 
     def hide_loading(self):
         if hasattr(self, 'loading_label') and self.loading_label is not None:

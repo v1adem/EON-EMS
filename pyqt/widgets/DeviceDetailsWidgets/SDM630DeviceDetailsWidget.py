@@ -1,3 +1,4 @@
+import asyncio
 import logging
 
 from PySide6.QtCore import QSortFilterProxyModel
@@ -161,8 +162,10 @@ class SDM630DeviceDetailsWidget(BaseDeviceDetailsWidget):
             if not self.report_data:
                 return
 
-            # 1. Оновлюємо таблицю (тут показуємо всі дані, бо QTableView працює через Proxy швидко)
             model = self.create_table_model(self.report_data, self.device)
+
+            await asyncio.sleep(0)
+
             proxy_model = QSortFilterProxyModel()
             proxy_model.setSourceModel(model)
             self.report_table.setModel(proxy_model)

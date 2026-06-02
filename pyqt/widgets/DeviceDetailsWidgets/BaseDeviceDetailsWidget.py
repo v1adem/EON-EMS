@@ -218,18 +218,16 @@ class BaseDeviceDetailsWidget(QWidget):
             phase["clock_label"].setText(current_time)
 
     def on_live_data_received(self, project_id, device_id, new_data):
-        """СЛОТ: Спрацьовує щосекунди, коли Modbus клієнт отримав дані лічильника."""
+        """СЛОТ: Спрацьовує щосекунди при приході нових сигналів з Modbus."""
         if device_id != self.device.id or not new_data:
             return
 
-        # Оновлюємо LCD індикатори з оперативної пам'яті (БД не чіпаємо!)
-        idx = self.phases.index("Фаза 1") if "Фаза 1" in self.phases else 1
-
+        # Конфігурація ключів відповідності даних з Modbus
         phases_config = {
-            "Фаza 1": {"v": "line_voltage_1", "c": "current_1", "p": "power_1", "e": "total_kWh_1"},
+            "Фаза 1": {"v": "line_voltage_1", "c": "current_1", "p": "power_1", "e": "total_kWh_1"},
             "Фаза 2": {"v": "line_voltage_2", "c": "current_2", "p": "power_2", "e": "total_kWh_2"},
             "Фаза 3": {"v": "line_voltage_3", "c": "current_3", "p": "power_3", "e": "total_kWh_3"},
-            "Загальне": {"e": "total_kWh"}
+            "Загальне": {"v": None, "c": None, "p": "total_system_power", "e": "total_kWh"}
         }
 
         for p_name, keys in phases_config.items():
@@ -237,16 +235,23 @@ class BaseDeviceDetailsWidget(QWidget):
                 continue
 
             ui = self.phase_data[p_name]
-            if ui["voltage_lcd"] and keys.get("v") in new_data:
+
+            if ui["voltage_lcd"] and keys["v"] in new_data:
                 ui["voltage_lcd"].display(f"{new_data[keys['v']]:.2f}")
-            if ui["current_lcd"] and keys.get("c") in new_data:
+
+            if ui["current_lcd"] and keys["c"] in new_data:
                 ui["current_lcd"].display(f"{new_data[keys['c']]:.2f}")
-            if ui["power_lcd"] and keys.get("p") in new_data:
+
+            if ui["power_lcd"] and keys["p"] in new_data:
                 ui["power_lcd"].display(f"{new_data[keys['p']]:.2f}")
+
             if ui["energy_lcd"]:
-                # Якщо прямого поля немає, рахуємо загальне
-                e_val = new_data.get(keys.get("e"), new_data.get("total_kWh", 0))
-                ui["energy_lcd"].display(f"{e_val:.2f}")
+                # Якщо окремого поля для фази немає (наприклад, для SDM72), беремо загальне значення
+                e_val = new_data.get(keys["e"])
+                if e_val is None and p_name != "Загальне":
+                    e_val = new_data.get(f"total_kWh_{self.phases.index(p_name)}")
+                if e_val is not None:
+                    ui["energy_lcd"].display(f"{e_val:.2f}")
 
     def setup_graph_tooltip(self, graph_widget, graph_type, phase_name):
         """Потокобезпечний тултіп без дублювання конектів"""
