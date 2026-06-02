@@ -334,22 +334,22 @@ class ProjectViewWidget(QWidget):
             reading_type_time.toggled.connect(lambda: reading_time_input.setEnabled(reading_type_time.isChecked()))
 
             minV_input = QSpinBox(dialog)
-            minV_input.setRange(1, 99999)
+            minV_input.setRange(0, 999999999)
             minV_input.setValue(device.minV)
             form_layout.addRow("Мінімальна напруга (V):", minV_input)
 
             maxV_input = QSpinBox(dialog)
-            maxV_input.setRange(1, 99999)
+            maxV_input.setRange(0, 999999999)
             maxV_input.setValue(device.maxV)
             form_layout.addRow("Максимальна напруга (V):", maxV_input)
 
             maxA_input = QSpinBox(dialog)
-            maxA_input.setRange(1, 99999)
+            maxA_input.setRange(0, 999999999)
             maxA_input.setValue(device.maxA)
             form_layout.addRow("Максимальний струм (A):", maxA_input)
 
             maxW_input = QSpinBox(dialog)
-            maxW_input.setRange(1, 99999)
+            maxW_input.setRange(0, 999999999)
             maxW_input.setValue(device.maxW)
             form_layout.addRow("Максимальна потужність (W):", maxW_input)
 

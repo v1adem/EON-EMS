@@ -186,19 +186,16 @@ class BaseDeviceDetailsWidget(QWidget):
             "clock_label": clock_label
         }
 
-        # Ініціалізація ліній графіків ОДИН раз для окремих фаз
         if phase_name != "Загальне":
             setattr(self, f"v_line_{phase_name}",
                     voltage_graph.plot([], [], pen=pg.mkPen(color=(0, 102, 204), width=2)))
             setattr(self, f"c_line_{phase_name}", current_graph.plot([], [], pen=pg.mkPen(color=(204, 51, 0), width=2)))
             setattr(self, f"p_line_{phase_name}", power_graph.plot([], [], pen=pg.mkPen(color=(0, 153, 0), width=2)))
         else:
-            # Для таби "Загальне" ініціалізуємо комбіновані лінії для трьох фаз
             colors_v = [(0, 51, 153), (0, 102, 204), (51, 153, 255)]
             colors_c = [(153, 0, 0), (204, 51, 0), (255, 102, 0)]
             colors_p = [(0, 102, 0), (0, 153, 0), (51, 204, 51)]
 
-            # Створюємо 3 лінії (по одній на кожну фазу) всередині загального графіка
             for i in range(1, 4):
                 setattr(self, f"v_line_general_f{i}",
                         voltage_graph.plot([], [], pen=pg.mkPen(color=colors_v[i - 1], width=2), name=f"Ф{i}"))
@@ -207,7 +204,6 @@ class BaseDeviceDetailsWidget(QWidget):
                 setattr(self, f"p_line_general_f{i}",
                         power_graph.plot([], [], pen=pg.mkPen(color=colors_p[i - 1], width=2), name=f"Ф{i}"))
 
-            # Окрема лінія для загальної потужності системи на графіку потужності
             setattr(self, f"p_line_general_total",
                     power_graph.plot([], [], pen=pg.mkPen(color=(102, 0, 153), width=2.5, style=Qt.PenStyle.DashLine),
                                      name="Разом"))
@@ -257,8 +253,6 @@ class BaseDeviceDetailsWidget(QWidget):
                     ui["energy_lcd"].display(f"{e_val:.2f}")
 
     def setup_graph_tooltip(self, graph_widget, graph_type, phase_name):
-        """Оптимізований пошук точок по осях для точного виведення значень у тултіп"""
-
         def on_mouse_moved(pos):
             if not self.report_data or not graph_widget.sceneBoundingRect().contains(pos):
                 return
@@ -266,7 +260,6 @@ class BaseDeviceDetailsWidget(QWidget):
             x_mouse = mouse_point.x()
 
             try:
-                # Шукаємо найближчий по часу запис
                 closest_report = min(self.report_data, key=lambda r: abs(r.timestamp.timestamp() - x_mouse))
 
                 if phase_name == "Загальне":
@@ -277,7 +270,6 @@ class BaseDeviceDetailsWidget(QWidget):
                     elif graph_type == "current":
                         val_str = f"A1: {closest_report.current_1:.2f}A | A2: {closest_report.current_2:.2f}A | A3: {closest_report.current_3:.2f}A"
                 else:
-                    # Визначаємо індекс фази з назви таба ("Фаза 1" -> 1)
                     p_idx = phase_name.split(" ")[1]
                     field_map = {"voltage": f"line_voltage_{p_idx}", "current": f"current_{p_idx}",
                                  "power": f"power_{p_idx}"}
@@ -291,6 +283,59 @@ class BaseDeviceDetailsWidget(QWidget):
 
         graph_widget.scene().sigMouseMoved.connect(on_mouse_moved)
         self._mouse_callback_refs[f"{phase_name}_{graph_type}"] = on_mouse_moved
+
+    def update_energy_graph(self, phase_name):
+        """Розрахунок погодинного споживання та відображення стовпчастого графіка"""
+        if not self.report_data:
+            return
+
+        graph_widget = self.phase_data[phase_name]["energy_graph"]
+        graph_widget.clear()
+
+        hourly_data = {}
+        # Мапінг полів накопичувальної енергії для розрахунку дельти
+        energy_field = "total_kWh" if phase_name == "Загальне" else f"total_kWh_{phase_name.split(' ')[1]}"
+
+        # Групуємо накопичувальні показники по годинах
+        for report in self.report_data:
+            val = getattr(report, energy_field, None)
+            if val is None or val <= 0:
+                continue
+            hour_ts = report.timestamp.replace(minute=0, second=0, microsecond=0).timestamp()
+            if hour_ts not in hourly_data:
+                hourly_data[hour_ts] = []
+            hourly_data[hour_ts].append(val)
+
+        x_coords = []
+        heights = []
+
+        # Вираховуємо різницю між максимальним і мінімальним значенням всередині кожної години
+        for hour_ts, values in sorted(hourly_data.items()):
+            if len(values) >= 1:
+                delta = max(values) - min(values)
+                # Якщо в межах години був лише один запис, дельту рахувати важко,
+                # але якщо накопичення росте, зазор буде зафіксовано в наступній точці.
+                x_coords.append(hour_ts + 1800)  # Центруємо стовпчик
+                heights.append(delta if delta > 0 else 0.0)
+
+        if not x_coords:
+            return
+
+        bar_graph = pg.BarGraphItem(
+            x=x_coords,
+            height=heights,
+            width=3400,
+            brush=pg.mkBrush(0, 153, 0, 200),
+            pen=pg.mkPen(0, 102, 0, 255)
+        )
+        graph_widget.addItem(bar_graph)
+
+        y_max = max(heights) if heights else 1.0
+        graph_widget.setYRange(0, max(1.0, y_max * 1.1), padding=0)
+
+        x_min = min(x_coords) - 3600
+        x_max = max(x_coords) + 3600
+        graph_widget.setXRange(x_min, x_max, padding=0)
 
     def auto_update_history(self):
         if self.auto_update_checkbox.isChecked():

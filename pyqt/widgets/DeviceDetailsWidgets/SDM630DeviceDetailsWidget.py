@@ -227,5 +227,8 @@ class SDM630DeviceDetailsWidget(BaseDeviceDetailsWidget):
                     getattr(self, f"c_line_{phase_name}").setData(filtered_ts, c_vals)
                     getattr(self, f"p_line_{phase_name}").setData(filtered_ts, p_vals)
 
+                for phase_name in self.phases:
+                    self.update_energy_graph(phase_name)
+
         self.main_window.run_async_task(run_load_report_data())
         self.report_table.setEditTriggers(QTableView.EditTrigger.NoEditTriggers)
