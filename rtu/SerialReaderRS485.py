@@ -1,4 +1,5 @@
 import logging
+import asyncio
 from pymodbus.client import AsyncModbusSerialClient
 from pymodbus.constants import Endian
 from pymodbus.payload import BinaryPayloadDecoder
@@ -77,11 +78,10 @@ class SerialReaderRS485:
     async def read_all_properties(self):
         result = {}
         try:
-            if not self.client.connected:
-                connected = await self.client.connect()
-                if not connected:
-                    logger.error(f"{self.device_custom_name} - Cannot open port {self.port}")
-                    return {}
+            connected = await self.client.connect()
+            if not connected:
+                logger.error(f"{self.device_custom_name} - Cannot open port {self.port}")
+                return {}
 
             grouped_registers = self.group_registers()
 
@@ -115,3 +115,9 @@ class SerialReaderRS485:
         except Exception as e:
             logger.error(f"{self.device_custom_name} - Unexpected Modbus error: {e}")
             return {}
+        finally:
+            # Обов'язково закриваємо порт після виконання пакету читання
+            try:
+                await self.client.close()
+            except Exception as e:
+                logger.error(f"{self.device_custom_name} - Error closing port: {e}")
