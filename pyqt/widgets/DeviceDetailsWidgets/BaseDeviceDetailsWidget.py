@@ -1,19 +1,19 @@
 import logging
 import os
-import sys
-from datetime import datetime, timedelta
+from datetime import datetime
+
 import pyqtgraph as pg
+import xlsxwriter
 
 logger = logging.getLogger(__name__)
 
 from PySide6.QtCore import QTimer, QDate, Qt, QTime
-from PySide6.QtGui import QStandardItemModel, QFont, QStandardItem, QIcon
+from PySide6.QtGui import QStandardItemModel, QStandardItem, QIcon
 from PySide6.QtWidgets import (QWidget, QVBoxLayout, QSplitter, QLabel, QDateEdit,
                                QTableView, QTabWidget, QHBoxLayout, QCheckBox,
-                               QGridLayout, QLCDNumber, QDialog, QMessageBox,
-                               QFileDialog, QPushButton, QToolTip)
+                               QGridLayout, QLCDNumber, QPushButton, QToolTip, QMessageBox, QFileDialog, QDialog)
 
-from tools.config import resource_path, get_timezone
+from tools.config import resource_path
 from tools.ThreadManager import data_bridge
 from pyqt.widgets.DateAxisItem import DateAxisItem
 
@@ -285,7 +285,6 @@ class BaseDeviceDetailsWidget(QWidget):
         self._mouse_callback_refs[f"{phase_name}_{graph_type}"] = on_mouse_moved
 
     def update_energy_graph(self, phase_name):
-        """Розрахунок погодинного споживання та відображення стовпчастого графіка"""
         if not self.report_data:
             return
 
@@ -309,13 +308,10 @@ class BaseDeviceDetailsWidget(QWidget):
         x_coords = []
         heights = []
 
-        # Вираховуємо різницю між максимальним і мінімальним значенням всередині кожної години
         for hour_ts, values in sorted(hourly_data.items()):
             if len(values) >= 1:
                 delta = max(values) - min(values)
-                # Якщо в межах години був лише один запис, дельту рахувати важко,
-                # але якщо накопичення росте, зазор буде зафіксовано в наступній точці.
-                x_coords.append(hour_ts + 1800)  # Центруємо стовпчик
+                x_coords.append(hour_ts + 1800)
                 heights.append(delta if delta > 0 else 0.0)
 
         if not x_coords:
@@ -383,7 +379,152 @@ class BaseDeviceDetailsWidget(QWidget):
             phase["energy_graph"].setBackground('w')
 
     def open_export_dialog(self):
-        pass
+        self.dialog = QDialog(self)
+        self.dialog.setWindowTitle("Експорт в Excel")
+        self.dialog.setFixedSize(400, 150)
+
+        layout = QVBoxLayout(self.dialog)
+
+        date_range_layout = QHBoxLayout()
+        start_label = QLabel("Початок:")
+        self.start_export_date = QDateEdit(QDate.currentDate().addYears(-1))
+        self.start_export_date.setCalendarPopup(True)
+        end_label = QLabel("Кінець:")
+        self.end_export_date = QDateEdit(QDate.currentDate())
+        self.end_export_date.setCalendarPopup(True)
+        date_range_layout.addWidget(start_label)
+        date_range_layout.addWidget(self.start_export_date)
+        date_range_layout.addWidget(end_label)
+        date_range_layout.addWidget(self.end_export_date)
+
+        layout.addLayout(date_range_layout)
+
+        self.include_charts = QCheckBox("Додати графіки")
+        self.include_charts.setChecked(False)
+
+        # Remove when charts will be for all models
+        if self.device_model == "SDM120":
+            layout.addWidget(self.include_charts)
+
+        save_button = QPushButton("Зберегти в Excel")
+        save_button.clicked.connect(self.export_to_excel)
+        layout.addWidget(save_button)
+
+        self.dialog.setLayout(layout)
+        self.dialog.exec()
+
+    def export_to_excel(self):
+        start_datetime = self.start_export_date.dateTime().toPython()
+        end_datetime_for_name = self.end_export_date.dateTime().toPython()
+        end_datetime = self.end_export_date.dateTime().addDays(1).toPython()
+
+        async def run_export_to_excel():
+            report_data = await self.report_model.filter(
+                device_id=self.device.id,
+                timestamp__gte=start_datetime,
+                timestamp__lte=end_datetime
+            ).order_by("timestamp").all()
+
+            if not report_data:
+                QMessageBox.warning(self, "Експорт", "Дані за вибраний період відсутні.")
+                return
+
+            desktop_reports_path = os.path.join(os.path.expanduser("~"), "Desktop", "Reports")
+            os.makedirs(desktop_reports_path, exist_ok=True)
+
+            default_filename = f"{self.device.name}_{start_datetime.date()}_{end_datetime_for_name.date()}.xlsx"
+            default_path = os.path.join(desktop_reports_path, default_filename)
+
+            file_path, _ = QFileDialog.getSaveFileName(
+                self,
+                "Зберегти файл",
+                default_path,
+                "Excel Files (*.xlsx)"
+            )
+
+            if not file_path:
+                return
+
+            try:
+                workbook = xlsxwriter.Workbook(file_path)
+
+                phases = {1: [], 2: [], 3: [], 'general': []}
+                for column in self.column_labels_for_excel.keys():
+                    if column == "timestamp":
+                        continue
+                    if "_1" in column:
+                        phases[1].append(column)
+                    elif "_2" in column:
+                        phases[2].append(column)
+                    elif "_3" in column:
+                        phases[3].append(column)
+                    else:
+                        phases['general'].append(column)
+
+                def write_sheet(worksheet, data, columns):
+                    worksheet.write(0, 0, self.column_labels["timestamp"])
+                    for col_idx, column in enumerate(columns, start=1):
+                        worksheet.write(0, col_idx, self.column_labels_for_excel.get(column, column))
+
+                    for row_idx, entry in enumerate(data, start=1):
+                        worksheet.write(row_idx, 0, entry.timestamp.strftime('%Y-%m-%d %H:%M:%S'))
+                        for col_idx, column in enumerate(columns, start=1):
+                            value = getattr(entry, column, None)
+                            worksheet.write(row_idx, col_idx, value)
+
+                    worksheet.set_column(0, len(columns), 20)
+
+                for phase, columns in phases.items():
+                    if phase == 'general':
+                        sheet_name = "Загальне"
+                    else:
+                        sheet_name = f"Фаза {phase}"
+
+                    phase_data = [entry for entry in report_data if any(hasattr(entry, col) for col in columns)]
+                    if not phase_data:
+                        continue
+
+                    worksheet = workbook.add_worksheet(sheet_name)
+                    write_sheet(worksheet, phase_data, columns)
+
+                if self.include_charts.isChecked():
+                    parameters = {'line_voltage_1': 'Напруга', 'current_1': 'Струм', 'power_1': 'Потужність'}
+                    for param in parameters.keys():
+                        worksheet_param = workbook.add_worksheet(param)
+
+                        worksheet_param.write('A1', 'Дата/Час')
+                        worksheet_param.write('B1', param)
+
+                        row = 1
+                        for entry in report_data:
+                            worksheet_param.write(row, 0, entry.timestamp.strftime('%Y-%m-%d %H:%M:%S'))
+                            worksheet_param.write(row, 1, getattr(entry, param.lower()))
+                            row += 1
+
+                        worksheet_param.add_table(f'A1:B{row}', {'name': f'{param}_data',
+                                                                 'columns': [{'header': 'Дата/Час'},
+                                                                             {'header': parameters[param]}], })
+
+                        chart = workbook.add_chart({'type': 'line'})
+                        chart.add_series({'values': f'={param}!$B$2:$B${row}', 'name': parameters[param],
+                                          'categories': f'={param}!$A$2:$A${row - 1}'})
+                        chart.set_title({'name': parameters[param]})
+
+                        chart.set_x_axis({'date_axis': True, 'num_format': 'yyyy-mm-dd hh:mm:ss'})
+
+                        worksheet_param.insert_chart('D2', chart)
+
+                        for col in range(4):
+                            worksheet.set_column(col, col, 20)
+
+                workbook.close()
+                QMessageBox.information(self, "Експорт", "Експорт даних в Excel пройшов успішно.")
+                self.dialog.accept()
+
+            except Exception as e:
+                QMessageBox.warning(self, "Помилка", f"Сталася помилка при експорті даних: {e}")
+
+        self.main_window.run_async_task(run_export_to_excel())
 
     def closeEvent(self, event):
         try:
