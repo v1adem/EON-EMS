@@ -61,6 +61,8 @@ class SDM120DeviceDetailsWidget(BaseDeviceDetailsWidget):
         return column_labels, column_labels_for_excel
 
     def load_report_data(self, initial_limit=True):
+        """Зчитування історії SDM120 з лімітом або фільтром за період"""
+
         async def run_load_report_data():
             if initial_limit:
                 self.report_data = await SDM120Report.filter(
@@ -87,19 +89,17 @@ class SDM120DeviceDetailsWidget(BaseDeviceDetailsWidget):
             proxy_model.setSourceModel(model)
             self.report_table.setModel(proxy_model)
             self.report_table.setSortingEnabled(True)
-            self.report_table.resizeColumnsToContents()
             self.setup_table_click_handler(self.report_table)
+            self.report_table.resizeColumnsToContents()
 
             timestamps = [r.timestamp.timestamp() for r in self.report_data]
             step = max(1, len(timestamps) // 1000) if not initial_limit else 1
-
             filtered_ts = timestamps[::step]
 
             for phase_name in self.phases:
-                p_idx = phase_name.split(" ")[1]
-                v_vals = [getattr(r, f"line_voltage_{p_idx}", 0) for r in self.report_data][::step]
-                c_vals = [getattr(r, f"current_{p_idx}", 0) for r in self.report_data][::step]
-                p_vals = [getattr(r, f"power_{p_idx}", 0) for r in self.report_data][::step]
+                v_vals = [r.line_voltage_1 for r in self.report_data][::step]
+                c_vals = [r.current_1 for r in self.report_data][::step]
+                p_vals = [r.power_1 for r in self.report_data][::step]
 
                 getattr(self, f"v_line_{phase_name}").setData(filtered_ts, v_vals)
                 getattr(self, f"c_line_{phase_name}").setData(filtered_ts, c_vals)
