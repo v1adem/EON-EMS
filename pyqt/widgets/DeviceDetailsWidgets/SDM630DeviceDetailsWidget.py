@@ -146,18 +146,13 @@ class SDM630DeviceDetailsWidget(BaseDeviceDetailsWidget):
         return column_labels, column_labels_for_excel
 
     def load_report_data(self, initial_limit=True):
-        """Зчитування історії з БД: останні 1000 записів за замовчуванням або фільтр за період"""
-
         async def run_load_report_data():
             if initial_limit:
-                # Обмеження на 1000 останніх значень для швидкості інтерфейсу
                 self.report_data = await SDM630Report.filter(
                     device_id=self.device.id
                 ).order_by("-timestamp").limit(1000)
-                # Перевертаємо назад у хронологічний порядок для графіків
                 self.report_data.reverse()
             else:
-                # Повний діапазон дат за фільтром користувача
                 start_date = self.start_date_table_filter.date().toPython()
                 end_date = self.end_date_table_filter.date().addDays(1).toPython()
 
@@ -170,28 +165,23 @@ class SDM630DeviceDetailsWidget(BaseDeviceDetailsWidget):
             if not self.report_data:
                 return
 
-            # Будуємо таблицю
             model = self.create_table_model(self.report_data, self.device)
-            await asyncio.sleep(0)  # Даємо лоадеру прокрутитися
+            await asyncio.sleep(0)
 
             proxy_model = QSortFilterProxyModel()
             proxy_model.setSourceModel(model)
             self.report_table.setModel(proxy_model)
             self.report_table.setSortingEnabled(True)
             self.setup_table_click_handler(self.report_table)
-
             self.report_table.resizeColumnsToContents()
 
-            # Розрахунок кроку Downsampling
             timestamps = [r.timestamp.timestamp() for r in self.report_data]
             step = max(1, len(timestamps) // 1000) if not initial_limit else 1
 
             filtered_ts = timestamps[::step]
 
-            # Перемальовуємо всі таби графіків
             for phase_name in self.phases:
                 if phase_name == "Загальне":
-                    # Стягуємо масиви для комбінованого відображення на табі "Загальне"
                     v1 = [r.line_voltage_1 for r in self.report_data][::step]
                     v2 = [r.line_voltage_2 for r in self.report_data][::step]
                     v3 = [r.line_voltage_3 for r in self.report_data][::step]
@@ -205,7 +195,6 @@ class SDM630DeviceDetailsWidget(BaseDeviceDetailsWidget):
                     p3 = [r.power_3 for r in self.report_data][::step]
                     p_tot = [r.total_system_power for r in self.report_data][::step]
 
-                    # Оновлюємо лінії комбінованого графіка таби "Загальне"
                     getattr(self, "v_line_general_f1").setData(filtered_ts, v1)
                     getattr(self, "v_line_general_f2").setData(filtered_ts, v2)
                     getattr(self, "v_line_general_f3").setData(filtered_ts, v3)
@@ -219,8 +208,7 @@ class SDM630DeviceDetailsWidget(BaseDeviceDetailsWidget):
                     getattr(self, "p_line_general_f3").setData(filtered_ts, p3)
                     getattr(self, "p_line_general_total").setData(filtered_ts, p_tot)
                 else:
-                    # Окремі таби по фазах (Фаза 1, Фаза 2, Фаза 3)
-                    p_idx = phase_name.split(" ")[1]  # Отримуємо "1", "2" або "3"
+                    p_idx = phase_name.split(" ")[1]
                     v_vals = [getattr(r, f"line_voltage_{p_idx}", 0) for r in self.report_data][::step]
                     c_vals = [getattr(r, f"current_{p_idx}", 0) for r in self.report_data][::step]
                     p_vals = [getattr(r, f"power_{p_idx}", 0) for r in self.report_data][::step]
