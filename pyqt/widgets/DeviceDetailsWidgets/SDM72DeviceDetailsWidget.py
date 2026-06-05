@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import sys
 
@@ -6,8 +7,7 @@ from pyqt.widgets.DeviceDetailsWidgets.BaseDeviceDetailsWidget import BaseDevice
 logger = logging.getLogger(__name__)
 
 import pyqtgraph as pg
-from AsyncioPySide6 import AsyncioPySide6
-from PySide6.QtCore import QDate, Qt, QSortFilterProxyModel, QTime
+from PySide6.QtCore import Qt, QSortFilterProxyModel
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QLabel, QTableView, QHBoxLayout, \
     QGridLayout, QLCDNumber
 

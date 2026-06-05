@@ -316,7 +316,7 @@ class ProjectViewWidget(QWidget):
             form_layout.addRow("", reading_type_time)
 
             reading_interval_input = QSpinBox(dialog)
-            reading_interval_input.setRange(2, 59)
+            reading_interval_input.setRange(2, 1440)
             reading_interval_input.setValue(device.reading_interval // 60)  # В хвилинах
             if device.reading_type == 2:
                 reading_interval_input.setDisabled(True)

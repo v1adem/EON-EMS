@@ -36,7 +36,7 @@ class MainWindow(QMainWindow):
 
         self.isAdmin = False
 
-        self.setWindowTitle("EON EMS v0.5.0")
+        self.setWindowTitle("EON EMS v0.5.1")
         self.setGeometry(100, 100, 1200, 800)
         self.setMinimumWidth(800)
         self.setMinimumHeight(600)
@@ -59,7 +59,7 @@ class MainWindow(QMainWindow):
 
         # settings_icon = QIcon(resource_path("pyqt/icons/settings.png"))
         settings_menu = self.menu_bar.addMenu("Налаштування")
-        settings_action = QAction("Час видалення", self)  # (settings_icon, "Час видалення", self)
+        settings_action = QAction("Час до видалення", self)  # (settings_icon, "Час видалення", self)
         settings_action.triggered.connect(self.open_deleting_time_dialog)
         settings_menu.addAction(settings_action)
 
