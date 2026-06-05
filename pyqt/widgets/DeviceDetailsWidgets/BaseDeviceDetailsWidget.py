@@ -187,48 +187,26 @@ class BaseDeviceDetailsWidget(QWidget):
         }
 
         if phase_name != "Загальне":
-            v_line = voltage_graph.plot([], [], pen=pg.mkPen(color=(0, 102, 204), width=2), symbol='o', symbolSize=6,
-                                        symbolBrush=(0, 102, 204))
-            c_line = current_graph.plot([], [], pen=pg.mkPen(color=(204, 51, 0), width=2), symbol='o', symbolSize=6,
-                                        symbolBrush=(204, 51, 0))
-            p_line = power_graph.plot([], [], pen=pg.mkPen(color=(0, 153, 0), width=2), symbol='o', symbolSize=6,
-                                      symbolBrush=(0, 153, 0))
-
-            v_line.sigClicked.connect(self.on_graph_point_clicked)
-            c_line.sigClicked.connect(self.on_graph_point_clicked)
-            p_line.sigClicked.connect(self.on_graph_point_clicked)
-
-            setattr(self, f"v_line_{phase_name}", v_line)
-            setattr(self, f"c_line_{phase_name}", c_line)
-            setattr(self, f"p_line_{phase_name}", p_line)
-
+            setattr(self, f"v_line_{phase_name}",
+                    voltage_graph.plot([], [], pen=pg.mkPen(color=(0, 102, 204), width=2)))
+            setattr(self, f"c_line_{phase_name}", current_graph.plot([], [], pen=pg.mkPen(color=(204, 51, 0), width=2)))
+            setattr(self, f"p_line_{phase_name}", power_graph.plot([], [], pen=pg.mkPen(color=(0, 153, 0), width=2)))
         else:
-            
             colors_v = [(0, 51, 153), (0, 102, 204), (51, 153, 255)]
             colors_c = [(153, 0, 0), (204, 51, 0), (255, 102, 0)]
             colors_p = [(0, 102, 0), (0, 153, 0), (51, 204, 51)]
 
             for i in range(1, 4):
-                v_line = voltage_graph.plot([], [], pen=pg.mkPen(color=colors_v[i - 1], width=2), name=f"Ф{i}",
-                                            symbol='o', symbolSize=5, symbolBrush=colors_v[i - 1])
-                c_line = current_graph.plot([], [], pen=pg.mkPen(color=colors_c[i - 1], width=2), name=f"Ф{i}",
-                                            symbol='o', symbolSize=5, symbolBrush=colors_c[i - 1])
-                p_line = power_graph.plot([], [], pen=pg.mkPen(color=colors_p[i - 1], width=2), name=f"Ф{i}",
-                                          symbol='o', symbolSize=5, symbolBrush=colors_p[i - 1])
+                setattr(self, f"v_line_general_f{i}",
+                        voltage_graph.plot([], [], pen=pg.mkPen(color=colors_v[i - 1], width=2), name=f"Ф{i}"))
+                setattr(self, f"c_line_general_f{i}",
+                        current_graph.plot([], [], pen=pg.mkPen(color=colors_c[i - 1], width=2), name=f"Ф{i}"))
+                setattr(self, f"p_line_general_f{i}",
+                        power_graph.plot([], [], pen=pg.mkPen(color=colors_p[i - 1], width=2), name=f"Ф{i}"))
 
-                v_line.sigClicked.connect(self.on_graph_point_clicked)
-                c_line.sigClicked.connect(self.on_graph_point_clicked)
-                p_line.sigClicked.connect(self.on_graph_point_clicked)
-
-                setattr(self, f"v_line_general_f{i}", v_line)
-                setattr(self, f"c_line_general_f{i}", c_line)
-                setattr(self, f"p_line_general_f{i}", p_line)
-
-            p_line_total = power_graph.plot([], [],
-                                            pen=pg.mkPen(color=(102, 0, 153), width=2.5, style=Qt.PenStyle.DashLine),
-                                            name="Разом", symbol='o', symbolSize=5, symbolBrush=(102, 0, 153))
-            p_line_total.sigClicked.connect(self.on_graph_point_clicked)
-            setattr(self, f"p_line_general_total", p_line_total)
+            setattr(self, f"p_line_general_total",
+                    power_graph.plot([], [], pen=pg.mkPen(color=(102, 0, 153), width=2.5, style=Qt.PenStyle.DashLine),
+                                     name="Разом"))
 
         self.setup_graph_tooltip(voltage_graph, "voltage", phase_name)
         self.setup_graph_tooltip(current_graph, "current", phase_name)
@@ -240,33 +218,6 @@ class BaseDeviceDetailsWidget(QWidget):
         current_time = QTime.currentTime().toString("HH:mm:ss") + "\n" + QDate.currentDate().toString("dd.MM.yyyy")
         for phase in self.phase_data.values():
             phase["clock_label"].setText(current_time)
-
-    def on_graph_point_clicked(self, plot, points):
-        if not points or not self.report_data:
-            return
-
-        point_index = points[0].index()
-
-        try:
-            clicked_x = points[0].pos().x()
-
-            model = self.report_table.model()
-            source_model = model.sourceModel() if hasattr(model, 'sourceModel') else model
-
-            for row_idx in range(source_model.rowCount()):
-                if row_idx < len(self.report_data):
-                    if abs(self.report_data[row_idx].timestamp.timestamp() - clicked_x) < 1.0:
-
-                        if hasattr(model, 'mapFromSource'):
-                            proxy_index = model.mapFromSource(source_model.index(row_idx, 0))
-                        else:
-                            proxy_index = source_model.index(row_idx, 0)
-
-                        self.report_table.selectRow(proxy_index.row())
-                        self.report_table.scrollTo(proxy_index, QTableView.ScrollHint.PositionAtCenter)
-                        break
-        except Exception as e:
-            logger.error(f"Error synchronization graph point with table row: {e}")
 
     def on_live_data_received(self, project_id, device_id, new_data):
         if device_id != self.device.id or not new_data:
