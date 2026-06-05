@@ -166,9 +166,9 @@ async def collect_data_for_project(project):
 
             devices = await Device.filter(project=active_project).all()
 
-            tasks = [handle_device_reading(device, active_project) for device in devices]
-            await asyncio.gather(*tasks, return_exceptions=True)
-
+            for device in devices:
+                await handle_device_reading(device, active_project)
+                await asyncio.sleep(0.05)
             await asyncio.sleep(1)
     except asyncio.CancelledError:
         logger.info(f"Collector loop for project {project.name} was stopped.")
