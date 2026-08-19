@@ -224,6 +224,8 @@ class SDM72DeviceDetailsWidget(BaseDeviceDetailsWidget):
             if not self.report_data:
                 return
 
+            self.normalize_report_timestamps()
+
             model = self.create_table_model(self.report_data, self.device)
             await asyncio.sleep(0)
 

@@ -565,3 +565,13 @@ class BaseDeviceDetailsWidget(QWidget):
         except Exception:
             pass
         super().closeEvent(event)
+
+    def normalize_report_timestamps(self):
+        if not self.report_data:
+            return
+
+        local_tz = get_timezone()
+        for r in self.report_data:
+            if hasattr(r, "timestamp") and isinstance(r.timestamp, datetime):
+                utc_dt = r.timestamp if r.timestamp.tzinfo else pytz.utc.localize(r.timestamp)
+                r.timestamp = utc_dt.astimezone(local_tz)

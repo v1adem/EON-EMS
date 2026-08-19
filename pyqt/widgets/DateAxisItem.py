@@ -12,7 +12,7 @@ class DateAxisItem(AxisItem):
                     formatted_ticks.append("")
                     continue
 
-                dt = datetime.fromtimestamp(value, tz=timezone.utc)
+                dt = datetime.fromtimestamp(value)
 
                 if spacing < 3600:
                     formatted_ticks.append(dt.strftime('%H:%M:%S'))
