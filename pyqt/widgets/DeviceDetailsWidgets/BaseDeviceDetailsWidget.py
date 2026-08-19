@@ -161,7 +161,7 @@ class BaseDeviceDetailsWidget(QWidget):
 
         for lcd in [voltage_lcd, current_lcd, power_lcd, energy_lcd]:
             lcd.setSegmentStyle(QLCDNumber.SegmentStyle.Flat)
-            lcd.setDigitCount(8)
+            lcd.setDigitCount(11)
             lcd.setStyleSheet("color: black; background: #e6f2ff;")
 
         if phase_name != "Загальне":
@@ -285,34 +285,65 @@ class BaseDeviceDetailsWidget(QWidget):
         self._mouse_callback_refs[f"{phase_name}_{graph_type}"] = on_mouse_moved
 
     def update_energy_graph(self, phase_name):
-        if not self.report_data:
+        if not self.report_data or len(self.report_data) < 2:
             return
 
         graph_widget = self.phase_data[phase_name]["energy_graph"]
         graph_widget.clear()
 
-        hourly_data = {}
-        # Мапінг полів накопичувальної енергії для розрахунку дельти
         energy_field = "total_kWh" if phase_name == "Загальне" else f"total_kWh_{phase_name.split(' ')[1]}"
 
-        # Групуємо накопичувальні показники по годинах
-        for report in self.report_data:
-            val = getattr(report, energy_field, None)
-            if val is None or val <= 0:
-                continue
-            hour_ts = report.timestamp.replace(minute=0, second=0, microsecond=0).timestamp()
-            if hour_ts not in hourly_data:
-                hourly_data[hour_ts] = []
-            hourly_data[hour_ts].append(val)
+        total_time_span = (self.report_data[-1].timestamp - self.report_data[0].timestamp).total_seconds()
+        avg_interval = total_time_span / (len(self.report_data) - 1) if len(self.report_data) > 1 else 3600
 
         x_coords = []
         heights = []
+        widths = []
 
-        for hour_ts, values in sorted(hourly_data.items()):
-            if len(values) >= 1:
-                delta = max(values) - min(values)
-                x_coords.append(hour_ts + 1800)
-                heights.append(delta if delta > 0 else 0.0)
+        if avg_interval < 3000:
+            hourly_data = {}
+            for report in self.report_data:
+                val = getattr(report, energy_field, None)
+                if val is None or val <= 0:
+                    continue
+                hour_ts = report.timestamp.replace(minute=0, second=0, microsecond=0).timestamp()
+                if hour_ts not in hourly_data:
+                    hourly_data[hour_ts] = []
+                hourly_data[hour_ts].append(val)
+
+            for hour_ts, values in sorted(hourly_data.items()):
+                if len(values) >= 2:
+                    delta = values[-1] - values[0]
+                    if delta > 0:
+                        x_coords.append(hour_ts + 1800)
+                        heights.append(delta)
+                        widths.append(3400)
+
+        else:
+            for i in range(1, len(self.report_data)):
+                prev_report = self.report_data[i - 1]
+                curr_report = self.report_data[i]
+
+                prev_val = getattr(prev_report, energy_field, None)
+                curr_val = getattr(curr_report, energy_field, None)
+
+                if prev_val is None or curr_val is None:
+                    continue
+
+                delta_energy = curr_val - prev_val
+                if delta_energy < 0:
+                    delta_energy = 0.0
+
+                t_prev = prev_report.timestamp.timestamp()
+                t_curr = curr_report.timestamp.timestamp()
+                dt = t_curr - t_prev
+
+                if dt <= 0:
+                    continue
+
+                x_coords.append(t_prev + (dt / 2.0))
+                heights.append(delta_energy)
+                widths.append(dt * 0.95)
 
         if not x_coords:
             return
@@ -320,7 +351,7 @@ class BaseDeviceDetailsWidget(QWidget):
         bar_graph = pg.BarGraphItem(
             x=x_coords,
             height=heights,
-            width=3400,
+            width=widths,
             brush=pg.mkBrush(0, 153, 0, 200),
             pen=pg.mkPen(0, 102, 0, 255)
         )
