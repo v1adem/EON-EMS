@@ -380,11 +380,17 @@ class BaseDeviceDetailsWidget(QWidget):
             unit = columns_with_units.get(column, "")
             model.setHeaderData(col_idx, Qt.Orientation.Horizontal, f"{lbl} ({unit})" if unit else lbl)
 
+        local_tz = get_timezone()
+
         for row, report in enumerate(report_data):
             for col, column in enumerate(columns):
                 val = getattr(report, column, "")
                 if column == "timestamp" and isinstance(val, datetime):
-                    val = val.strftime("%Y-%m-%d %H:%M:%S")
+                    try:
+                        utc_val = val if val.tzinfo else pytz.utc.localize(val)
+                        val = utc_val.astimezone(local_tz).strftime("%Y-%m-%d %H:%M:%S")
+                    except Exception:
+                        val = val.strftime("%Y-%m-%d %H:%M:%S")
                 model.setItem(row, col, QStandardItem(str(val) if val is not None else ""))
         return model
 
@@ -565,13 +571,3 @@ class BaseDeviceDetailsWidget(QWidget):
         except Exception:
             pass
         super().closeEvent(event)
-
-    def normalize_report_timestamps(self):
-        if not self.report_data:
-            return
-
-        local_tz = get_timezone()
-        for r in self.report_data:
-            if hasattr(r, "timestamp") and isinstance(r.timestamp, datetime):
-                utc_dt = r.timestamp if r.timestamp.tzinfo else pytz.utc.localize(r.timestamp)
-                r.timestamp = utc_dt.astimezone(local_tz)
